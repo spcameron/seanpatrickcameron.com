@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# scripts/audit
+
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$ROOT_DIR/scripts/lib/lib.sh"
+source "$ROOT_DIR/scripts/lib/paths.sh"
+
+trap '(( $? != 0 )) && err "... audit failed."' EXIT
+
+# fmt_check fails if gofmt would make changes, and reports files
+fmt_check() {
+  need_cmd gofmt
+
+  info "Running gofmt check..."
+
+  files="$(gofmt -l .)"
+  if [[ -n "$files" ]]; then
+    err "Refusing: gofmt required on:"
+    printf '\n%s\n\n' "$files" >&2
+    return 1
+  fi
+
+  ok "... complete."
+}
+
+# mod_tidy_check fails if tidy would make changes to go.mod/go.sum
+mod_tidy_check() {
+  need_cmd go
+
+  info "Running tidy check..."
+
+  tmp_diff="$TMP_BASE/audit-go-mod-tidy.$$.diff"
+  tmp_err="$TMP_BASE/audit-go-mod-tidy.$$.err"
+  trap 'rm -f "$tmp_diff" "$tmp_err"' RETURN
+
+  set +e
+  go mod tidy -diff >"$tmp_diff" 2>"$tmp_err"
+  status=$?
+  set -e
+
+  if [[ $status -ne 0 ]]; then
+    err "go mod tidy failed (exit $status)"
+    if [[ -s "$tmp_err" ]]; then
+      printf '\n%s\n\n' "$(<"$tmp_err")" >&2
+    fi
+    return 1
+  fi
+
+  if [[ -s "$tmp_err" ]]; then
+    warn "go mod tidy emitted stderr (often dependency downloads); not a failure."
+    if [[ -n "${CI:-}" ]]; then
+      printf '\n%s\n\n' "$(<"$tmp_err")" >&2
+    fi
+  fi
+
+  if [[ -s "$tmp_diff" ]]; then
+    err "Refusing: go.mod/go.sum are not tidy."
+    printf '\n%s\n\n' "$(<"$tmp_diff")" >&2
+    warn "Run 'go mod tidy'"
+    return 1
+  fi
+
+  ok "... complete."
+}
+
+# mod_verify runs go mod verify, accepts tool error outputs
+mod_verify() {
+  need_cmd go
+
+  info "Running go mod verify..."
+  go mod verify
+  ok "... complete."
+}
+
+# vet runs go vet, accepts tool error outputs
+vet() {
+  need_cmd go
+
+  info "Running go vet..."
+  go vet ./...
+  ok "... complete."
+}
+
+# staticcheck_check fails if staticcheck reports issues
+staticcheck_check() {
+  need_cmd staticcheck
+
+  info "Running staticcheck..."
+
+  tmp="$TMP_BASE/audit-staticcheck.$$.out"
+  trap 'rm -f "$tmp"' RETURN
+
+  set +e
+  staticcheck -checks=all,-ST1000,-U1000 ./... >"$tmp" 2>&1
+  status=$?
+  set -e
+
+  if [[ $status -ne 0 ]]; then
+    err "Refusing: staticcheck reported issues (exit $status)"
+    if [[ -s "$tmp" ]]; then
+      printf '\n%s\n\n' "$(<"$tmp")" >&2
+      warn "Review findings and address reported issues"
+    fi
+    return 1
+  fi
+
+  ok "... complete."
+}
+
+# vulncheck_check fails if vulncheck reports vulnerabilities
+vulncheck_check() {
+  need_cmd govulncheck
+
+  info "Running vulncheck..."
+
+  tmp="$TMP_BASE/audit-vulncheck.$$.out"
+  trap 'rm -f "$tmp"' RETURN
+
+  set +e
+  govulncheck ./... >"$tmp" 2>&1
+  status=$?
+  set -e
+
+  if [[ $status -ne 0 ]]; then
+    err "Refusing: govulncheck reported vulnerabilities (exit $status)"
+    if [[ -s "$tmp" ]]; then
+      printf '\n%s\n\n' "$(<"$tmp")" >&2
+      warn "Review vulnerabilities; update dependencies or document mitigations"
+    fi
+    return 1
+  fi
+
+  ok "... complete."
+}
+
+main() {
+  need_cmd go
+  need_cmd gofmt
+  need_cmd staticcheck
+  need_cmd govulncheck
+
+  info "Running audit..."
+  fmt_check
+  mod_tidy_check
+  mod_verify
+  vet
+  staticcheck_check
+  vulncheck_check
+  ok "... audit complete."
+}
+
+main "$@"

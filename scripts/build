@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# scripts/build
+
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$ROOT_DIR/scripts/lib/lib.sh"
+source "$ROOT_DIR/scripts/lib/paths.sh"
+
+usage() {
+  cat >&2 <<EOF
+Usage:
+  scripts/build [target]
+
+Targets:
+  native         native build (default)
+  linux_amd64    linux build
+
+Builds:
+  cmd:  $(realpath "$CMD_DIR" 2>/dev/null || echo "$CMD_DIR")
+  out:  $BIN_PATH
+EOF
+}
+
+main() {
+  case "${1:-}" in
+  -h | --help | help)
+    usage
+    exit 0
+    ;;
+  esac
+
+  need_cmd go
+  require_dir "$CMD_DIR" "Refusing: cmd directory not found: $CMD_DIR"
+
+  target="${1:-native}"
+
+  out_dir=""
+  out_path=""
+
+  case "$target" in
+  native)
+    out_dir="$BIN_DIR"
+    out_path="$BIN_PATH"
+    ;;
+  linux_amd64)
+    out_dir="$BIN_DIR/linux_amd64"
+    out_path="$out_dir/$BINARY_NAME"
+    ;;
+  *)
+    usage
+    die "Unknown target: $target"
+    ;;
+  esac
+
+  mkdir -p "$out_dir"
+
+  case "$target" in
+  native)
+    info "Building native binary..."
+    go build -o "$out_path" "$CMD_DIR"
+    ;;
+  linux_amd64)
+    info "Building linux_amd64 binary..."
+    GOOS=linux GOARCH=amd64 \
+      go build \
+      -trimpath \
+      -ldflags='-s -w' \
+      -o "$out_path" \
+      "$CMD_DIR"
+    ;;
+  esac
+
+  ok "writing to $out_path"
+  ok "... build complete."
+}
+
+main "$@"
