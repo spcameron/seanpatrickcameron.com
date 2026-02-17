@@ -20,6 +20,7 @@ ci:
 maintain:
     @scripts/tidy
     @scripts/mod-upgrade
+    # @scripts/build-site
 
 # runs a chain of QC commands
 [group('quality')]
@@ -41,6 +42,11 @@ mod-upgrade:
 test mode="":
     @scripts/test {{mode}}
 
+# builds pages output
+[group('build')]
+build-site:
+    @scripts/build-site
+
 # builds command binary with native target
 [group('build')]
 build:
@@ -51,15 +57,13 @@ build:
 build-linux:
     @scripts/build linux_amd64
 
-# runs a built binary, accepts commands [default|test|live|debug]
 [group('run')]
-run mode="":
-    @scripts/run {{mode}}
+run *args="":
+    @scripts/serve {{args}}
 
-# runs a built binary with live reload (air)
 [group('run')]
 run-live:
-    @scripts/run live
+    @air -c .air.toml
 
 # sync main and delete local branch (for branches with no PR)
 [group('git')]
