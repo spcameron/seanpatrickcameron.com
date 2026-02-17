@@ -1,21 +1,29 @@
 # .air.toml
-# Air configuration for live reload.
-# Uses env vars exported by scripts/run (TMP_BASE, BIN_DIR, BIN_PATH, BINARY_NAME, etc.)
+# Air configuration for static-site dev loop.
+# Build regenerates build/public; entrypoint serves build/public.
 
 root = "."
 tmp_dir = "tmp"
 env_files = [".env"]
 
 [build]
-cmd = "scripts/build native"
-entrypoint = ["bash", "scripts/air-entrypoint"]
+# 1) Regenerate the static site output.
+cmd = "scripts/build-site"
 
+# 2) Run the preview server (long-running). Keep this dumb; Air restarts it.
+entrypoint = ["bash", "-lc", "scripts/serve"]
+
+# Watch content/templates/static and generator code
 include_ext = [
-  "go", "tpl", "tmpl", "html", "css", "scss", "js", "ts", "sql",
+  "go",
+  "html", "tpl", "tmpl",
+  "css", "scss",
+  "js", "ts",
+  "md",
   "jpeg", "jpg", "gif", "png", "bmp", "svg", "webp", "ico"
 ]
 
-exclude_dir = ["tmp", ".git", "vendor", "node_modules"]
+exclude_dir = ["tmp", ".git", "vendor", "node_modules", "build"]
 exclude_regex = ["_test\\.go"]
 exclude_unchanged = true
 

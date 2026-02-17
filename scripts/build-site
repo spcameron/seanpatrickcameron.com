@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# scripts/build-site
+
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$ROOT_DIR/scripts/lib/lib.sh"
+source "$ROOT_DIR/scripts/lib/paths.sh"
+
+usage() {
+  cat >&2 <<EOF
+Usage:
+  scripts/build-site [--clean|--no-clean] [--] [site build args...]
+
+Builds the static site output directory:
+  out: $ROOT_DIR/build/public
+
+Notes:
+  - By default, the output dir is cleaned before building to avoid stale files.
+  - Pass extra args after '--' to forward to 'site build'.
+EOF
+}
+
+main() {
+  case "${1:-}" in
+  -h | --help | help)
+    usage
+    exit 0
+    ;;
+  esac
+
+  need_cmd go
+
+  local clean=1
+  if [[ "${1:-}" == "--no-clean" ]]; then
+    clean=0
+    shift
+  elif [[ "${1:-}" == "--clean" ]]; then
+    clean=1
+    shift
+  fi
+
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+
+  local out_dir="$ROOT_DIR/build/public"
+  local static_dir="$ROOT_DIR/static"
+
+  # Guardrails
+  require_dir "$ROOT_DIR/content" "Refusing: content dir not found"
+  require_dir "$ROOT_DIR/templates" "Refusing: templates dir not found"
+  require_dir "$static_dir" "Refusing: static dir not found"
+
+  if [[ $clean -eq 1 ]]; then
+    info "Cleaning output dir..."
+    rm -rf "$out_dir"
+  fi
+  mkdir -p "$out_dir"
+
+  if [[ -x "${BIN_PATH:-}" ]]; then
+    info "Building site with compiled tool: $BIN_PATH"
+    "$BIN_PATH" build --out "$out_dir" "$@"
+  else
+    info "Building site with go run..."
+    go run "$CMD_DIR" build --out "$out_dir" "$@"
+  fi
+
+  local assets_dir="$out_dir/assets"
+  mkdir -p "$assets_dir"
+
+  info "Copying static assets..."
+  rsync -a --delete "$static_dir/" "$assets_dir/"
+
+  ok "... site output written to $out_dir."
+}
+
+main "$@"

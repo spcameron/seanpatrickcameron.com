@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# scripts/serve
+
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$ROOT_DIR/scripts/lib/lib.sh"
+source "$ROOT_DIR/scripts/lib/paths.sh"
+
+usage() {
+  cat >&2 <<EOF
+Usage:
+  scripts/serve [--build] [--dir <path>] [--] [serve args...]
+
+Options:
+  --build         Run scripts/build-site before serving.
+  --dir <path>    Directory to serve (default: $ROOT_DIR/build/public)
+EOF
+}
+
+main() {
+  case "${1:-}" in
+  -h | --help | help)
+    usage
+    exit 0
+    ;;
+  esac
+
+  need_cmd go
+
+  local do_build=0
+  local serve_dir="$ROOT_DIR/build/public"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --build)
+      do_build=1
+      shift
+      ;;
+    --dir)
+      [[ $# -ge 2 ]] || die "Refusing: --dir requires a value"
+      serve_dir="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *) break ;;
+    esac
+  done
+
+  if [[ $do_build -eq 1 ]]; then
+    info "Building site before serving..."
+    "$ROOT_DIR/scripts/build-site"
+  fi
+
+  require_dir "$serve_dir" "Refusing: serve dir not found: $serve_dir. Run 'scripts/build-site' first."
+  require_file "$serve_dir/index.html" "Refusing: $serve_dir/index.html not found. Build output appears incomplete."
+
+  if [[ -x "${BIN_PATH:-}" ]]; then
+    info "Serving with compiled tool: $BIN_PATH"
+    exec "$BIN_PATH" serve --dir "$serve_dir" "$@"
+  else
+    info "Serving with go run..."
+    exec go run "$CMD_DIR" serve --dir "$serve_dir" "$@"
+  fi
+}
+
+main "$@"
