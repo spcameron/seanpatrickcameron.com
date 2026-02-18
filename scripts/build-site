@@ -61,6 +61,10 @@ main() {
   fi
   mkdir -p "$out_dir"
 
+  need_cmd templ
+  info "Running templ generate..."
+  templ generate
+
   if [[ -x "${BIN_PATH:-}" ]]; then
     info "Building site with compiled tool: $BIN_PATH"
     "$BIN_PATH" build --out "$out_dir" "$@"

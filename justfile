@@ -14,13 +14,13 @@ check:
 ci:
     @scripts/audit
     @scripts/test race
+    @scripts/build-site
 
 # runs tidy, gofmt, and go-mod-upgrade
 [group('*workflow')]
 maintain:
     @scripts/tidy
     @scripts/mod-upgrade
-    # @scripts/build-site
 
 # runs a chain of QC commands
 [group('quality')]
@@ -42,7 +42,7 @@ mod-upgrade:
 test mode="":
     @scripts/test {{mode}}
 
-# builds pages output
+# builds the site pages
 [group('build')]
 build-site:
     @scripts/build-site
@@ -57,10 +57,12 @@ build:
 build-linux:
     @scripts/build linux_amd64
 
+# build site output and serve locally (single run)
 [group('run')]
 run *args="":
-    @scripts/serve {{args}}
+    @scripts/serve --build -- {{args}}
 
+# start live development server (auto-rebuild on change)
 [group('run')]
 run-live:
     @air -c .air.toml
