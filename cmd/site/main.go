@@ -72,7 +72,7 @@ func buildCmd(args []string) {
 		log.Fatalf("build: templates render: %v", err)
 	}
 
-	log.Printf("build: wrote %s", f.Name)
+	log.Printf("build: wrote %s", f.Name())
 }
 
 func serveCmd(args []string) {
