@@ -1,0 +1,19 @@
+package templates
+
+import "github.com/spcameron/seanpatrickcameron.com/internal/content"
+
+templ BlogPost(p content.Post) {
+	@Base(p.FrontMatter.Title, BlogPostContent(p))
+}
+
+templ BlogPostContent(p content.Post) {
+	<article>
+		<h2>{ p.FrontMatter.Title }</h2>
+
+		if !p.FrontMatter.Date.IsZero() {
+			<p><em>{ p.FrontMatter.Date.Format("Jan 2, 2006") }</em></p>
+		}
+
+		<pre>{ p.BodyMD }</pre>
+	</article>
+}

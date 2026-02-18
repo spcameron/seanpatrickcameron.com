@@ -16,30 +16,53 @@ var (
 )
 
 type Post struct {
-	Meta   FrontMatter
-	BodyMD string
+	FrontMatter FrontMatter
+	BodyMD      string
 }
 
 type PostSummary struct{}
 
-func ReadPostFile(path string) (Post, error) {
+func ParsePosts(paths []string) ([]Post, error) {
+	var posts []Post
+	for _, s := range paths {
+		p, err := ParsePost(s)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+
+	return posts, nil
+}
+
+func ParsePost(path string) (Post, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Post{}, err
 	}
 
-	fm, md, err := SplitPost(data)
+	fmBytes, mdBytes, err := SplitPost(data)
 	if err != nil {
 		return Post{}, err
 	}
 
-	_ = fm
-	_ = md
+	fm, err := DecodeFrontMatter(fmBytes)
+	if err != nil {
+		return Post{}, err
+	}
 
-	return Post{}, nil
+	// TODO: convert markdown
+	md := string(mdBytes)
+
+	post := Post{
+		FrontMatter: fm,
+		BodyMD:      md,
+	}
+
+	return post, nil
 }
 
-func SplitPost(src []byte) (fm, md []byte, err error) {
+func SplitPost(src []byte) (fmBytes, mdBytes []byte, err error) {
 	if len(src) == 0 {
 		return nil, nil, ErrEmptyFile
 	}
@@ -72,9 +95,9 @@ func SplitPost(src []byte) (fm, md []byte, err error) {
 		}
 
 		if bytes.Equal(line, fence) {
-			fm = src[openEnd:pos]
-			md = src[nextPos:]
-			return fm, md, nil
+			fmBytes = src[openEnd:pos]
+			mdBytes = src[nextPos:]
+			return fmBytes, mdBytes, nil
 		}
 
 		pos = nextPos
