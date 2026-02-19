@@ -2,17 +2,17 @@ package content
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"os"
 )
 
 var fence = []byte("---")
 
 var (
-	ErrEmptyFile                 = fmt.Errorf("empty file")
-	ErrMissingOpeningFence       = fmt.Errorf("missing frontmatter opening fence")
-	ErrMissingClosingFence       = fmt.Errorf("missing frontmatter closing fence")
-	ErrOpeningFenceNotTerminated = fmt.Errorf("opening fence missing terminating newline")
+	ErrEmptyFile                 = errors.New("empty file")
+	ErrMissingOpeningFence       = errors.New("missing frontmatter opening fence")
+	ErrMissingClosingFence       = errors.New("missing frontmatter closing fence")
+	ErrOpeningFenceNotTerminated = errors.New("opening fence missing terminating newline")
 )
 
 type Post struct {

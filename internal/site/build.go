@@ -34,7 +34,6 @@ func BuildSite(out string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if err := validatePosts(posts); err != nil {
 		return nil, err
 	}
