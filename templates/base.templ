@@ -1,29 +1,29 @@
 package templates
 
 templ Base(title string, content templ.Component) {
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="utf-8" />
-      <title>{ title }</title>
-      <link rel="stylesheet" href="/assets/css/styles.css" />
-    </head>
-    <body>
-      <header>
-        <h1>Sean Patrick Cameron</h1>
-        <nav>
-          <a href="/">Home</a>
-          <a href="/blog/">Blog</a>
-        </nav>
-      </header>
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<meta charset="utf-8" />
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/css/styles.css" />
+		</head>
+		<body>
+			<header>
+				<h1>Sean Patrick Cameron</h1>
+				<nav>
+					<a href="/">Home</a>
+					<a href="/blog/">Blog</a>
+				</nav>
+			</header>
 
-      <main id="content">
-        @content
-      </main>
+			<main id="content">
+				@content
+			</main>
 
-      <footer>
-        <p>© 2026</p>
-      </footer>
-    </body>
-  </html>
+			<footer>
+				<p>© 2026</p>
+			</footer>
+		</body>
+	</html>
 }

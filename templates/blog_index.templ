@@ -1,0 +1,25 @@
+package templates
+
+import "github.com/spcameron/seanpatrickcameron.com/internal/content"
+
+templ BlogIndex(posts []content.Post) {
+	@Base("Blog", BlogIndexContent(posts))
+}
+
+templ BlogIndexContent(posts []content.Post) {
+	<h2>Blog</h2>
+
+	if len(posts) == 0 {
+		<p>No posts yet.</p>
+	} else {
+		<ul>
+			for _, p := range posts {
+				<li>
+					<a href={"/blog/" + p.FrontMatter.Slug + "/"}>
+						{ p.FrontMatter.Title }
+					</a>
+				</li>
+			}
+		</ul>
+	}
+}
