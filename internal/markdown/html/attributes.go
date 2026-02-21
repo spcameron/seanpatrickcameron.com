@@ -1,10 +1,9 @@
 package html
 
 import (
-	"fmt"
 	"html"
+	"io"
 	"slices"
-	"strings"
 )
 
 type Attributes map[string]string
@@ -22,18 +21,28 @@ func (a Attributes) SortedKeys() []string {
 	return keys
 }
 
-func (a Attributes) Render() string {
+func (a Attributes) Write(w io.Writer) error {
 	keys := a.SortedKeys()
 
-	var sb strings.Builder
 	for _, k := range keys {
 		v := html.EscapeString(a[k])
-		fmt.Fprintf(&sb, " %s=\"%s\"", k, v)
+
+		if _, err := io.WriteString(w, " "); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, k); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, `="`); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, v); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, `"`); err != nil {
+			return err
+		}
 	}
 
-	return sb.String()
-}
-
-type HasAttrs interface {
-	Attrs() Attributes
+	return nil
 }

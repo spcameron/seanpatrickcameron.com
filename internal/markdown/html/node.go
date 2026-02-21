@@ -1,10 +1,29 @@
 package html
 
+import (
+	"html"
+	"io"
+)
+
 type Node interface {
 	isNode()
+	Write(io.Writer) error
 }
 
-// TODO: add Raw struct (HTML passthrough)
+type Raw struct {
+	Value string
+}
+
+func RawNode(s string) Node {
+	return Raw{Value: s}
+}
+
+func (Raw) isNode() {}
+
+func (r Raw) Write(w io.Writer) error {
+	_, err := io.WriteString(w, r.Value)
+	return err
+}
 
 type Text struct {
 	Value string
@@ -14,7 +33,13 @@ func TextNode(s string) Node {
 	return Text{Value: s}
 }
 
-func (t Text) isNode() {}
+func (Text) isNode() {}
+
+func (t Text) Write(w io.Writer) error {
+	s := html.EscapeString(t.Value)
+	_, err := io.WriteString(w, s)
+	return err
+}
 
 type Element struct {
 	Tag      string
@@ -30,10 +55,39 @@ func ElemNode(tag string, attr Attributes, children ...Node) Node {
 	}
 }
 
-func (e Element) isNode() {}
+func (Element) isNode() {}
 
-func (e Element) Attrs() Attributes {
-	return e.Attr
+func (e Element) Write(w io.Writer) error {
+	if _, err := io.WriteString(w, "<"); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, e.Tag); err != nil {
+		return err
+	}
+	if err := e.Attr.Write(w); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, ">"); err != nil {
+		return err
+	}
+
+	for _, c := range e.Children {
+		if err := c.Write(w); err != nil {
+			return err
+		}
+	}
+
+	if _, err := io.WriteString(w, "</"); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, e.Tag); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, ">"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type VoidElement struct {
@@ -48,8 +102,21 @@ func VoidNode(tag string, attr Attributes) Node {
 	}
 }
 
-func (ve VoidElement) isNode() {}
+func (VoidElement) isNode() {}
 
-func (ve VoidElement) Attrs() Attributes {
-	return ve.Attr
+func (ve VoidElement) Write(w io.Writer) error {
+	if _, err := io.WriteString(w, "<"); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, ve.Tag); err != nil {
+		return err
+	}
+	if err := ve.Attr.Write(w); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, ">"); err != nil {
+		return err
+	}
+
+	return nil
 }
