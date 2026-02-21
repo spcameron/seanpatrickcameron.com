@@ -104,6 +104,16 @@ func buildBlogPosts(ctx BuildContext) ([]string, error) {
 		}
 
 		written = append(written, path)
+
+		srcMedia := filepath.Join(p.SourceDir, "media")
+		dstMedia := filepath.Join(ctx.OutDir, "blog", p.FrontMatter.Slug, "media")
+
+		copied, err := copyDirIfExists(srcMedia, dstMedia)
+		if err != nil {
+			return nil, err
+		}
+
+		written = append(written, copied...)
 	}
 
 	return written, nil
@@ -153,4 +163,58 @@ func validatePosts(posts []content.Post) error {
 	}
 
 	return nil
+}
+
+func copyDirIfExists(srcDir, dstDir string) ([]string, error) {
+	info, err := os.Stat(srcDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("stat: %s: %w", srcDir, err)
+	}
+	if !info.IsDir() {
+		return nil, nil
+	}
+
+	var written []string
+
+	err = filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("walk %s: %w", path, err)
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return fmt.Errorf("rel: %s: %w", path, err)
+		}
+		dstPath := filepath.Join(dstDir, rel)
+
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+			return fmt.Errorf("mkdir: %s: %w", filepath.Dir(dstPath), err)
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read: %s: %w", path, err)
+		}
+		if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+			return fmt.Errorf("write: %s: %w", dstPath, err)
+		}
+
+		written = append(written, dstPath)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Strings(written)
+	return written, nil
 }

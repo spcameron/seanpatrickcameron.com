@@ -1,6 +1,6 @@
 ---
 title: "Hello, World"
 slug: "hello-world"
-date: 2026-02-17
+date: "1987-06-21"
 ---
 # Hello, World

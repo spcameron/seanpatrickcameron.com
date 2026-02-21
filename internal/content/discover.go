@@ -9,20 +9,30 @@ import (
 	"strings"
 )
 
-func DiscoverPosts(dir string) ([]string, error) {
-	dir = filepath.Clean(dir)
+func DiscoverPosts(contentRoot string) ([]string, error) {
+	contentRoot = filepath.Clean(contentRoot)
 
-	info, err := os.Stat(dir)
+	info, err := os.Stat(contentRoot)
 	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", dir, err)
+		return nil, fmt.Errorf("stat %s: %w", contentRoot, err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("not a directory: %s", dir)
+		return nil, fmt.Errorf("not a directory: %s", contentRoot)
+	}
+
+	postsDir := filepath.Join(contentRoot, "posts")
+
+	postsInfo, err := os.Stat(postsDir)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", postsDir, err)
+	}
+	if !postsInfo.IsDir() {
+		return nil, fmt.Errorf("not a directory: %s", postsDir)
 	}
 
 	var candidates []string
 
-	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(postsDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("walk %s: %w", path, err)
 		}
@@ -40,7 +50,10 @@ func DiscoverPosts(dir string) ([]string, error) {
 			return nil
 		}
 
-		if strings.EqualFold(filepath.Ext(name), ".md") {
+		if strings.EqualFold(name, "index.md") {
+			if filepath.Clean(filepath.Dir(path)) == filepath.Clean(postsDir) {
+				return nil
+			}
 			candidates = append(candidates, path)
 		}
 

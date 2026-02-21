@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"path/filepath"
 )
 
 var fence = []byte("---")
@@ -16,6 +17,8 @@ var (
 )
 
 type Post struct {
+	SourcePath  string
+	SourceDir   string
 	FrontMatter FrontMatter
 	BodyMD      string
 }
@@ -55,6 +58,8 @@ func ParsePost(path string) (Post, error) {
 	md := string(mdBytes)
 
 	post := Post{
+		SourcePath:  filepath.Clean(path),
+		SourceDir:   filepath.Dir(filepath.Clean(path)),
 		FrontMatter: fm,
 		BodyMD:      md,
 	}
