@@ -33,7 +33,7 @@ func Build(lines []Line) (ir.Document, error) {
 		for _, rule := range rules {
 			beforeRule := c.Index
 
-			block, ok, err := rule.Apply(c)
+			applied, ok, err := rule.Apply(c)
 			if err != nil {
 				return ir.Document{}, err
 			}
@@ -49,7 +49,7 @@ func Build(lines []Line) (ir.Document, error) {
 			}
 
 			matched = true
-			doc.Blocks = append(doc.Blocks, block)
+			doc.Blocks = append(doc.Blocks, applied)
 			break
 		}
 

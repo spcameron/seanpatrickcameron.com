@@ -44,12 +44,12 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		End:   end,
 	}
 
-	out := strings.Join(text, "\n")
+	joinedText := strings.Join(text, "\n")
 
-	block := ir.Paragraph{
-		Text: out,
+	applied := ir.Paragraph{
+		Text: joinedText,
 		Span: span,
 	}
 
-	return block, true, nil
+	return applied, true, nil
 }
