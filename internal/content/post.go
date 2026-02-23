@@ -5,6 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 )
 
 var fence = []byte("---")
@@ -17,10 +20,10 @@ var (
 )
 
 type Post struct {
-	SourcePath  string
-	SourceDir   string
-	FrontMatter FrontMatter
-	BodyMD      string
+	SourcePath   string
+	SourceDir    string
+	FrontMatter  FrontMatter
+	BodyHTMLTree html.Node
 }
 
 type PostSummary struct{}
@@ -54,14 +57,16 @@ func ParsePost(path string) (Post, error) {
 		return Post{}, err
 	}
 
-	// TODO: convert markdown
-	md := string(mdBytes)
+	md, err := markdown.CompileTree(string(mdBytes))
+	if err != nil {
+		return Post{}, err
+	}
 
 	post := Post{
-		SourcePath:  filepath.Clean(path),
-		SourceDir:   filepath.Dir(filepath.Clean(path)),
-		FrontMatter: fm,
-		BodyMD:      md,
+		SourcePath:   filepath.Clean(path),
+		SourceDir:    filepath.Dir(filepath.Clean(path)),
+		FrontMatter:  fm,
+		BodyHTMLTree: md,
 	}
 
 	return post, nil

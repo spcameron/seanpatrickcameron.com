@@ -1,6 +1,12 @@
 package templates
 
-import "github.com/spcameron/seanpatrickcameron.com/internal/content"
+import (
+	"context"
+	"io"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
+	"github.com/spcameron/seanpatrickcameron.com/internal/content"
+)
 
 templ BlogPost(p content.Post) {
 	@Base(p.FrontMatter.Title, BlogPostContent(p))
@@ -14,6 +20,15 @@ templ BlogPostContent(p content.Post) {
 			<p><em>{ p.FrontMatter.Date.Format("Jan 2, 2006") }</em></p>
 		}
 
-		<pre>{ p.BodyMD }</pre>
+		@MarkdownHTML(p.BodyHTMLTree)
 	</article>
+}
+
+func MarkdownHTML(n html.Node) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		if n == nil {
+			return nil
+		}
+		return n.Write(w)
+	})
 }
