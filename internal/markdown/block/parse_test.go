@@ -1,6 +1,7 @@
 package block
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
@@ -31,6 +32,21 @@ func TestParse(t *testing.T) {
 			name:    "two paragraphs",
 			input:   "a\n\nb",
 			wantIR:  tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
+			wantErr: nil,
+		},
+		{
+			name:    "header level 1",
+			input:   "# header",
+			wantIR:  tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header & paragraph",
+			input: strings.Join([]string{
+				"# header",
+				"paragraph",
+			}, "\n"),
+			wantIR:  tk.IRDoc(tk.IRHeader(1, "header"), tk.IRParaAt(1, "paragraph")),
 			wantErr: nil,
 		},
 	}
@@ -267,13 +283,141 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "two paragrapsh separated by whitespace only line",
+			name: "two paragraphs separated by whitespace only line",
 			lines: []Line{
 				{"a"},
 				{" "},
 				{"b"},
 			},
 			want:    tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1",
+			lines: []Line{
+				{"# header"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 2",
+			lines: []Line{
+				{"## header"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(2, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 6",
+			lines: []Line{
+				{"###### header"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(6, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, 3 leading spaces (max)",
+			lines: []Line{
+				{"   # header"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, tab delimiter",
+			lines: []Line{
+				{"#\theader"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, consumes multiple spaces",
+			lines: []Line{
+				{"#     header"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, consumes multiple tabs",
+			lines: []Line{
+				{"#\t\t\theader"},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, trailing whitespace trimmed",
+			lines: []Line{
+				{"# header     "},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, mixed whitespace trimmed",
+			lines: []Line{
+				{"# \t header \t "},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			wantErr: nil,
+		},
+		{
+			name: "header level 1, empty header allowed",
+			lines: []Line{
+				{"# "},
+			},
+			want:    tk.IRDoc(tk.IRHeader(1, "")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, no marker",
+			lines: []Line{
+				{"header"},
+			},
+			want:    tk.IRDoc(tk.IRPara("header")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, too many leading spaces",
+			lines: []Line{
+				{"    header"},
+			},
+			want:    tk.IRDoc(tk.IRPara("    header")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, missing delimiter",
+			lines: []Line{
+				{"#header"},
+			},
+			want:    tk.IRDoc(tk.IRPara("#header")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, too many hashes",
+			lines: []Line{
+				{"####### header"},
+			},
+			want:    tk.IRDoc(tk.IRPara("####### header")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, too many hashes after indent",
+			lines: []Line{
+				{"   ####### header"},
+			},
+			want:    tk.IRDoc(tk.IRPara("   ####### header")),
+			wantErr: nil,
+		},
+		{
+			name: "header rejected, valid marker but missing delimieter",
+			lines: []Line{
+				{"##"},
+			},
+			want:    tk.IRDoc(tk.IRPara("##")),
 			wantErr: nil,
 		},
 	}

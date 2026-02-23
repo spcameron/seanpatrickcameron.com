@@ -18,6 +18,7 @@ func Build(lines []Line) (ir.Document, error) {
 	c := NewCursor(lines)
 
 	rules := []BuildRule{
+		HeaderRule{},
 		ParagraphRule{},
 	}
 
