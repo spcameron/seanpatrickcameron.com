@@ -89,5 +89,4 @@ func (s *Scanner) Next() (Line, bool) {
 
 func normalizeLineText(input string) string {
 	return strings.TrimRight(input, "\r")
-	// return strings.TrimRight(input, " \t\r")
 }
