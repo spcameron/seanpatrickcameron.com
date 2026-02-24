@@ -7,8 +7,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/render"
 )
 
-func Compile(md string) (string, error) {
-	htmlTree, err := CompileTree(md)
+func CompileAndRender(md string) (string, error) {
+	htmlTree, err := Compile(md)
 	if err != nil {
 		return "", err
 	}
@@ -21,7 +21,7 @@ func Compile(md string) (string, error) {
 	return htmlOutput, nil
 }
 
-func CompileTree(md string) (html.Node, error) {
+func Compile(md string) (html.Node, error) {
 	irDoc, err := block.Parse(md)
 	if err != nil {
 		return nil, err

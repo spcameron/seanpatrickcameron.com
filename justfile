@@ -42,11 +42,6 @@ mod-upgrade:
 test mode="":
     @scripts/test {{mode}}
 
-# builds the site pages
-[group('build')]
-build-site:
-    @scripts/build-site
-
 # builds command binary with native target
 [group('build')]
 build:
@@ -56,6 +51,17 @@ build:
 [group('build')]
 build-linux:
     @scripts/build linux_amd64
+
+# builds the site pages
+[group('build')]
+build-site:
+    @scripts/build-site
+
+# builds command binary, builds the site pages
+[group('build')]
+build-all:
+    @scripts/build
+    @scripts/build-site
 
 # build site output and serve locally (single run)
 [group('run')]

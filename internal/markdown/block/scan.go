@@ -2,6 +2,8 @@ package block
 
 import "strings"
 
+const MaxValidIndentation = 3
+
 func Scan(input string) ([]Line, error) {
 	scanner := NewScanner(input)
 
@@ -24,6 +26,20 @@ type Line struct {
 
 func (l Line) IsBlankLine() bool {
 	return strings.TrimSpace(l.Text) == ""
+}
+
+func (l Line) BlockIndent() (int, bool) {
+	s := l.Text
+
+	indent := 0
+	for indent < len(s) && s[indent] == ' ' {
+		indent++
+		if indent > MaxValidIndentation {
+			return 0, false
+		}
+	}
+
+	return indent, true
 }
 
 type Scanner struct {
@@ -72,5 +88,5 @@ func (s *Scanner) Next() (Line, bool) {
 }
 
 func normalizeLineText(input string) string {
-	return strings.TrimRight(input, " \t\r")
+	return strings.TrimRight(input, "\r")
 }

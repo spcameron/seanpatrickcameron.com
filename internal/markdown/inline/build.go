@@ -14,12 +14,15 @@ var (
 )
 
 func Build(events []Event) ([]ast.Inline, error) {
-	out := []ast.Inline{}
-	c := NewCursor(events)
+	inl := []ast.Inline{}
 
 	rules := []InlineRule{
+		SoftBreakRule{},
+		HardBreakRule{},
 		TextRule{},
 	}
+
+	c := NewCursor(rules, events)
 
 	for {
 		if c.EOF() {
@@ -28,26 +31,17 @@ func Build(events []Event) ([]ast.Inline, error) {
 
 		matched := false
 
-		for _, rule := range rules {
-			beforeRule := c.Index
-
-			applied, ok, err := rule.Apply(c)
+		for _, rule := range c.Rules {
+			applied, ok, err := c.TryApply(rule)
 			if err != nil {
 				return nil, err
 			}
 			if !ok {
-				if c.Index != beforeRule {
-					return nil, fmt.Errorf("%w: (index %d)", ErrRuleAdvancedOnDecline, beforeRule)
-				}
 				continue
 			}
 
-			if c.Index == beforeRule {
-				return nil, fmt.Errorf("%w (index %d)", ErrNoEventConsumed, c.Index)
-			}
-
 			matched = true
-			out = append(out, applied)
+			inl = append(inl, applied)
 			break
 		}
 
@@ -56,5 +50,5 @@ func Build(events []Event) ([]ast.Inline, error) {
 		}
 	}
 
-	return out, nil
+	return inl, nil
 }

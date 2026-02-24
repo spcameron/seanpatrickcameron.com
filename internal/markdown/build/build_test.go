@@ -19,8 +19,14 @@ func TestBuildAST(t *testing.T) {
 	}{
 		{
 			name:    "paragraph with normal text",
-			irDoc:   tk.IRDoc(tk.IRPara("test text")),
-			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText("test text"))),
+			irDoc:   tk.IRDoc(tk.IRPara("paragraph")),
+			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText("paragraph"))),
+			wantErr: nil,
+		},
+		{
+			name:    "header with normal text",
+			irDoc:   tk.IRDoc(tk.IRHeader(1, "header")),
+			astDoc:  tk.ASTDoc(tk.ASTHeader(1, tk.ASTText("header"))),
 			wantErr: nil,
 		},
 	}

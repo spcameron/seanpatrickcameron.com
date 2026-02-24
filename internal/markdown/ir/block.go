@@ -10,6 +10,14 @@ type Document struct {
 
 func (Document) isBlock() {}
 
+type Header struct {
+	Level int
+	Text  string
+	Span  LineSpan
+}
+
+func (Header) isBlock() {}
+
 type Paragraph struct {
 	Text string
 	Span LineSpan

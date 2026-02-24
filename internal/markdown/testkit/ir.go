@@ -12,6 +12,24 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 	}
 }
 
+func IRHeader(level int, input ...string) ir.Header {
+	return IRHeaderAt(0, level, input...)
+}
+
+func IRHeaderAt(start, level int, input ...string) ir.Header {
+	text := strings.Join(input, "\n")
+	span := ir.LineSpan{
+		Start: start,
+		End:   start + len(input),
+	}
+
+	return ir.Header{
+		Level: level,
+		Text:  text,
+		Span:  span,
+	}
+}
+
 func IRPara(input ...string) ir.Paragraph {
 	return IRParaAt(0, input...)
 }
