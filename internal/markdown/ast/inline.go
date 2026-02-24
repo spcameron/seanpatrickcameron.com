@@ -9,3 +9,11 @@ type Text struct {
 }
 
 func (Text) isInline() {}
+
+type HardBreak struct{}
+
+func (HardBreak) isInline() {}
+
+type SoftBreak struct{}
+
+func (SoftBreak) isInline() {}

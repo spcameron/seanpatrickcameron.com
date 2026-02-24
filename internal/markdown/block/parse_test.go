@@ -146,38 +146,54 @@ func TestScan(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "right trim spaces and tabs",
-			input: " indented\t \nnext\t\n",
+			name:  "trailing spaces are preserved",
+			input: "a \n",
 			want: []Line{
-				{" indented"},
-				{"next"},
+				{"a "},
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "whitespace only line emits blank line",
+			name:  "trailing spaces and tabs are preserved",
+			input: " indented\t \nnext\t\n",
+			want: []Line{
+				{" indented\t "},
+				{"next\t"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "trailing carriage return is trimmed",
+			input: "a\r\n",
+			want: []Line{
+				{"a"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "whitespace only line preserves spaces and tabs",
 			input: "a\n \t \n b",
 			want: []Line{
 				{"a"},
-				{""},
+				{" \t "},
 				{" b"},
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "terminal whitespace only line with trailing newline suppressed",
+			name:  "terminal whitespace only line preserves spaces and tab",
 			input: "a\n \t \n",
 			want: []Line{
 				{"a"},
-				{""},
+				{" \t "},
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "no newline but trailing spaces trimmed",
+			name:  "no newline still preserves trailing spaces and tabs",
 			input: "a \t",
 			want: []Line{
-				{"a"},
+				{"a \t"},
 			},
 			wantErr: nil,
 		},
@@ -290,6 +306,15 @@ func TestBuild(t *testing.T) {
 				{"b"},
 			},
 			want:    tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
+			wantErr: nil,
+		},
+		{
+			name: "paragraph stops before header without blank line",
+			lines: []Line{
+				{"a"},
+				{"# h"},
+			},
+			want:    tk.IRDoc(tk.IRPara("a"), tk.IRHeaderAt(1, 1, "h")),
 			wantErr: nil,
 		},
 		{

@@ -15,12 +15,13 @@ var (
 
 func Build(lines []Line) (ir.Document, error) {
 	doc := ir.Document{}
-	c := NewCursor(lines)
 
 	rules := []BuildRule{
 		HeaderRule{},
 		ParagraphRule{},
 	}
+
+	c := NewCursor(rules, lines)
 
 	for {
 		c.SkipBlankLines()
@@ -31,22 +32,13 @@ func Build(lines []Line) (ir.Document, error) {
 
 		matched := false
 
-		for _, rule := range rules {
-			beforeRule := c.Index
-
-			applied, ok, err := rule.Apply(c)
+		for _, rule := range c.Rules {
+			applied, ok, err := c.TryApply(rule)
 			if err != nil {
 				return ir.Document{}, err
 			}
 			if !ok {
-				if c.Index != beforeRule {
-					return ir.Document{}, fmt.Errorf("%w: (index %d)", ErrRuleAdvancedOnDecline, beforeRule)
-				}
 				continue
-			}
-
-			if c.Index == beforeRule {
-				return ir.Document{}, fmt.Errorf("%w (index %d)", ErrNoLineConsumed, c.Index)
 			}
 
 			matched = true

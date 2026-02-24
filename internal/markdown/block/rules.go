@@ -77,7 +77,13 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	return applied, true, nil
 }
 
+type ParagraphRuleMarker interface {
+	isParagraphRule()
+}
+
 type ParagraphRule struct{}
+
+func (ParagraphRule) isParagraphRule() {}
 
 func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	line, ok := c.Peek()
@@ -91,12 +97,23 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	var s []string
 	start := c.Index
 
+	line, _ = c.Next()
+	s = append(s, line.Text)
+
 	for {
 		line, ok := c.Peek()
 		if !ok {
 			break
 		}
 		if line.IsBlankLine() {
+			break
+		}
+
+		startsBlock, err := c.StartsNonParagraphBlock()
+		if err != nil {
+			return nil, false, err
+		}
+		if startsBlock {
 			break
 		}
 

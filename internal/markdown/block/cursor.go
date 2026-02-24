@@ -1,12 +1,20 @@
 package block
 
+import (
+	"fmt"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+)
+
 type Cursor struct {
+	Rules []BuildRule
 	Lines []Line
 	Index int
 }
 
-func NewCursor(lines []Line) *Cursor {
+func NewCursor(rules []BuildRule, lines []Line) *Cursor {
 	return &Cursor{
+		Rules: rules,
 		Lines: lines,
 		Index: 0,
 	}
@@ -30,6 +38,14 @@ func (c *Cursor) Next() (Line, bool) {
 	return out, true
 }
 
+func (c *Cursor) Mark() int {
+	return c.Index
+}
+
+func (c *Cursor) Reset(i int) {
+	c.Index = i
+}
+
 func (c *Cursor) EOF() bool {
 	return c.Index >= len(c.Lines)
 }
@@ -46,4 +62,54 @@ func (c *Cursor) SkipBlankLines() {
 
 		c.Next()
 	}
+}
+
+func (c *Cursor) TryApply(rule BuildRule) (ir.Block, bool, error) {
+	m := c.Mark()
+
+	applied, ok, err := rule.Apply(c)
+	if err != nil {
+		c.Reset(m)
+		return nil, false, err
+	}
+	if !ok {
+		if c.Index != m {
+			c.Reset(m)
+			return nil, false, ruleError(rule, m, ErrRuleAdvancedOnDecline)
+		}
+		return nil, false, nil
+	}
+
+	if c.Index == m {
+		c.Reset(m)
+		return nil, false, ruleError(rule, m, ErrNoLineConsumed)
+	}
+
+	return applied, true, nil
+}
+
+func (c *Cursor) StartsNonParagraphBlock() (bool, error) {
+	m := c.Mark()
+	for _, rule := range c.Rules {
+		if _, ok := rule.(ParagraphRuleMarker); ok {
+			continue
+		}
+
+		_, ok, err := c.TryApply(rule)
+		c.Reset(m)
+
+		if err != nil {
+			return false, err
+		}
+
+		if ok {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func ruleError(rule BuildRule, index int, err error) error {
+	return fmt.Errorf("rule %T at index %d: %w", rule, index, err)
 }

@@ -6,4 +6,6 @@ var (
 
 var (
 	_ Inline = Text{}
+	_ Inline = HardBreak{}
+	_ Inline = SoftBreak{}
 )
