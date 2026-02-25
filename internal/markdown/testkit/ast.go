@@ -28,9 +28,20 @@ func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 	}
 }
 
-func ASTText(_ string) ast.Text {
+func ASTText() ast.Text {
 	return ast.Text{
 		Span: source.ByteSpan{},
+	}
+}
+
+func ASTTextAt(start, end int) ast.Text {
+	span := source.ByteSpan{
+		Start: source.BytePos(start),
+		End:   source.BytePos(end),
+	}
+
+	return ast.Text{
+		Span: span,
 	}
 }
 

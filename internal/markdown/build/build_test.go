@@ -22,21 +22,21 @@ func TestBuildAST(t *testing.T) {
 		{
 			name:    "paragraph with normal text",
 			input:   "paragraph",
-			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText("paragraph"))),
+			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText())),
 			wantErr: nil,
 		},
 		{
 			name:    "header with normal text",
 			input:   "# header",
-			astDoc:  tk.ASTDoc(tk.ASTHeader(1, tk.ASTText("header"))),
+			astDoc:  tk.ASTDoc(tk.ASTHeader(1, tk.ASTText())),
 			wantErr: nil,
 		},
 		{
 			name:  "header and paragraph",
 			input: "# header\n\nparagraph",
 			astDoc: tk.ASTDoc(
-				tk.ASTHeader(1, tk.ASTText("header")),
-				tk.ASTPara(tk.ASTText("paragraph")),
+				tk.ASTHeader(1, tk.ASTText()),
+				tk.ASTPara(tk.ASTText()),
 			),
 			wantErr: nil,
 		},
