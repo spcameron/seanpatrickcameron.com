@@ -28,7 +28,6 @@ func (src *Source) Slice(span ByteSpan) string {
 	return src.Raw[int(span.Start):int(span.End)]
 }
 
-// TODO: test coverage
 func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	pos = max(0, pos)
 	pos = min(pos, src.EOF())

@@ -71,7 +71,6 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 	applied := ir.Header{
 		Level: level,
-		Text:  content,
 		Span:  span,
 		ContentSpan: source.ByteSpan{
 			Start: contentStart,
@@ -99,7 +98,6 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		return nil, false, nil
 	}
 
-	var parts []string
 	var spans []source.ByteSpan
 
 	line, ok = c.Next()
@@ -108,7 +106,6 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	spans = append(spans, line.Span)
-	parts = append(parts, c.Source.Slice(line.Span))
 
 	for {
 		line, ok := c.Peek()
@@ -133,17 +130,14 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		}
 
 		spans = append(spans, line.Span)
-		parts = append(parts, c.Source.Slice(line.Span))
 	}
 
-	content := strings.Join(parts, "\n")
 	span := source.ByteSpan{
 		Start: spans[0].Start,
 		End:   spans[len(spans)-1].End,
 	}
 
 	applied := ir.Paragraph{
-		Text:  content,
 		Lines: spans,
 		Span:  span,
 	}

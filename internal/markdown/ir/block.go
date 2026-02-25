@@ -7,9 +7,7 @@ type Block interface {
 }
 
 type Header struct {
-	Level int
-	// TODO: remove text field
-	Text        string
+	Level       int
 	Span        source.ByteSpan
 	ContentSpan source.ByteSpan
 }
@@ -17,8 +15,6 @@ type Header struct {
 func (Header) isBlock() {}
 
 type Paragraph struct {
-	// TODO: remove text field
-	Text  string
 	Span  source.ByteSpan
 	Lines []source.ByteSpan
 }

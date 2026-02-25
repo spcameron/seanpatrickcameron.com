@@ -1,7 +1,6 @@
 package block
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
@@ -10,63 +9,6 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
-
-func TestParse(t *testing.T) {
-	testCases := []struct {
-		name    string
-		input   string
-		wantIR  ir.Document
-		wantErr error
-	}{
-		{
-			name:    "empty input",
-			input:   "",
-			wantIR:  ir.Document{},
-			wantErr: nil,
-		},
-		{
-			name:    "one paragraph",
-			input:   "a",
-			wantIR:  tk.IRDoc(tk.IRPara("a")),
-			wantErr: nil,
-		},
-		{
-			name:    "two paragraphs",
-			input:   "a\n\nb",
-			wantIR:  tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
-			wantErr: nil,
-		},
-		{
-			name:    "header level 1",
-			input:   "# header",
-			wantIR:  tk.IRDoc(tk.IRHeader(1, "header")),
-			wantErr: nil,
-		},
-		{
-			name: "header & paragraph",
-			input: strings.Join([]string{
-				"# header",
-				"paragraph",
-			}, "\n"),
-			wantIR:  tk.IRDoc(tk.IRHeader(1, "header"), tk.IRPara("paragraph")),
-			wantErr: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			src := source.NewSource(tc.input)
-			gotDoc, err := Parse(src)
-
-			assert.ErrorIs(t, err, tc.wantErr)
-
-			got := tk.NormalizeIR(gotDoc)
-			want := tk.NormalizeIR(tc.wantIR)
-
-			assert.Equal(t, got, want)
-		})
-	}
-}
 
 func TestScan(t *testing.T) {
 	testCases := []struct {
@@ -231,14 +173,13 @@ func TestScan(t *testing.T) {
 			src := source.NewSource(tc.input)
 			gotLines, err := Scan(src)
 
-			assert.ErrorIs(t, err, tc.wantErr)
-
 			var got []string
 			for _, line := range gotLines {
 				got = append(got, src.Slice(line.Span))
 			}
 
 			assert.Equal(t, got, tc.want)
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
 }
@@ -371,6 +312,12 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:    "header and paragraph",
+			input:   "# h\na",
+			want:    tk.IRDoc(tk.IRHeader(1, "h"), tk.IRPara("a")),
+			wantErr: nil,
+		},
+		{
 			name:    "header rejected, no marker",
 			input:   "header",
 			want:    tk.IRDoc(tk.IRPara("header")),
@@ -417,12 +364,11 @@ func TestBuild(t *testing.T) {
 
 			got, err := Build(src, lines)
 
-			assert.ErrorIs(t, err, tc.wantErr)
-
 			got = tk.NormalizeIR(got)
 			want := tk.NormalizeIR(tc.want)
 
 			assert.Equal(t, got, want)
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
 }

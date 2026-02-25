@@ -40,7 +40,7 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 }
 
 func buildHeader(src *source.Source, h ir.Header) (ast.Block, error) {
-	inlines, err := inline.ParseAt(src, h.ContentSpan)
+	inlines, err := inline.Parse(src, h.ContentSpan)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {
 			}
 		}
 
-		lineInlines, err := inline.ParseAt(src, ps)
+		lineInlines, err := inline.Parse(src, ps)
 		if err != nil {
 			return nil, err
 		}

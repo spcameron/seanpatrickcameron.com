@@ -3,23 +3,25 @@ package render_test
 import (
 	"testing"
 
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/render"
-	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
 func TestRenderHTML(t *testing.T) {
 	testCases := []struct {
 		name     string
-		astDoc   ast.Document
+		input    string
 		htmlNode html.Node
 		wantErr  error
 	}{
 		{
-			name:   "paragraph with normal text",
-			astDoc: tk.ASTDoc(tk.ASTPara(tk.ASTText("paragraph"))),
+			name:  "paragraph with normal text",
+			input: "paragraph",
 			htmlNode: html.FragmentNode(
 				html.ElemNode(
 					"p",
@@ -30,8 +32,8 @@ func TestRenderHTML(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:   "header with normal text",
-			astDoc: tk.ASTDoc(tk.ASTHeader(1, tk.ASTText("header"))),
+			name:  "header with normal text",
+			input: "# header",
 			htmlNode: html.FragmentNode(
 				html.ElemNode(
 					"h1",
@@ -42,29 +44,36 @@ func TestRenderHTML(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:   "hard break renders",
-			astDoc: tk.ASTDoc(tk.ASTPara(tk.ASTHardBreak())),
+			name:  "hard break renders (two spaces)",
+			input: "a  \nb",
 			htmlNode: html.FragmentNode(
 				html.ElemNode(
 					"p",
 					nil,
-					html.VoidNode(
-						"br",
-						nil,
-					),
+					html.TextNode("a"),
+					html.VoidNode("br", nil),
+					html.TextNode("b"),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name: "soft break renders as whitespace (space)",
-			astDoc: tk.ASTDoc(
-				tk.ASTPara(
-					tk.ASTText("a"),
-					tk.ASTSoftBreak(),
-					tk.ASTText("b"),
+			name:  "hard break renders (backslash)",
+			input: "a\\\nb",
+			htmlNode: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.TextNode("a"),
+					html.VoidNode("br", nil),
+					html.TextNode("b"),
 				),
 			),
+			wantErr: nil,
+		},
+		{
+			name:  "soft break renders as whitespace (space)",
+			input: "a\nb",
 			htmlNode: html.FragmentNode(
 				html.ElemNode(
 					"p",
@@ -78,7 +87,15 @@ func TestRenderHTML(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := render.HTML(tc.astDoc)
+			src := source.NewSource(tc.input)
+
+			irDoc, err := block.Parse(src)
+			require.NoError(t, err)
+
+			astDoc, err := build.AST(irDoc)
+			require.NoError(t, err)
+
+			got, err := render.HTML(astDoc)
 
 			assert.Equal(t, got, tc.htmlNode)
 			assert.ErrorIs(t, err, tc.wantErr)

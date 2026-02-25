@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 var (
@@ -13,16 +14,15 @@ var (
 	ErrNoRuleMatched         = errors.New("no inline rule could be applied")
 )
 
-func Build(events []Event) ([]ast.Inline, error) {
+func Build(src *source.Source, events []Event) ([]ast.Inline, error) {
 	inl := []ast.Inline{}
 
 	rules := []InlineRule{
-		SoftBreakRule{},
-		HardBreakRule{},
+		IllegalEventRule{},
 		TextRule{},
 	}
 
-	c := NewCursor(rules, events)
+	c := NewCursor(src, rules, events)
 
 	for {
 		if c.EOF() {

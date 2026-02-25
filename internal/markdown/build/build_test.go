@@ -4,38 +4,57 @@ import (
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
 func TestBuildAST(t *testing.T) {
 	testCases := []struct {
 		name    string
-		irDoc   ir.Document
+		input   string
 		astDoc  ast.Document
 		wantErr error
 	}{
 		{
 			name:    "paragraph with normal text",
-			irDoc:   tk.IRDoc(tk.IRPara("paragraph")),
+			input:   "paragraph",
 			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText("paragraph"))),
 			wantErr: nil,
 		},
 		{
 			name:    "header with normal text",
-			irDoc:   tk.IRDoc(tk.IRHeader(1, "header")),
+			input:   "# header",
 			astDoc:  tk.ASTDoc(tk.ASTHeader(1, tk.ASTText("header"))),
+			wantErr: nil,
+		},
+		{
+			name:  "header and paragraph",
+			input: "# header\n\nparagraph",
+			astDoc: tk.ASTDoc(
+				tk.ASTHeader(1, tk.ASTText("header")),
+				tk.ASTPara(tk.ASTText("paragraph")),
+			),
 			wantErr: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := build.AST(tc.irDoc)
+			src := source.NewSource(tc.input)
 
-			assert.Equal(t, got, tc.astDoc)
+			irDoc, err := block.Parse(src)
+			require.NoError(t, err)
+
+			got, err := build.AST(irDoc)
+
+			got = tk.NormalizeAST(got)
+			want := tk.NormalizeAST(tc.astDoc)
+
+			assert.Equal(t, got, want)
 			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
