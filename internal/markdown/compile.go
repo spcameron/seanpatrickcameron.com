@@ -2,9 +2,9 @@ package markdown
 
 import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/codegen"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/render"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/lower"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
@@ -16,12 +16,12 @@ func Compile(md string) (html.Node, error) {
 		return nil, err
 	}
 
-	astDoc, err := build.AST(irDoc)
+	astDoc, err := lower.Document(irDoc)
 	if err != nil {
 		return nil, err
 	}
 
-	htmlTree, err := render.HTML(astDoc)
+	htmlTree, err := codegen.HTML(astDoc)
 	if err != nil {
 		return nil, err
 	}

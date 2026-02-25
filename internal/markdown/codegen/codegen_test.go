@@ -1,18 +1,18 @@
-package render_test
+package codegen_test
 
 import (
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/codegen"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/render"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/lower"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
-func TestRenderHTML(t *testing.T) {
+func TestGenerateHTML(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
@@ -92,10 +92,10 @@ func TestRenderHTML(t *testing.T) {
 			irDoc, err := block.Parse(src)
 			require.NoError(t, err)
 
-			astDoc, err := build.AST(irDoc)
+			astDoc, err := lower.Document(irDoc)
 			require.NoError(t, err)
 
-			got, err := render.HTML(astDoc)
+			got, err := codegen.HTML(astDoc)
 
 			assert.Equal(t, got, tc.htmlNode)
 			assert.ErrorIs(t, err, tc.wantErr)

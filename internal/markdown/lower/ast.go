@@ -1,4 +1,4 @@
-package build
+package lower
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-func AST(irDoc ir.Document) (ast.Document, error) {
+func Document(irDoc ir.Document) (ast.Document, error) {
 	astDoc := ast.Document{
 		Source: irDoc.Source,
 		Blocks: make([]ast.Block, 0, len(irDoc.Blocks)),

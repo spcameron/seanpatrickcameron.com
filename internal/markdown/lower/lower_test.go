@@ -1,18 +1,18 @@
-package build_test
+package lower_test
 
 import (
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/lower"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
-func TestBuildAST(t *testing.T) {
+func TestLowerDocument(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
@@ -49,7 +49,7 @@ func TestBuildAST(t *testing.T) {
 			irDoc, err := block.Parse(src)
 			require.NoError(t, err)
 
-			got, err := build.AST(irDoc)
+			got, err := lower.Document(irDoc)
 
 			got = tk.NormalizeAST(got)
 			want := tk.NormalizeAST(tc.astDoc)
