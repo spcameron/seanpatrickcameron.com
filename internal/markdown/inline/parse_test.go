@@ -4,133 +4,48 @@ import (
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
-
-func TestParse(t *testing.T) {
-	testCases := []struct {
-		name    string
-		input   string
-		want    []ast.Inline
-		wantErr error
-	}{
-		{
-			name:  "paragraph text becomes inline sequence",
-			input: "a\nb",
-			want: []ast.Inline{
-				tk.ASTText("a"),
-				tk.ASTSoftBreak(),
-				tk.ASTText("b"),
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "hard break survives end-to-end",
-			input: "a  \nb",
-			want: []ast.Inline{
-				tk.ASTText("a"),
-				tk.ASTHardBreak(),
-				tk.ASTText("b"),
-			},
-			wantErr: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := Parse(tc.input)
-
-			assert.Equal(t, got, tc.want)
-			assert.ErrorIs(t, err, tc.wantErr)
-		})
-	}
-}
 
 func TestScan(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
+		span    *source.ByteSpan // nil == whole input
 		want    []Event
 		wantErr error
 	}{
 		{
-			name:    "empty input",
+			name:    "empty span yields no events",
 			input:   "",
+			span:    nil,
 			want:    []Event{},
 			wantErr: nil,
 		},
 		{
-			name:  "single character produces one event",
-			input: "a",
+			name:  "non-empty span yield one EventText covering span",
+			input: "hello",
+			span:  nil,
 			want: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
+				{
+					Kind: EventText,
+					Span: source.ByteSpan{Start: 0, End: 5},
+				},
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "plain text sentence produces one event",
-			input: "this is a test",
+			name:  "windowed span yields one EventText covering window",
+			input: "hello",
+			span:  tk.SpanPtr(1, 3),
 			want: []Event{
-				{Kind: EventText, Lexeme: "this is a test", Position: 0},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "unicode round-trips",
-			input: "café 🎵",
-			want: []Event{
-				{Kind: EventText, Lexeme: "café 🎵", Position: 0},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "softbreak tokenization",
-			input: "a\nb",
-			want: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventSoftBreak, Lexeme: "", Position: 1},
-				{Kind: EventText, Lexeme: "b", Position: 2},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "hard break tokenization (two spaces)",
-			input: "a  \nb",
-			want: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventHardBreak, Lexeme: "", Position: 3},
-				{Kind: EventText, Lexeme: "b", Position: 4},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "hard break tokenization (backslash)",
-			input: "a\\\nb",
-			want: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventHardBreak, Lexeme: "", Position: 2},
-				{Kind: EventText, Lexeme: "b", Position: 3},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "line consisting of hardbreak only",
-			input: "  \n",
-			want: []Event{
-				{Kind: EventHardBreak, Lexeme: "", Position: 2},
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "multiple lines",
-			input: "a\nb\nc",
-			want: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventSoftBreak, Lexeme: "", Position: 1},
-				{Kind: EventText, Lexeme: "b", Position: 2},
-				{Kind: EventSoftBreak, Lexeme: "", Position: 3},
-				{Kind: EventText, Lexeme: "c", Position: 4},
+				{
+					Kind: EventText,
+					Span: source.ByteSpan{Start: 1, End: 3},
+				},
 			},
 			wantErr: nil,
 		},
@@ -138,7 +53,17 @@ func TestScan(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Scan(tc.input)
+			src := source.NewSource(tc.input)
+
+			span := source.ByteSpan{
+				Start: 0,
+				End:   src.EOF(),
+			}
+			if tc.span != nil {
+				span = *tc.span
+			}
+
+			got, err := Scan(src, span)
 
 			assert.Equal(t, got, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
@@ -149,92 +74,154 @@ func TestScan(t *testing.T) {
 func TestBuild(t *testing.T) {
 	testCases := []struct {
 		name    string
-		events  []Event
+		input   string
+		span    *source.ByteSpan // nil == whole input
 		want    []ast.Inline
 		wantErr error
 	}{
 		{
-			name:    "empty input",
-			events:  []Event{},
+			name:    "empty events yields empty inlines",
+			input:   "",
+			span:    nil,
 			want:    []ast.Inline{},
 			wantErr: nil,
 		},
 		{
-			name: "one EventText event emits one ast.Text nodes",
-			events: []Event{
-				{Kind: EventText, Lexeme: "hello", Position: 0},
-			},
+			name:  "single rune yields one ast.Text",
+			input: "a",
+			span:  nil,
 			want: []ast.Inline{
-				tk.ASTText("hello"),
+				tk.ASTText(),
 			},
 			wantErr: nil,
 		},
 		{
-			name: "two EventText events emits two ast.Text nodes",
-			events: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventText, Lexeme: "b", Position: 1},
-			},
+			name:  "plain sentence yields one ast.Text",
+			input: "this is a test",
+			span:  nil,
 			want: []ast.Inline{
-				tk.ASTText("a"),
-				tk.ASTText("b"),
+				tk.ASTText(),
 			},
 			wantErr: nil,
 		},
 		{
-			name: "EventSoftBreak event emits one ast.SoftBreak node",
-			events: []Event{
-				{Kind: EventSoftBreak, Lexeme: "", Position: 0},
-			},
+			name:  "unicode characters yields one ast.Text",
+			input: "café 🎵 — 漢字",
+			span:  nil,
 			want: []ast.Inline{
-				tk.ASTSoftBreak(),
+				tk.ASTText(),
 			},
 			wantErr: nil,
 		},
 		{
-			name: "EventHardBreak event emits one ast.HardBreak node",
-			events: []Event{
-				{Kind: EventHardBreak, Lexeme: "", Position: 0},
-			},
+			name:  "whitespace only yields one ast.Text",
+			input: " \t ",
+			span:  nil,
 			want: []ast.Inline{
-				tk.ASTHardBreak(),
+				tk.ASTText(),
 			},
 			wantErr: nil,
-		},
-		{
-			name: "mixed stream emits corresponding AST nodes",
-			events: []Event{
-				{Kind: EventText, Lexeme: "a", Position: 0},
-				{Kind: EventSoftBreak, Lexeme: "", Position: 1},
-				{Kind: EventText, Lexeme: "b", Position: 2},
-				{Kind: EventHardBreak, Lexeme: "", Position: 3},
-				{Kind: EventText, Lexeme: "c", Position: 4},
-			},
-			want: []ast.Inline{
-				tk.ASTText("a"),
-				tk.ASTSoftBreak(),
-				tk.ASTText("b"),
-				tk.ASTHardBreak(),
-				tk.ASTText("c"),
-			},
-			wantErr: nil,
-		},
-		{
-			name: "unknown event triggers error",
-			events: []Event{
-				{Kind: EventKind(999), Lexeme: "x", Position: 0},
-			},
-			want:    nil,
-			wantErr: ErrNoRuleMatched,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Build(tc.events)
+			src := source.NewSource(tc.input)
+
+			span := source.ByteSpan{
+				Start: 0,
+				End:   src.EOF(),
+			}
+			if tc.span != nil {
+				span = *tc.span
+			}
+
+			events, err := Scan(src, span)
+			require.NoError(t, err)
+
+			got, err := Build(src, events)
+
+			got = tk.NormalizeASTInlines(got)
+			want := tk.NormalizeASTInlines(tc.want)
+
+			assert.Equal(t, got, want)
+			assert.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+
+	spanCases := []struct {
+		name    string
+		input   string
+		span    *source.ByteSpan
+		want    []ast.Inline
+		wantErr error
+	}{
+		{
+			name:  "windowed span yields ast.Text",
+			input: "prefix: body :suffix",
+			span:  tk.SpanPtr(8, 12),
+			want: []ast.Inline{
+				tk.ASTTextAt(8, 12),
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "windowed empty span yields empty",
+			input:   "hello",
+			span:    tk.SpanPtr(0, 0),
+			want:    []ast.Inline{},
+			wantErr: nil,
+		},
+		{
+			name:  "windowed span at beginning",
+			input: "hello world",
+			span:  tk.SpanPtr(0, 5),
+			want: []ast.Inline{
+				tk.ASTTextAt(0, 5),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "windowed span at end",
+			input: "hello world",
+			span:  tk.SpanPtr(6, 11),
+			want: []ast.Inline{
+				tk.ASTTextAt(6, 11),
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tc := range spanCases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := source.NewSource(tc.input)
+
+			span := source.ByteSpan{
+				Start: 0,
+				End:   src.EOF(),
+			}
+			if tc.span != nil {
+				span = *tc.span
+			}
+
+			events, err := Scan(src, span)
+			require.NoError(t, err)
+
+			got, err := Build(src, events)
 
 			assert.Equal(t, got, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
+}
+
+func normalizeEvents(events []Event) []Event {
+	out := make([]Event, 0, len(events))
+	for i := range events {
+		ev := events[i]
+		ev.Span = source.ByteSpan{}
+		out = append(out, ev)
+	}
+
+	return out
 }

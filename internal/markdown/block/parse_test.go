@@ -1,207 +1,168 @@
 package block
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
-
-func TestParse(t *testing.T) {
-	testCases := []struct {
-		name    string
-		input   string
-		wantIR  ir.Document
-		wantErr error
-	}{
-		{
-			name:    "empty input",
-			input:   "",
-			wantIR:  ir.Document{},
-			wantErr: nil,
-		},
-		{
-			name:    "one paragraph",
-			input:   "a",
-			wantIR:  tk.IRDoc(tk.IRPara("a")),
-			wantErr: nil,
-		},
-		{
-			name:    "two paragraphs",
-			input:   "a\n\nb",
-			wantIR:  tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
-			wantErr: nil,
-		},
-		{
-			name:    "header level 1",
-			input:   "# header",
-			wantIR:  tk.IRDoc(tk.IRHeader(1, "header")),
-			wantErr: nil,
-		},
-		{
-			name: "header & paragraph",
-			input: strings.Join([]string{
-				"# header",
-				"paragraph",
-			}, "\n"),
-			wantIR:  tk.IRDoc(tk.IRHeader(1, "header"), tk.IRParaAt(1, "paragraph")),
-			wantErr: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := Parse(tc.input)
-
-			assert.Equal(t, got, tc.wantIR)
-			assert.ErrorIs(t, err, tc.wantErr)
-		})
-	}
-}
 
 func TestScan(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		want    []Line
+		want    []string
 		wantErr error
 	}{
 		{
 			name:    "empty input",
 			input:   "",
-			want:    []Line{},
+			want:    nil,
 			wantErr: nil,
 		},
 		{
 			name:  "single line, no newline",
 			input: "hello",
-			want: []Line{
-				{"hello"},
+			want: []string{
+				"hello",
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "single line, trailing newline suppressed",
+			name:  "single line, trailing newline preserved",
 			input: "hello\n",
-			want: []Line{
-				{"hello"},
+			want: []string{
+				"hello",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
-			name:    "only newline emits empty doc",
-			input:   "\n",
-			want:    []Line{},
+			name:  "only newline emits empty line",
+			input: "\n",
+			want: []string{
+				"",
+				"",
+			},
 			wantErr: nil,
 		},
 		{
 			name:  "single blank line preserved as delimiter",
 			input: "a\n\nb",
-			want: []Line{
-				{"a"},
-				{""},
-				{"b"},
+			want: []string{
+				"a",
+				"",
+				"b",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "leading blank lines preserved",
 			input: "\n\na",
-			want: []Line{
-				{""},
-				{""},
-				{"a"},
+			want: []string{
+				"",
+				"",
+				"a",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "trailing blank line delimiter preserved",
 			input: "a\n\n",
-			want: []Line{
-				{"a"},
-				{""},
+			want: []string{
+				"a",
+				"",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "multiple blank lines preserved",
 			input: "a\n\n\nb",
-			want: []Line{
-				{"a"},
-				{""},
-				{""},
-				{"b"},
+			want: []string{
+				"a",
+				"",
+				"",
+				"b",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "CRLF normalized",
 			input: "a\r\nb\r\n",
-			want: []Line{
-				{"a"},
-				{"b"},
+			want: []string{
+				"a",
+				"b",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "trailing spaces are preserved",
 			input: "a \n",
-			want: []Line{
-				{"a "},
+			want: []string{
+				"a ",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "trailing spaces and tabs are preserved",
 			input: " indented\t \nnext\t\n",
-			want: []Line{
-				{" indented\t "},
-				{"next\t"},
+			want: []string{
+				" indented\t ",
+				"next\t",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "trailing carriage return is trimmed",
+			name:  "trailing carriage return is normalized",
 			input: "a\r\n",
-			want: []Line{
-				{"a"},
+			want: []string{
+				"a",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "whitespace only line preserves spaces and tabs",
 			input: "a\n \t \n b",
-			want: []Line{
-				{"a"},
-				{" \t "},
-				{" b"},
+			want: []string{
+				"a",
+				" \t ",
+				" b",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "terminal whitespace only line preserves spaces and tab",
 			input: "a\n \t \n",
-			want: []Line{
-				{"a"},
-				{" \t "},
+			want: []string{
+				"a",
+				" \t ",
+				"",
 			},
 			wantErr: nil,
 		},
 		{
 			name:  "no newline still preserves trailing spaces and tabs",
 			input: "a \t",
-			want: []Line{
-				{"a \t"},
+			want: []string{
+				"a \t",
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "embedded carriage return is preserved",
+			name:  "embedded carriage return is normalized",
 			input: "a\rb\n",
-			want: []Line{
-				{"a\rb"},
+			want: []string{
+				"a",
+				"b",
+				"",
 			},
 			wantErr: nil,
 		},
@@ -209,7 +170,13 @@ func TestScan(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Scan(tc.input)
+			src := source.NewSource(tc.input)
+			gotLines, err := Scan(src)
+
+			var got []string
+			for _, line := range gotLines {
+				got = append(got, src.Slice(line.Span))
+			}
 
 			assert.Equal(t, got, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
@@ -220,228 +187,169 @@ func TestScan(t *testing.T) {
 func TestBuild(t *testing.T) {
 	testCases := []struct {
 		name    string
-		lines   []Line
+		input   string
 		want    ir.Document
 		wantErr error
 	}{
 		{
 			name:    "empty input",
-			lines:   []Line{},
+			input:   "",
 			want:    ir.Document{},
 			wantErr: nil,
 		},
 		{
-			name: "only blank lines",
-			lines: []Line{
-				{" "},
-				{"\t"},
-			},
+			name:    "only blank lines",
+			input:   " \n\t",
 			want:    ir.Document{},
 			wantErr: nil,
 		},
 		{
-			name: "single paragraph, one line",
-			lines: []Line{
-				{"a"},
-			},
+			name:    "single paragraph, one line",
+			input:   "a",
 			want:    tk.IRDoc(tk.IRPara("a")),
 			wantErr: nil,
 		},
 		{
-			name: "single paragraph, multiple lines",
-			lines: []Line{
-				{"a"},
-				{"b"},
-				{"c"},
-			},
+			name:    "single paragraph, multiple lines",
+			input:   "a\nb\nc",
 			want:    tk.IRDoc(tk.IRPara("a", "b", "c")),
 			wantErr: nil,
 		},
 		{
-			name: "leading blank lines ignored",
-			lines: []Line{
-				{""},
-				{""},
-				{"a"},
-			},
-			want:    tk.IRDoc(tk.IRParaAt(2, "a")),
-			wantErr: nil,
-		},
-		{
-			name: "trailing blank lines ignored",
-			lines: []Line{
-				{"a"},
-				{""},
-				{""},
-			},
+			name:    "leading blank lines ignored",
+			input:   "\n\na",
 			want:    tk.IRDoc(tk.IRPara("a")),
 			wantErr: nil,
 		},
 		{
-			name: "two paragraphs separated by one blank line",
-			lines: []Line{
-				{"a"},
-				{""},
-				{"b"},
-			},
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
+			name:    "trailing blank lines ignored",
+			input:   "a\n\n",
+			want:    tk.IRDoc(tk.IRPara("a")),
 			wantErr: nil,
 		},
 		{
-			name: "two paragraphs separated by two blank lines",
-			lines: []Line{
-				{"a"},
-				{""},
-				{""},
-				{"b"},
-			},
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(3, "b")),
+			name:    "two paragraphs separated by one blank line",
+			input:   "a\n\nb",
+			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
 			wantErr: nil,
 		},
 		{
-			name: "two paragraphs separated by whitespace only line",
-			lines: []Line{
-				{"a"},
-				{" "},
-				{"b"},
-			},
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRParaAt(2, "b")),
+			name:    "two paragraphs separated by two blank lines",
+			input:   "a\n\n\nb",
+			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
 			wantErr: nil,
 		},
 		{
-			name: "paragraph stops before header without blank line",
-			lines: []Line{
-				{"a"},
-				{"# h"},
-			},
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRHeaderAt(1, 1, "h")),
+			name:    "two paragraphs separated by whitespace only line",
+			input:   "a\n \nb",
+			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1",
-			lines: []Line{
-				{"# header"},
-			},
+			name:    "paragraph stops before header without blank line",
+			input:   "a\n# h",
+			want:    tk.IRDoc(tk.IRPara("a"), tk.IRHeader(1, "h")),
+			wantErr: nil,
+		},
+		{
+			name:    "header level 1",
+			input:   "# header",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 2",
-			lines: []Line{
-				{"## header"},
-			},
+			name:    "header level 2",
+			input:   "## header",
 			want:    tk.IRDoc(tk.IRHeader(2, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 6",
-			lines: []Line{
-				{"###### header"},
-			},
+			name:    "header level 6",
+			input:   "###### header",
 			want:    tk.IRDoc(tk.IRHeader(6, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, 3 leading spaces (max)",
-			lines: []Line{
-				{"   # header"},
-			},
+			name:    "header level 1, 3 leading spaces (max)",
+			input:   "   # header",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, tab delimiter",
-			lines: []Line{
-				{"#\theader"},
-			},
+			name:    "header level 1, tab delimiter",
+			input:   "#\theader",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, consumes multiple spaces",
-			lines: []Line{
-				{"#     header"},
-			},
+			name:    "header level 1, consumes multiple spaces",
+			input:   "#     header",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, consumes multiple tabs",
-			lines: []Line{
-				{"#\t\t\theader"},
-			},
+			name:    "header level 1, consumes multiple tabs",
+			input:   "#\t\t\theader",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, trailing whitespace trimmed",
-			lines: []Line{
-				{"# header     "},
-			},
+			name:    "header level 1, trailing whitespace trimmed",
+			input:   "# header     ",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, mixed whitespace trimmed",
-			lines: []Line{
-				{"# \t header \t "},
-			},
+			name:    "header level 1, mixed whitespace trimmed",
+			input:   "# \t header \t ",
 			want:    tk.IRDoc(tk.IRHeader(1, "header")),
 			wantErr: nil,
 		},
 		{
-			name: "header level 1, empty header allowed",
-			lines: []Line{
-				{"# "},
-			},
+			name:    "header level 1, empty header allowed",
+			input:   "# ",
 			want:    tk.IRDoc(tk.IRHeader(1, "")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, no marker",
-			lines: []Line{
-				{"header"},
-			},
+			name:    "header and paragraph",
+			input:   "# h\na",
+			want:    tk.IRDoc(tk.IRHeader(1, "h"), tk.IRPara("a")),
+			wantErr: nil,
+		},
+		{
+			name:    "header rejected, no marker",
+			input:   "header",
 			want:    tk.IRDoc(tk.IRPara("header")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, too many leading spaces",
-			lines: []Line{
-				{"    header"},
-			},
+			name:    "header rejected, too many leading spaces",
+			input:   "    header",
 			want:    tk.IRDoc(tk.IRPara("    header")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, missing delimiter",
-			lines: []Line{
-				{"#header"},
-			},
+			name:    "header rejected, missing delimiter",
+			input:   "#header",
 			want:    tk.IRDoc(tk.IRPara("#header")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, too many hashes",
-			lines: []Line{
-				{"####### header"},
-			},
+			name:    "header rejected, too many hashes",
+			input:   "####### header",
 			want:    tk.IRDoc(tk.IRPara("####### header")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, too many hashes after indent",
-			lines: []Line{
-				{"   ####### header"},
-			},
+			name:    "header rejected, too many hashes after indent",
+			input:   "   ####### header",
 			want:    tk.IRDoc(tk.IRPara("   ####### header")),
 			wantErr: nil,
 		},
 		{
-			name: "header rejected, valid marker but missing delimieter",
-			lines: []Line{
-				{"##"},
-			},
+			name:    "header rejected, valid marker but missing delimieter",
+			input:   "##",
 			want:    tk.IRDoc(tk.IRPara("##")),
 			wantErr: nil,
 		},
@@ -449,10 +357,18 @@ func TestBuild(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Build(tc.lines)
+			src := source.NewSource(tc.input)
 
-			assert.Equal(t, got, tc.want)
-			assert.Equal(t, err, tc.wantErr)
+			lines, err := Scan(src)
+			require.NoError(t, err)
+
+			got, err := Build(src, lines)
+
+			got = tk.NormalizeIR(got)
+			want := tk.NormalizeIR(tc.want)
+
+			assert.Equal(t, got, want)
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
 }

@@ -4,16 +4,19 @@ import (
 	"fmt"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 type Cursor struct {
+	Source *source.Source
 	Rules  []InlineRule
 	Events []Event
 	Index  int
 }
 
-func NewCursor(rules []InlineRule, events []Event) *Cursor {
+func NewCursor(src *source.Source, rules []InlineRule, events []Event) *Cursor {
 	return &Cursor{
+		Source: src,
 		Rules:  rules,
 		Events: events,
 		Index:  0,

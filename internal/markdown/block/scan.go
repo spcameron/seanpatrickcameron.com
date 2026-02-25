@@ -1,13 +1,18 @@
 package block
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+)
 
 const MaxValidIndentation = 3
 
-func Scan(input string) ([]Line, error) {
+func Scan(src *source.Source) ([]String, error) {
+	input := src.Raw
 	scanner := NewScanner(input)
 
-	lines := []Line{}
+	lines := []String{}
 	for {
 		line, ok := scanner.Next()
 		if !ok {
@@ -20,16 +25,17 @@ func Scan(input string) ([]Line, error) {
 	return lines, nil
 }
 
-type Line struct {
-	Text string
+type String struct {
+	Span source.ByteSpan
 }
 
-func (l Line) IsBlankLine() bool {
-	return strings.TrimSpace(l.Text) == ""
+func (l String) IsBlankLine(src *source.Source) bool {
+	s := src.Slice(l.Span)
+	return strings.TrimSpace(s) == ""
 }
 
-func (l Line) BlockIndent() (int, bool) {
-	s := l.Text
+func (l String) BlockIndent(src *source.Source) (int, bool) {
+	s := src.Slice(l.Span)
 
 	indent := 0
 	for indent < len(s) && s[indent] == ' ' {
@@ -43,8 +49,9 @@ func (l Line) BlockIndent() (int, bool) {
 }
 
 type Scanner struct {
-	Input    string
-	Position int
+	Input             string
+	Position          source.BytePos
+	pendingFinalEmpty bool
 }
 
 func NewScanner(input string) *Scanner {
@@ -55,38 +62,55 @@ func NewScanner(input string) *Scanner {
 }
 
 func (s *Scanner) EOF() bool {
-	return s.Position >= len(s.Input)
+	return int(s.Position) >= len(s.Input)
 }
 
-func (s *Scanner) Next() (Line, bool) {
+func (s *Scanner) Next() (String, bool) {
+	if s.pendingFinalEmpty {
+		s.pendingFinalEmpty = false
+
+		eof := source.BytePos(len(s.Input))
+		span := source.ByteSpan{
+			Start: eof,
+			End:   eof,
+		}
+
+		return String{
+			Span: span,
+		}, true
+	}
+
 	if s.EOF() {
-		return Line{}, false
+		return String{}, false
 	}
 
 	start := s.Position
-	for s.Position < len(s.Input) {
-		b := s.Input[s.Position]
-		if b == '\n' {
-			text := normalizeLineText(s.Input[start:s.Position])
+	for int(s.Position) < len(s.Input) {
+		i := int(s.Position)
+		if s.Input[i] == '\n' {
+			span := source.ByteSpan{
+				Start: start,
+				End:   s.Position,
+			}
 			s.Position++
 
-			if text == "" && s.EOF() && start == 0 {
-				return Line{}, false
+			if s.EOF() {
+				s.pendingFinalEmpty = true
 			}
 
-			return Line{
-				Text: text,
+			return String{
+				Span: span,
 			}, true
 		}
 		s.Position++
 	}
 
-	text := normalizeLineText(s.Input[start:s.Position])
-	return Line{
-		Text: text,
-	}, true
-}
+	span := source.ByteSpan{
+		Start: start,
+		End:   s.Position,
+	}
 
-func normalizeLineText(input string) string {
-	return strings.TrimRight(input, "\r")
+	return String{
+		Span: span,
+	}, true
 }
