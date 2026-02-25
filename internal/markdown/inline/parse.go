@@ -1,6 +1,9 @@
 package inline
 
-import "github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+import (
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+)
 
 func Parse(input string) ([]ast.Inline, error) {
 	stream, err := Scan(input)
@@ -14,4 +17,8 @@ func Parse(input string) ([]ast.Inline, error) {
 	}
 
 	return out, nil
+}
+
+func ParseAt(src *source.Source, span source.ByteSpan) ([]ast.Inline, error) {
+	return nil, nil
 }

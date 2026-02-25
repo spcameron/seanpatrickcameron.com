@@ -6,13 +6,6 @@ type Block interface {
 	isBlock()
 }
 
-type Document struct {
-	Source *source.Source
-	Blocks []Block
-}
-
-func (Document) isBlock() {}
-
 type Header struct {
 	Level int
 	// TODO: remove text field

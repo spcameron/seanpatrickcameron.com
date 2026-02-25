@@ -5,6 +5,7 @@ import (
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 func HTML(doc ast.Document) (html.Node, error) {
@@ -13,7 +14,7 @@ func HTML(doc ast.Document) (html.Node, error) {
 	}
 
 	for _, v := range doc.Blocks {
-		node, err := renderBlock(v)
+		node, err := renderBlock(doc.Source, v)
 		if err != nil {
 			return nil, err
 		}
@@ -24,12 +25,12 @@ func HTML(doc ast.Document) (html.Node, error) {
 	return rootNode, nil
 }
 
-func renderBlock(block ast.Block) (html.Node, error) {
+func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 	switch v := block.(type) {
 	case ast.Paragraph:
-		return renderParagraph(v)
+		return renderParagraph(src, v)
 	case ast.Header:
-		return renderHeader(v)
+		return renderHeader(src, v)
 	default:
 		return nil, fmt.Errorf("unrecognized block type: %T", block)
 	}
@@ -53,15 +54,15 @@ func appendChild(children []html.Node, child html.Node) []html.Node {
 	return append(children, child)
 }
 
-func renderHeader(v ast.Header) (html.Node, error) {
+func renderHeader(src *source.Source, h ast.Header) (html.Node, error) {
 	node := html.Element{
-		Tag:      fmt.Sprintf("h%d", v.Level),
+		Tag:      fmt.Sprintf("h%d", h.Level),
 		Attr:     html.Attributes{},
-		Children: make([]html.Node, 0, len(v.Inlines)),
+		Children: make([]html.Node, 0, len(h.Inlines)),
 	}
 
-	for _, inl := range v.Inlines {
-		child, err := renderInline(inl)
+	for _, inl := range h.Inlines {
+		child, err := renderInline(src, inl)
 		if err != nil {
 			return nil, err
 		}
@@ -72,15 +73,15 @@ func renderHeader(v ast.Header) (html.Node, error) {
 	return node, nil
 }
 
-func renderParagraph(v ast.Paragraph) (html.Node, error) {
+func renderParagraph(src *source.Source, p ast.Paragraph) (html.Node, error) {
 	node := html.Element{
 		Tag:      "p",
 		Attr:     html.Attributes{},
-		Children: make([]html.Node, 0, len(v.Inlines)),
+		Children: make([]html.Node, 0, len(p.Inlines)),
 	}
 
-	for _, inl := range v.Inlines {
-		child, err := renderInline(inl)
+	for _, inl := range p.Inlines {
+		child, err := renderInline(src, inl)
 		if err != nil {
 			return nil, err
 		}
@@ -91,22 +92,22 @@ func renderParagraph(v ast.Paragraph) (html.Node, error) {
 	return node, nil
 }
 
-func renderInline(inline ast.Inline) (html.Node, error) {
-	switch v := inline.(type) {
+func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
+	switch v := inl.(type) {
 	case ast.Text:
-		return renderText(v)
+		return renderText(src, v)
 	case ast.SoftBreak:
 		return renderSoftBreak(v)
 	case ast.HardBreak:
 		return renderHardBreak(v)
 	default:
-		return nil, fmt.Errorf("unrecognized inline type: %T", inline)
+		return nil, fmt.Errorf("unrecognized inline type: %T", inl)
 	}
 }
 
-func renderText(v ast.Text) (html.Node, error) {
+func renderText(src *source.Source, t ast.Text) (html.Node, error) {
 	node := html.Text{
-		Value: v.Value,
+		Value: src.Slice(t.Span),
 	}
 
 	return node, nil

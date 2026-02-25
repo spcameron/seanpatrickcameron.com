@@ -1,6 +1,10 @@
 package inline
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+)
 
 type EventKind int
 
@@ -30,7 +34,7 @@ func Scan(input string) ([]Event, error) {
 type Event struct {
 	Kind     EventKind
 	Lexeme   string
-	Position int
+	Position source.BytePos
 }
 
 type Scanner struct {

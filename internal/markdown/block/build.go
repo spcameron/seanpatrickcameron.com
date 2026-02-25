@@ -15,7 +15,7 @@ var (
 )
 
 func Build(src *source.Source, lines []String) (ir.Document, error) {
-	doc := ir.Document{
+	irDoc := ir.Document{
 		Source: src,
 		Blocks: []ir.Block{},
 	}
@@ -46,7 +46,7 @@ func Build(src *source.Source, lines []String) (ir.Document, error) {
 			}
 
 			matched = true
-			doc.Blocks = append(doc.Blocks, applied)
+			irDoc.Blocks = append(irDoc.Blocks, applied)
 			break
 		}
 
@@ -56,5 +56,5 @@ func Build(src *source.Source, lines []String) (ir.Document, error) {
 
 	}
 
-	return doc, nil
+	return irDoc, nil
 }
