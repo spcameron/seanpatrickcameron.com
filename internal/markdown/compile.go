@@ -5,24 +5,13 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/build"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/render"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-func CompileAndRender(md string) (string, error) {
-	htmlTree, err := Compile(md)
-	if err != nil {
-		return "", err
-	}
-
-	htmlOutput, err := html.Render(htmlTree)
-	if err != nil {
-		return "", err
-	}
-
-	return htmlOutput, nil
-}
-
 func Compile(md string) (html.Node, error) {
-	irDoc, err := block.Parse(md)
+	src := source.NewSource(md)
+
+	irDoc, err := block.Parse(src)
 	if err != nil {
 		return nil, err
 	}
@@ -38,4 +27,18 @@ func Compile(md string) (html.Node, error) {
 	}
 
 	return htmlTree, nil
+}
+
+func CompileAndRender(md string) (string, error) {
+	htmlTree, err := Compile(md)
+	if err != nil {
+		return "", err
+	}
+
+	htmlOutput, err := html.Render(htmlTree)
+	if err != nil {
+		return "", err
+	}
+
+	return htmlOutput, nil
 }

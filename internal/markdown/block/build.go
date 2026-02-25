@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 var (
@@ -13,15 +14,18 @@ var (
 	ErrNoRuleMatched         = errors.New("no build rule could be applied")
 )
 
-func Build(lines []Line) (ir.Document, error) {
-	doc := ir.Document{}
+func Build(src *source.Source, lines []String) (ir.Document, error) {
+	doc := ir.Document{
+		Source: src,
+		Blocks: []ir.Block{},
+	}
 
 	rules := []BuildRule{
 		HeaderRule{},
 		ParagraphRule{},
 	}
 
-	c := NewCursor(rules, lines)
+	c := NewCursor(src, rules, lines)
 
 	for {
 		c.SkipBlankLines()

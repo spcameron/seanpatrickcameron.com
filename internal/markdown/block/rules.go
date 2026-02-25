@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 type BuildRule interface {
@@ -17,17 +18,17 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	if !ok {
 		return nil, false, nil
 	}
-	if line.IsBlankLine() {
+	if line.IsBlankLine(c.Source) {
 		return nil, false, nil
 	}
 
 	// count the leading spaces, reject if more than 3
-	offset, ok := line.BlockIndent()
+	offset, ok := line.BlockIndent(c.Source)
 	if !ok {
 		return nil, false, nil
 	}
 
-	s := line.Text
+	s := c.Source.Slice(line.Span)
 	pos := offset
 	level := 0
 
@@ -58,20 +59,24 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 	// trim trailing spaces and tabs
 	content := strings.TrimRight(s[pos:], " \t")
+	contentStart := line.Span.Start + source.BytePos(pos)
+	contentEnd := contentStart + source.BytePos(len(content))
 
-	start := c.Index
-	line, _ = c.Next()
-	end := c.Index
+	span := line.Span
 
-	span := ir.LineSpan{
-		Start: start,
-		End:   end,
+	line, ok = c.Next()
+	if !ok {
+		return nil, false, nil
 	}
 
 	applied := ir.Header{
 		Level: level,
 		Text:  content,
 		Span:  span,
+		ContentSpan: source.ByteSpan{
+			Start: contentStart,
+			End:   contentEnd,
+		},
 	}
 
 	return applied, true, nil
@@ -90,22 +95,27 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	if !ok {
 		return nil, false, nil
 	}
-	if line.IsBlankLine() {
+	if line.IsBlankLine(c.Source) {
 		return nil, false, nil
 	}
 
-	var s []string
-	start := c.Index
+	var parts []string
+	var spans []source.ByteSpan
 
-	line, _ = c.Next()
-	s = append(s, line.Text)
+	line, ok = c.Next()
+	if !ok {
+		return nil, false, nil
+	}
+
+	spans = append(spans, line.Span)
+	parts = append(parts, c.Source.Slice(line.Span))
 
 	for {
 		line, ok := c.Peek()
 		if !ok {
 			break
 		}
-		if line.IsBlankLine() {
+		if line.IsBlankLine(c.Source) {
 			break
 		}
 
@@ -117,22 +127,25 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			break
 		}
 
-		line, _ = c.Next()
-		s = append(s, line.Text)
+		line, ok = c.Next()
+		if !ok {
+			return nil, false, nil
+		}
+
+		spans = append(spans, line.Span)
+		parts = append(parts, c.Source.Slice(line.Span))
 	}
 
-	end := c.Index
-
-	span := ir.LineSpan{
-		Start: start,
-		End:   end,
+	content := strings.Join(parts, "\n")
+	span := source.ByteSpan{
+		Start: spans[0].Start,
+		End:   spans[len(spans)-1].End,
 	}
-
-	content := strings.Join(s, "\n")
 
 	applied := ir.Paragraph{
-		Text: content,
-		Span: span,
+		Text:  content,
+		Lines: spans,
+		Span:  span,
 	}
 
 	return applied, true, nil

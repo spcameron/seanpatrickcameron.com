@@ -4,33 +4,36 @@ import (
 	"fmt"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 type Cursor struct {
-	Rules []BuildRule
-	Lines []Line
-	Index int
+	Source *source.Source
+	Rules  []BuildRule
+	Lines  []String
+	Index  int
 }
 
-func NewCursor(rules []BuildRule, lines []Line) *Cursor {
+func NewCursor(src *source.Source, rules []BuildRule, lines []String) *Cursor {
 	return &Cursor{
-		Rules: rules,
-		Lines: lines,
-		Index: 0,
+		Source: src,
+		Rules:  rules,
+		Lines:  lines,
+		Index:  0,
 	}
 }
 
-func (c *Cursor) Peek() (Line, bool) {
+func (c *Cursor) Peek() (String, bool) {
 	if c.EOF() {
-		return Line{}, false
+		return String{}, false
 	}
 
 	return c.Lines[c.Index], true
 }
 
-func (c *Cursor) Next() (Line, bool) {
+func (c *Cursor) Next() (String, bool) {
 	if c.EOF() {
-		return Line{}, false
+		return String{}, false
 	}
 
 	out := c.Lines[c.Index]
@@ -56,7 +59,7 @@ func (c *Cursor) SkipBlankLines() {
 		if !ok {
 			return
 		}
-		if !line.IsBlankLine() {
+		if !line.IsBlankLine(c.Source) {
 			return
 		}
 

@@ -2,7 +2,6 @@ package inline
 
 import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 )
 
 type InlineRule interface {
@@ -23,10 +22,10 @@ func (r TextRule) Apply(c *Cursor) (ast.Inline, bool, error) {
 	event, _ = c.Next()
 
 	// NOTE: span preserved for inclusion in AST later
-	_ = ir.ByteSpan{
-		Start: event.Position,
-		End:   event.Position + len(event.Lexeme),
-	}
+	// _ = ir.ByteSpan{
+	// 	Start: event.Position,
+	// 	End:   event.Position + len(event.Lexeme),
+	// }
 
 	applied := ast.Text{
 		Value: event.Lexeme,
