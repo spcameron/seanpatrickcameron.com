@@ -8,7 +8,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-func Compile(md string) (html.Node, error) {
+func Tree(md string) (html.Node, error) {
 	src := source.NewSource(md)
 
 	irDoc, err := block.Parse(src)
@@ -21,24 +21,24 @@ func Compile(md string) (html.Node, error) {
 		return nil, err
 	}
 
-	htmlTree, err := codegen.HTML(astDoc)
+	tree, err := codegen.HTML(astDoc)
 	if err != nil {
 		return nil, err
 	}
 
-	return htmlTree, nil
+	return tree, nil
 }
 
-func CompileAndRender(md string) (string, error) {
-	htmlTree, err := Compile(md)
+func HTML(md string) (string, error) {
+	tree, err := Tree(md)
 	if err != nil {
 		return "", err
 	}
 
-	htmlOutput, err := html.Render(htmlTree)
+	htmlStr, err := html.Render(tree)
 	if err != nil {
 		return "", err
 	}
 
-	return htmlOutput, nil
+	return htmlStr, nil
 }

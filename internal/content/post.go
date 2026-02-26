@@ -57,7 +57,7 @@ func ParsePost(path string) (Post, error) {
 		return Post{}, err
 	}
 
-	md, err := markdown.Compile(string(mdBytes))
+	md, err := markdown.Tree(string(mdBytes))
 	if err != nil {
 		return Post{}, err
 	}
