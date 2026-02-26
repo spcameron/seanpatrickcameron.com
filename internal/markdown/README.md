@@ -57,10 +57,8 @@ Only the HTML layer operates on concrete strings.
 
 ## Entry Points
 
-- `CompileAndRender(md string) (string, error)`
-    Executes the full pipeline and returns serialized HTML. 
-- `Compile(md string) (html.Node, error)`
-    Returns the HTML node tree (useful for templ integration or further processing).
+- `HTML(md string) (string, error)`: Executes the full pipeline and returns serialized HTML. 
+- `Tree(md string) (html.Node, error)`: Returns the HTML node tree (useful for templ integration or further processing).
 
 ## Architectural Decisions
 
