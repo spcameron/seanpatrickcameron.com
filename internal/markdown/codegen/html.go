@@ -27,10 +27,12 @@ func HTML(doc ast.Document) (html.Node, error) {
 
 func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 	switch v := block.(type) {
-	case ast.Paragraph:
-		return renderParagraph(src, v)
 	case ast.Header:
 		return renderHeader(src, v)
+	case ast.ThematicBreak:
+		return renderThematicBreak()
+	case ast.Paragraph:
+		return renderParagraph(src, v)
 	default:
 		return nil, fmt.Errorf("unrecognized block type: %T", block)
 	}
@@ -68,6 +70,15 @@ func renderHeader(src *source.Source, h ast.Header) (html.Node, error) {
 		}
 
 		node.Children = appendChild(node.Children, child)
+	}
+
+	return node, nil
+}
+
+func renderThematicBreak() (html.Node, error) {
+	node := html.VoidElement{
+		Tag:  "hr",
+		Attr: html.Attributes{},
 	}
 
 	return node, nil

@@ -14,6 +14,12 @@ type Header struct {
 
 func (Header) isBlock() {}
 
+type ThematicBreak struct {
+	Span source.ByteSpan
+}
+
+func (ThematicBreak) isBlock() {}
+
 type Paragraph struct {
 	Span  source.ByteSpan
 	Lines []source.ByteSpan

@@ -14,7 +14,7 @@ var (
 	ErrNoRuleMatched         = errors.New("no build rule could be applied")
 )
 
-func Build(src *source.Source, lines []String) (ir.Document, error) {
+func Build(src *source.Source, lines []Line) (ir.Document, error) {
 	irDoc := ir.Document{
 		Source: src,
 		Blocks: []ir.Block{},
@@ -22,6 +22,7 @@ func Build(src *source.Source, lines []String) (ir.Document, error) {
 
 	rules := []BuildRule{
 		HeaderRule{},
+		ThematicBreakRule{},
 		ParagraphRule{},
 	}
 

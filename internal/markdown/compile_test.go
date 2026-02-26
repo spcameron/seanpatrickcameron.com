@@ -75,6 +75,12 @@ func TestCompile(t *testing.T) {
 			html:    `<p>a</p><h1>h</h1>`,
 			wantErr: nil,
 		},
+		{
+			name:    "thematic break",
+			md:      "---",
+			html:    "<hr>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

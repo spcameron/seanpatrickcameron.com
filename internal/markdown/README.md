@@ -57,10 +57,8 @@ Only the HTML layer operates on concrete strings.
 
 ## Entry Points
 
-- `CompileAndRender(md string) (string, error)`
-    Executes the full pipeline and returns serialized HTML. 
-- `Compile(md string) (html.Node, error)`
-    Returns the HTML node tree (useful for templ integration or further processing).
+- `HTML(md string) (string, error)`: Executes the full pipeline and returns serialized HTML. 
+- `Tree(md string) (html.Node, error)`: Returns the HTML node tree (useful for templ integration or further processing).
 
 ## Architectural Decisions
 
@@ -86,21 +84,44 @@ Scanners are mechanical, meaning they do *not* interpret structure or create sem
 
 ## Markdown Rules (CommonMark-ish)
 
-### ATX Headers (`#`)
+### Block Elements
+
+#### ATX Headers (`#`)
+
+A header is a block used to create titles, subtitles, or otherwise structure content.
 
 A line is recognized as a header if and only if the following is true:
+
 - **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
-- **Marker run**: After leading spaces, there is a run of 1-6 `#` characters.
+- **Marker Run**: After leading spaces, there is a run of 1-6 `#` characters.
 - **Delimiter**: The marker run is followed by at least one delimiter character: space or tab.
 - **Content**: Header content is defined as the rest of the line after consuming all consecutive spaces or tabs following the marker run.
 - **Normalization**: Trailing whitespace is trimmed from the content.
 - **Termination**: The header is a single line. A newline ends it.
 
-Header IR stores:
-- The full line span
-- The content span (excluding marker and trimmed whitespace)
+The Header IR node stores both the full line span and the content span (excludes marker and trimmed whitespace).
 
-### Paragraphs
+Headers are rendered as `<h1></h1>` ... `<h6></h6>` in HTML.
+
+#### Thematic Breaks
+
+A thematic break is a leaf block representing a horizontal rule.
+
+A line is recognized as a thematic break if all of the following are true:
+
+- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Marker Character**: The first non-indent character is one of `-` `*` or `_`.
+- **Marker Count**: The line contains at least three marker characters, and all marker characters must be identical.
+- **Separator Rules**: Marker characters may be separated by any number of spaces or tabs, but no other characters are permitted.
+- **Line Purity**: Aside from indentation and optional inter-marker whitespace, the line must contain only the chosen marker. Trailing whitespace is permitted.
+
+A thematic break consumes exactly one line, and may interrupt paragraphs. Setext heading underlines are not supported, so `---` is always interpreted as a thematic break when it satisfies the rules above.
+
+Breaks are rendered as `<hr>` in HTML.
+
+### Inline Elements
+
+#### Paragraphs
 
 A paragraph consists of one or more consecutive non-blank lines that do not begin another block construct.
 
@@ -113,6 +134,8 @@ Lowering inserts break semantics:
 - Otherwise, inter-line boundaries produce `SoftBreak`
 
 Breaks are represented explicitly in the AST.
+
+A paragraph is rendered as `<p></p>`, and a break is rendered as `<br>` in HTML.
 
 ## Diagnostics
 
@@ -129,6 +152,7 @@ Diagnostics may be emitted during:
 - Code generation
 
 Example diagnostic output:
+
 ```
 invalid header delimiter at 3:7
   |
@@ -159,4 +183,4 @@ The design mirrors conventional compiler structure:
 - Explicit lowering
 - Target-language code generation
 
-The system remains mechanically predicatble and extensible while preserving precise coordinate semantics throughout.
+The system remains mechanically predictable and extensible while preserving precise coordinate semantics throughout.

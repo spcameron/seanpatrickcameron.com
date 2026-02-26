@@ -21,6 +21,12 @@ func ASTHeader(level int, inlines ...ast.Inline) ast.Header {
 	}
 }
 
+func ASTThematicBreak() ast.ThematicBreak {
+	return ast.ThematicBreak{
+		Span: source.ByteSpan{},
+	}
+}
+
 func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 	return ast.Paragraph{
 		Span:    source.ByteSpan{},
@@ -64,6 +70,9 @@ func NormalizeASTBlock(b ast.Block) ast.Block {
 	case ast.Header:
 		v.Span = source.ByteSpan{}
 		v.Inlines = NormalizeASTInlines(v.Inlines)
+		return v
+	case ast.ThematicBreak:
+		v.Span = source.ByteSpan{}
 		return v
 	case ast.Paragraph:
 		v.Span = source.ByteSpan{}
