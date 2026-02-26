@@ -1,11 +1,14 @@
 package block
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
+
+const MaxValidIndentation = 3
 
 type BuildRule interface {
 	Apply(c *Cursor) (ir.Block, bool, error)
@@ -23,8 +26,8 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	// count the leading spaces, reject if more than 3
-	offset, ok := line.BlockIndent(c.Source)
-	if !ok {
+	offset := line.BlockIndentSpaces(c.Source)
+	if offset > MaxValidIndentation {
 		return nil, false, nil
 	}
 
@@ -79,6 +82,65 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	return applied, true, nil
+}
+
+type ThematicBreakRule struct{}
+
+func (r ThematicBreakRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	line, ok := c.Peek()
+	if !ok {
+		return nil, false, nil
+	}
+	if line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading spaces, reject if more than 3
+	offset := line.BlockIndentSpaces(c.Source)
+	if offset > MaxValidIndentation {
+		return nil, false, nil
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := offset
+
+	// validate the first marker character
+	validMarkers := []byte{'-', '*', '_'}
+	if pos >= len(s) || !bytes.Contains(validMarkers, []byte{s[pos]}) {
+		return nil, false, nil
+	}
+
+	markerChar := s[pos]
+	markerCount := 0
+
+	// count the marker run, skipping whitespace and rejecting mixed markers
+	for pos < len(s) {
+		b := s[pos]
+		if b == ' ' || b == '\t' {
+			pos++
+			continue
+		}
+		if b != markerChar {
+			return nil, false, nil
+		}
+
+		pos++
+		markerCount++
+	}
+
+	span := line.Span
+
+	line, ok = c.Next()
+	if !ok {
+		return nil, false, nil
+	}
+
+	applied := ir.ThematicBreak{
+		Span: span,
+	}
+
+	return applied, true, nil
+
 }
 
 type ParagraphRuleMarker interface {

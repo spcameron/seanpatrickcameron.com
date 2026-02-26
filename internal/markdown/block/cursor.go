@@ -10,11 +10,11 @@ import (
 type Cursor struct {
 	Source *source.Source
 	Rules  []BuildRule
-	Lines  []String
+	Lines  []Line
 	Index  int
 }
 
-func NewCursor(src *source.Source, rules []BuildRule, lines []String) *Cursor {
+func NewCursor(src *source.Source, rules []BuildRule, lines []Line) *Cursor {
 	return &Cursor{
 		Source: src,
 		Rules:  rules,
@@ -23,17 +23,17 @@ func NewCursor(src *source.Source, rules []BuildRule, lines []String) *Cursor {
 	}
 }
 
-func (c *Cursor) Peek() (String, bool) {
+func (c *Cursor) Peek() (Line, bool) {
 	if c.EOF() {
-		return String{}, false
+		return Line{}, false
 	}
 
 	return c.Lines[c.Index], true
 }
 
-func (c *Cursor) Next() (String, bool) {
+func (c *Cursor) Next() (Line, bool) {
 	if c.EOF() {
-		return String{}, false
+		return Line{}, false
 	}
 
 	out := c.Lines[c.Index]

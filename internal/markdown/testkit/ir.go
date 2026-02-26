@@ -19,6 +19,12 @@ func IRHeader(level int, input ...string) ir.Header {
 	}
 }
 
+func IRThematicBreak() ir.ThematicBreak {
+	return ir.ThematicBreak{
+		Span: source.ByteSpan{},
+	}
+}
+
 func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
@@ -39,6 +45,9 @@ func NormalizeIR(doc ir.Document) ir.Document {
 		case ir.Header:
 			b.Span = source.ByteSpan{}
 			b.ContentSpan = source.ByteSpan{}
+			doc.Blocks[i] = b
+		case ir.ThematicBreak:
+			b.Span = source.ByteSpan{}
 			doc.Blocks[i] = b
 		case ir.Paragraph:
 			if b.Lines == nil {

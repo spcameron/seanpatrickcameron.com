@@ -6,13 +6,11 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-const MaxValidIndentation = 3
-
-func Scan(src *source.Source) ([]String, error) {
+func Scan(src *source.Source) ([]Line, error) {
 	input := src.Raw
 	scanner := NewScanner(input)
 
-	lines := []String{}
+	lines := []Line{}
 	for {
 		line, ok := scanner.Next()
 		if !ok {
@@ -25,27 +23,24 @@ func Scan(src *source.Source) ([]String, error) {
 	return lines, nil
 }
 
-type String struct {
+type Line struct {
 	Span source.ByteSpan
 }
 
-func (l String) IsBlankLine(src *source.Source) bool {
+func (l Line) IsBlankLine(src *source.Source) bool {
 	s := src.Slice(l.Span)
 	return strings.TrimSpace(s) == ""
 }
 
-func (l String) BlockIndent(src *source.Source) (int, bool) {
+func (l Line) BlockIndentSpaces(src *source.Source) int {
 	s := src.Slice(l.Span)
 
 	indent := 0
 	for indent < len(s) && s[indent] == ' ' {
 		indent++
-		if indent > MaxValidIndentation {
-			return 0, false
-		}
 	}
 
-	return indent, true
+	return indent
 }
 
 type Scanner struct {
@@ -65,7 +60,7 @@ func (s *Scanner) EOF() bool {
 	return int(s.Position) >= len(s.Input)
 }
 
-func (s *Scanner) Next() (String, bool) {
+func (s *Scanner) Next() (Line, bool) {
 	if s.pendingFinalEmpty {
 		s.pendingFinalEmpty = false
 
@@ -75,13 +70,13 @@ func (s *Scanner) Next() (String, bool) {
 			End:   eof,
 		}
 
-		return String{
+		return Line{
 			Span: span,
 		}, true
 	}
 
 	if s.EOF() {
-		return String{}, false
+		return Line{}, false
 	}
 
 	start := s.Position
@@ -98,7 +93,7 @@ func (s *Scanner) Next() (String, bool) {
 				s.pendingFinalEmpty = true
 			}
 
-			return String{
+			return Line{
 				Span: span,
 			}, true
 		}
@@ -110,7 +105,7 @@ func (s *Scanner) Next() (String, bool) {
 		End:   s.Position,
 	}
 
-	return String{
+	return Line{
 		Span: span,
 	}, true
 }

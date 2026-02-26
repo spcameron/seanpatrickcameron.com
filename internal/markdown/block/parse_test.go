@@ -353,6 +353,66 @@ func TestBuild(t *testing.T) {
 			want:    tk.IRDoc(tk.IRPara("##")),
 			wantErr: nil,
 		},
+		{
+			name:    "thematic break (---)",
+			input:   "---",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break (***)",
+			input:   "***",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break (___)",
+			input:   "___",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break, leading whitespace",
+			input:   "   ---",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break, inter-marker whitespace",
+			input:   "- \t - \t -",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break, trailing whitespace",
+			input:   "---   ",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break, more than three identical markers",
+			input:   "-----------------------",
+			want:    tk.IRDoc(tk.IRThematicBreak()),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break rejected, too many leading spaces",
+			input:   "    ---",
+			want:    tk.IRDoc(tk.IRPara("    ---")),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break rejected, tabs in leading whitespace",
+			input:   "\t---",
+			want:    tk.IRDoc(tk.IRPara("\t---")),
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break rejected, mixed marker characters",
+			input:   "-*-",
+			want:    tk.IRDoc(tk.IRPara("-*-")),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

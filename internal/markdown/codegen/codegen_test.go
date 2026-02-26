@@ -83,6 +83,14 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "thematic break",
+			input: "---",
+			htmlNode: html.FragmentNode(
+				html.VoidNode("hr", nil),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

@@ -40,6 +40,12 @@ func TestLowerDocument(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:    "thematic break",
+			input:   "---",
+			astDoc:  tk.ASTDoc(tk.ASTThematicBreak()),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
