@@ -79,7 +79,7 @@ func TestCompile(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := markdown.CompileAndRender(tc.md)
+			got, err := markdown.HTML(tc.md)
 
 			assert.Equal(t, got, tc.html)
 			assert.ErrorIs(t, err, tc.wantErr)

@@ -43,6 +43,34 @@ func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	return idx, col
 }
 
+func (src *Source) LineSpan(line int) ByteSpan {
+	if len(src.LineStarts) == 0 {
+		eof := src.EOF()
+		return ByteSpan{
+			Start: eof,
+			End:   eof,
+		}
+	}
+
+	line = max(0, line)
+	line = min(line, len(src.LineStarts)-1)
+
+	start := src.LineStarts[line]
+	end := src.EOF()
+
+	if next := line + 1; next < len(src.LineStarts) {
+		end = src.LineStarts[next] - 1
+	}
+
+	end = max(start, end)
+	end = min(end, src.EOF())
+
+	return ByteSpan{
+		Start: start,
+		End:   end,
+	}
+}
+
 func (src *Source) validateSpan(span ByteSpan) bool {
 	if 0 <= span.Start &&
 		span.Start <= span.End &&
