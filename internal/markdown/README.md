@@ -86,11 +86,15 @@ Scanners are mechanical, meaning they do *not* interpret structure or create sem
 
 ## Markdown Rules (CommonMark-ish)
 
-### ATX Headers (`#`)
+### Block Elements
+
+#### ATX Headers (`#`)
+
+A header is a block used to create titles, subtitles, or otherwise structure content.
 
 A line is recognized as a header if and only if the following is true:
 - **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
-- **Marker run**: After leading spaces, there is a run of 1-6 `#` characters.
+- **Marker Run**: After leading spaces, there is a run of 1-6 `#` characters.
 - **Delimiter**: The marker run is followed by at least one delimiter character: space or tab.
 - **Content**: Header content is defined as the rest of the line after consuming all consecutive spaces or tabs following the marker run.
 - **Normalization**: Trailing whitespace is trimmed from the content.
@@ -100,7 +104,26 @@ Header IR stores:
 - The full line span
 - The content span (excluding marker and trimmed whitespace)
 
-### Paragraphs
+Headers are rendered as `<h1></h1>` ... `<h6></h6>` in HTML.
+
+#### Thematic Breaks
+
+A thematic break is a leaf block representing a horizontal rule.
+
+A line is recognized as a thematic break if all of the following are true:
+- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Marker Character**: The first non-indent character is one of `-` `*` or `_`.
+- **Marker Count**: The line contains at least three marker characters, and all marker characters must be identical.
+- **Separator Rules**: Marker characters may be separated by any number of spaces or tabs, but no other characters are permitted.
+- **Line Purity**: Aside from indentation and optional inter-marker whitespace, the line must contain only the chosen marker.
+
+A thematic break consumes exactly one line, and may interrupt paragraphs. Setext heading underliens are not supported, so `---` is always interpreted as a thematic break when it satisfies the rules above.
+
+Breaks are rendered as `<hr>` in HTML.
+
+### Inline Elements
+
+#### Paragraphs
 
 A paragraph consists of one or more consecutive non-blank lines that do not begin another block construct.
 
@@ -113,6 +136,8 @@ Lowering inserts break semantics:
 - Otherwise, inter-line boundaries produce `SoftBreak`
 
 Breaks are represented explicitly in the AST.
+
+A paragraph is rendered as `<p></p>`, and a break is rendered as `<br>` in HTML.
 
 ## Diagnostics
 
