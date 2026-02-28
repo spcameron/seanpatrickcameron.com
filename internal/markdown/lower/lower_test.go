@@ -20,15 +20,19 @@ func TestLowerDocument(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "paragraph with normal text",
-			input:   "paragraph",
-			astDoc:  tk.ASTDoc(tk.ASTPara(tk.ASTText())),
+			name:  "paragraph with normal text",
+			input: "paragraph",
+			astDoc: tk.ASTDoc(
+				tk.ASTPara(tk.ASTText()),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header with normal text",
-			input:   "# header",
-			astDoc:  tk.ASTDoc(tk.ASTHeader(1, tk.ASTText())),
+			name:  "header with normal text",
+			input: "# header",
+			astDoc: tk.ASTDoc(
+				tk.ASTHeader(1, tk.ASTText()),
+			),
 			wantErr: nil,
 		},
 		{
@@ -41,9 +45,21 @@ func TestLowerDocument(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break",
-			input:   "---",
-			astDoc:  tk.ASTDoc(tk.ASTThematicBreak()),
+			name:  "thematic break",
+			input: "---",
+			astDoc: tk.ASTDoc(
+				tk.ASTThematicBreak(),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, plain text",
+			input: "> quote",
+			astDoc: tk.ASTDoc(
+				tk.ASTBlockQuote(
+					tk.ASTPara(tk.ASTText()),
+				),
+			),
 			wantErr: nil,
 		},
 	}

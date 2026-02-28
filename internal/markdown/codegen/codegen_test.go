@@ -91,6 +91,22 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "block quote, plain text",
+			input: "> quote",
+			htmlNode: html.FragmentNode(
+				html.ElemNode(
+					"blockquote",
+					nil,
+					html.ElemNode(
+						"p",
+						nil,
+						html.TextNode("quote"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

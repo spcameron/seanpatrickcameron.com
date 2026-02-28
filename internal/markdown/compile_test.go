@@ -81,6 +81,12 @@ func TestCompile(t *testing.T) {
 			html:    "<hr>",
 			wantErr: nil,
 		},
+		{
+			name:    "block quote, plain text",
+			md:      "> quote",
+			html:    "<blockquote><p>quote</p></blockquote>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

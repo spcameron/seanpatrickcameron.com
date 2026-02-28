@@ -40,7 +40,7 @@ type ThematicBreak struct {
 func (ThematicBreak) isBlock() {}
 
 func (tb ThematicBreak) String() string {
-	return fmt.Sprint("[ThematicBreak]")
+	return "[ThematicBreak]"
 }
 
 type Paragraph struct {

@@ -13,6 +13,13 @@ func ASTDoc(blocks ...ast.Block) ast.Document {
 	}
 }
 
+func ASTBlockQuote(children ...ast.Block) ast.BlockQuote {
+	return ast.BlockQuote{
+		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
+
 func ASTHeader(level int, inlines ...ast.Inline) ast.Header {
 	return ast.Header{
 		Span:    source.ByteSpan{},
@@ -67,6 +74,13 @@ func NormalizeAST(doc ast.Document) ast.Document {
 
 func NormalizeASTBlock(b ast.Block) ast.Block {
 	switch v := b.(type) {
+	case ast.BlockQuote:
+		v.Span = source.ByteSpan{}
+		for i := range v.Children {
+			block := v.Children[i]
+			v.Children[i] = NormalizeASTBlock(block)
+		}
+		return v
 	case ast.Header:
 		v.Span = source.ByteSpan{}
 		v.Inlines = NormalizeASTInlines(v.Inlines)
