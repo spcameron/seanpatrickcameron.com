@@ -44,14 +44,10 @@ This guarantees a single source of truth for content, stable byte-coordinate sem
 
 ### Representation Boundaries
 
-- `source.Source`
-    Immutable input buffer with span utilities and line/column mapping.
-- `ir.Document`
-    Block-level intermediate representation. Structual only and span-based.
-- `ast.Document`
-    Semantic tree suitable for code generation. Span-based.
-- `html.Node`
-    Target-language representation (HTML tree). String-backed.
+- `source.Source`: Immutable input buffer with span utilities and line/column mapping.
+- `ir.Document`: Block-level intermediate representation. Structual only and span-based.
+- `ast.Document`: Semantic tree suitable for code generation. Span-based.
+- `html.Node`: Target-language representation (HTML tree). String-backed.
 
 Only the HTML layer operates on concrete strings.
 
@@ -103,7 +99,7 @@ The Header IR node stores both the full line span and the content span (excludes
 
 Headers are rendered as `<h1></h1>` ... `<h6></h6>` in HTML.
 
-#### Thematic Breaks
+#### Thematic Breaks (`---`, `***`, `___`)
 
 A thematic break is a leaf block representing a horizontal rule.
 
@@ -118,6 +114,29 @@ A line is recognized as a thematic break if all of the following are true:
 A thematic break consumes exactly one line, and may interrupt paragraphs. Setext heading underlines are not supported, so `---` is always interpreted as a thematic break when it satisfies the rules above.
 
 Breaks are rendered as `<hr>` in HTML.
+
+#### Block Quotes (`>`)
+
+A block quote is a container block used to quote or otherwise offset content. Block quotes may contain any other block elements supported by the compiler, including paragraphs, headers, thematic breaks, lists, and other (nested) block quotes.
+
+A line is recognized as a part of a block quote if and only if the following is true:
+
+- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Marker Unit**: After indentation, the line contains at least one quote marker unit. A quote marker unit is:
+    - a single `>` character, followed by
+    - an optional single delimiter character, space or tab.
+- **Marker Run**: The quote marker run is one or more consecutive quote marker units. The nesting depth of the line is the number of `>` characters consumer by the marker run.
+- **Content**: Quote line content is defined as the remainder of the line after consuming indentation and the full marker run.
+- **Whitespace Preservation**: Only one delimiter character (space or tab) may be consumed after each `>` marker. Any additional spaces or tabs are preserved as contnet. Tabs are not expanded.
+
+A block quote consists of a maximal contiguous sequence of quote-eligible lines. Lazy continuation is not supported; every physical line in a block quote must bear a leading `>` marker.
+
+Blank lines inside a block quote must also include a `>` marker. Such lines are treated as blank lines within the quoted content and may separate paragraphs or other blocks.
+
+Multiple consecutive `>` markers indicate nested block quotes. Each nesting layer is parsed by stripping exactly one leading `>` marker (and optional delimiter) from each line in the block and recursively invoking block parsing on the resulting content. This process yields structurally nested `BlockQuote` nodes in the IR.
+
+Block quotes are rendered as `<blockquote>...</blockquote>` in HTML.
+
 
 ### Inline Elements
 

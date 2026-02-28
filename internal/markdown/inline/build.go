@@ -17,10 +17,7 @@ var (
 func Build(src *source.Source, events []Event) ([]ast.Inline, error) {
 	inl := []ast.Inline{}
 
-	rules := []InlineRule{
-		IllegalEventRule{},
-		TextRule{},
-	}
+	rules := defaultRules()
 
 	c := NewCursor(src, rules, events)
 
@@ -51,4 +48,11 @@ func Build(src *source.Source, events []Event) ([]ast.Inline, error) {
 	}
 
 	return inl, nil
+}
+
+func defaultRules() []InlineRule {
+	return []InlineRule{
+		IllegalEventRule{},
+		TextRule{},
+	}
 }

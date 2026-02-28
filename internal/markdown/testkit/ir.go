@@ -11,6 +11,13 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 	}
 }
 
+func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
+	return ir.BlockQuote{
+		Children: children,
+		Span:     source.ByteSpan{},
+	}
+}
+
 func IRHeader(level int, input ...string) ir.Header {
 	return ir.Header{
 		Level:       level,
@@ -40,15 +47,28 @@ func NormalizeIR(doc ir.Document) ir.Document {
 		doc.Blocks = []ir.Block{}
 	}
 
-	for i := range doc.Blocks {
-		switch b := doc.Blocks[i].(type) {
+	doc.Blocks = normalizeBlocks(doc.Blocks)
+
+	return doc
+}
+
+func normalizeBlocks(blocks []ir.Block) []ir.Block {
+	for i := range blocks {
+		switch b := blocks[i].(type) {
+		case ir.BlockQuote:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ir.Block{}
+			}
+			b.Children = normalizeBlocks(b.Children)
+			blocks[i] = b
 		case ir.Header:
 			b.Span = source.ByteSpan{}
 			b.ContentSpan = source.ByteSpan{}
-			doc.Blocks[i] = b
+			blocks[i] = b
 		case ir.ThematicBreak:
 			b.Span = source.ByteSpan{}
-			doc.Blocks[i] = b
+			blocks[i] = b
 		case ir.Paragraph:
 			if b.Lines == nil {
 				b.Lines = []source.ByteSpan{}
@@ -58,9 +78,9 @@ func NormalizeIR(doc ir.Document) ir.Document {
 			for j := range b.Lines {
 				b.Lines[j] = source.ByteSpan{}
 			}
-			doc.Blocks[i] = b
+			blocks[i] = b
 		}
 	}
 
-	return doc
+	return blocks
 }

@@ -8,10 +8,137 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// TODO: extract out duplication into helpers
+
 const MaxValidIndentation = 3
 
 type BuildRule interface {
 	Apply(c *Cursor) (ir.Block, bool, error)
+}
+
+type BlockQuoteRule struct{}
+
+func (r BlockQuoteRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	line, ok := c.Peek()
+	if !ok {
+		return nil, false, nil
+	}
+	if line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading spaces, reject if more than 3
+	offset := line.BlockIndentSpaces(c.Source)
+	if offset > MaxValidIndentation {
+		return nil, false, nil
+	}
+
+	derived := true
+	start := line.Span.Start
+	if start == 0 || c.Source.Raw[start-1] == '\n' {
+		derived = false
+	}
+
+	if derived && offset > 0 {
+		return nil, false, nil
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := offset
+
+	// validate the marker
+	if pos >= len(s) || s[pos] != '>' {
+		return nil, false, nil
+	}
+
+	var spans []source.ByteSpan
+	var trimmedLines []Line
+
+	line, ok = c.Next()
+	if !ok {
+		return nil, false, nil
+	}
+
+	pos++
+
+	// consume a single, optional delimiter
+	if pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// define a new line with a trimmed span (no indent or marker run)
+	tl := Line{
+		source.ByteSpan{
+			Start: line.Span.Start + source.BytePos(pos),
+			End:   line.Span.End,
+		},
+	}
+
+	spans = append(spans, line.Span)
+	trimmedLines = append(trimmedLines, tl)
+
+	for {
+		line, ok := c.Peek()
+		if !ok {
+			break
+		}
+		if line.IsBlankLine(c.Source) {
+			break
+		}
+
+		offset := line.BlockIndentSpaces(c.Source)
+		if offset > MaxValidIndentation {
+			break
+		}
+
+		s = c.Source.Slice(line.Span)
+		pos = offset
+
+		if pos >= len(s) || s[pos] != '>' {
+			break
+		}
+
+		line, ok = c.Next()
+		if !ok {
+			return nil, false, nil
+		}
+
+		pos++
+
+		if pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+			pos++
+		}
+
+		tl := Line{
+			source.ByteSpan{
+				Start: line.Span.Start + source.BytePos(pos),
+				End:   line.Span.End,
+			},
+		}
+
+		spans = append(spans, line.Span)
+		trimmedLines = append(trimmedLines, tl)
+	}
+
+	// call recursive build with trimmed lines
+	innerDoc, err := Build(c.Source, trimmedLines)
+	if err != nil {
+		return nil, false, err
+	}
+
+	children := innerDoc.Blocks
+
+	span := source.ByteSpan{
+		Start: spans[0].Start,
+		End:   spans[len(spans)-1].End,
+	}
+
+	applied := ir.BlockQuote{
+		Children: children,
+		Span:     span,
+	}
+
+	return applied, true, nil
 }
 
 type HeaderRule struct{}
@@ -60,6 +187,7 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		pos++
 	}
 
+	// TODO: consider trimming suffix '#' characters
 	// trim trailing spaces and tabs
 	content := strings.TrimRight(s[pos:], " \t")
 	contentStart := line.Span.Start + source.BytePos(pos)

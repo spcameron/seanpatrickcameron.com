@@ -20,11 +20,7 @@ func Build(src *source.Source, lines []Line) (ir.Document, error) {
 		Blocks: []ir.Block{},
 	}
 
-	rules := []BuildRule{
-		HeaderRule{},
-		ThematicBreakRule{},
-		ParagraphRule{},
-	}
+	rules := defaultRules()
 
 	c := NewCursor(src, rules, lines)
 
@@ -58,4 +54,13 @@ func Build(src *source.Source, lines []Line) (ir.Document, error) {
 	}
 
 	return irDoc, nil
+}
+
+func defaultRules() []BuildRule {
+	return []BuildRule{
+		BlockQuoteRule{},
+		HeaderRule{},
+		ThematicBreakRule{},
+		ParagraphRule{},
+	}
 }
