@@ -30,6 +30,8 @@ func Document(irDoc ir.Document) (ast.Document, error) {
 
 func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 	switch v := block.(type) {
+	case ir.BlockQuote:
+		return buildBlockQuote(src, v)
 	case ir.Header:
 		return buildHeader(src, v)
 	case ir.ThematicBreak:
@@ -39,6 +41,26 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 	default:
 		return nil, fmt.Errorf("unrecognized block type: %T", block)
 	}
+}
+
+func buildBlockQuote(src *source.Source, bq ir.BlockQuote) (ast.Block, error) {
+	astChildren := make([]ast.Block, 0, len(bq.Children))
+
+	for _, bqChild := range bq.Children {
+		astChild, err := buildBlock(src, bqChild)
+		if err != nil {
+			return nil, err
+		}
+
+		astChildren = append(astChildren, astChild)
+	}
+
+	block := ast.BlockQuote{
+		Span:     bq.Span,
+		Children: astChildren,
+	}
+
+	return block, nil
 }
 
 func buildHeader(src *source.Source, h ir.Header) (ast.Block, error) {

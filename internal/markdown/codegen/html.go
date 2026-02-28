@@ -27,6 +27,8 @@ func HTML(doc ast.Document) (html.Node, error) {
 
 func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 	switch v := block.(type) {
+	case ast.BlockQuote:
+		return renderBlockQuote(src, v)
 	case ast.Header:
 		return renderHeader(src, v)
 	case ast.ThematicBreak:
@@ -54,6 +56,25 @@ func appendChild(children []html.Node, child html.Node) []html.Node {
 	}
 
 	return append(children, child)
+}
+
+func renderBlockQuote(src *source.Source, bq ast.BlockQuote) (html.Node, error) {
+	node := html.Element{
+		Tag:      "blockquote",
+		Attr:     html.Attributes{},
+		Children: make([]html.Node, 0, len(bq.Children)),
+	}
+
+	for _, bqChild := range bq.Children {
+		htmlChild, err := renderBlock(src, bqChild)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Children = append(node.Children, htmlChild)
+	}
+
+	return node, nil
 }
 
 func renderHeader(src *source.Source, h ast.Header) (html.Node, error) {

@@ -1,9 +1,24 @@
 package ir
 
-import "github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+import (
+	"fmt"
+
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+)
 
 type Block interface {
 	isBlock()
+}
+
+type BlockQuote struct {
+	Children []Block
+	Span     source.ByteSpan
+}
+
+func (BlockQuote) isBlock() {}
+
+func (bq BlockQuote) String() string {
+	return fmt.Sprintf("[BlockQuote] (Children = %d)", len(bq.Children))
 }
 
 type Header struct {
@@ -14,11 +29,19 @@ type Header struct {
 
 func (Header) isBlock() {}
 
+func (h Header) String() string {
+	return fmt.Sprintf("[Header] (Level = %d)", h.Level)
+}
+
 type ThematicBreak struct {
 	Span source.ByteSpan
 }
 
 func (ThematicBreak) isBlock() {}
+
+func (tb ThematicBreak) String() string {
+	return "[ThematicBreak]"
+}
 
 type Paragraph struct {
 	Span  source.ByteSpan
@@ -26,3 +49,7 @@ type Paragraph struct {
 }
 
 func (Paragraph) isBlock() {}
+
+func (p Paragraph) String() string {
+	return fmt.Sprintf("[Paragraph] (Lines = %d)", len(p.Lines))
+}

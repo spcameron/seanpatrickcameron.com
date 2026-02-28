@@ -32,6 +32,14 @@ func (l Line) IsBlankLine(src *source.Source) bool {
 	return strings.TrimSpace(s) == ""
 }
 
+func (l Line) IsPhysicalLineStart(src *source.Source) bool {
+	start := l.Span.Start
+	if start == 0 {
+		return true
+	}
+	return src.Raw[start-1] == '\n'
+}
+
 func (l Line) BlockIndentSpaces(src *source.Source) int {
 	s := src.Slice(l.Span)
 

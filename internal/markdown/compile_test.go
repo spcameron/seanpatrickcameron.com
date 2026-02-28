@@ -81,6 +81,53 @@ func TestCompile(t *testing.T) {
 			html:    "<hr>",
 			wantErr: nil,
 		},
+		{
+			name:    "block quote, plain text",
+			md:      "> quote",
+			html:    "<blockquote><p>quote</p></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name: "block quote, multiple lines",
+			md: strings.Join([]string{
+				"> a",
+				"> b",
+			}, "\n"),
+			html:    "<blockquote><p>a b</p></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name: "block quote, separated by blank line",
+			md: strings.Join([]string{
+				"> a",
+				">",
+				"> b",
+			}, "\n"),
+			html:    "<blockquote><p>a</p><p>b</p></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name: "block quote, nested layers",
+			md: strings.Join([]string{
+				"> a",
+				">> nested",
+				"> b",
+			}, "\n"),
+			html:    "<blockquote><p>a</p><blockquote><p>nested</p></blockquote><p>b</p></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name:    "block quote, header text",
+			md:      "> # h",
+			html:    "<blockquote><h1>h</h1></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name:    "block quote, thematic break",
+			md:      "> ---",
+			html:    "<blockquote><hr></blockquote>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

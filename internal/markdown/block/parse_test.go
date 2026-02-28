@@ -204,213 +204,482 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "single paragraph, one line",
-			input:   "a",
-			want:    tk.IRDoc(tk.IRPara("a")),
+			name:  "single paragraph, one line",
+			input: "a",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "single paragraph, multiple lines",
-			input:   "a\nb\nc",
-			want:    tk.IRDoc(tk.IRPara("a", "b", "c")),
+			name:  "single paragraph, multiple lines",
+			input: "a\nb\nc",
+			want: tk.IRDoc(
+				tk.IRPara("a", "b", "c"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "leading blank lines ignored",
-			input:   "\n\na",
-			want:    tk.IRDoc(tk.IRPara("a")),
+			name:  "leading blank lines ignored",
+			input: "\n\na",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "trailing blank lines ignored",
-			input:   "a\n\n",
-			want:    tk.IRDoc(tk.IRPara("a")),
+			name:  "trailing blank lines ignored",
+			input: "a\n\n",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "two paragraphs separated by one blank line",
-			input:   "a\n\nb",
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
+			name:  "two paragraphs separated by one blank line",
+			input: "a\n\nb",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRPara("b"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "two paragraphs separated by two blank lines",
-			input:   "a\n\n\nb",
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
+			name:  "two paragraphs separated by two blank lines",
+			input: "a\n\n\nb",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRPara("b"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "two paragraphs separated by whitespace only line",
-			input:   "a\n \nb",
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRPara("b")),
+			name:  "two paragraphs separated by whitespace only line",
+			input: "a\n \nb",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRPara("b"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "paragraph stops before header without blank line",
-			input:   "a\n# h",
-			want:    tk.IRDoc(tk.IRPara("a"), tk.IRHeader(1, "h")),
+			name:  "paragraph stops before header without blank line",
+			input: "a\n# h",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRHeader(1, "h"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1",
-			input:   "# header",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1",
+			input: "# header",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 2",
-			input:   "## header",
-			want:    tk.IRDoc(tk.IRHeader(2, "header")),
+			name:  "header level 2",
+			input: "## header",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 6",
-			input:   "###### header",
-			want:    tk.IRDoc(tk.IRHeader(6, "header")),
+			name:  "header level 6",
+			input: "###### header",
+			want: tk.IRDoc(
+				tk.IRHeader(6, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, 3 leading spaces (max)",
-			input:   "   # header",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, 3 leading spaces (max)",
+			input: "   # header",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, tab delimiter",
-			input:   "#\theader",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, tab delimiter",
+			input: "#\theader",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, consumes multiple spaces",
-			input:   "#     header",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, consumes multiple spaces",
+			input: "#     header",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, consumes multiple tabs",
-			input:   "#\t\t\theader",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, consumes multiple tabs",
+			input: "#\t\t\theader",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, trailing whitespace trimmed",
-			input:   "# header     ",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, trailing whitespace trimmed",
+			input: "# header     ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, mixed whitespace trimmed",
-			input:   "# \t header \t ",
-			want:    tk.IRDoc(tk.IRHeader(1, "header")),
+			name:  "header level 1, mixed whitespace trimmed",
+			input: "# \t header \t ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header level 1, empty header allowed",
-			input:   "# ",
-			want:    tk.IRDoc(tk.IRHeader(1, "")),
+			name:  "header level 1, empty header allowed",
+			input: "# ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, ""),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header and paragraph",
-			input:   "# h\na",
-			want:    tk.IRDoc(tk.IRHeader(1, "h"), tk.IRPara("a")),
+			name:  "header and paragraph",
+			input: "# h\na",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "h"),
+				tk.IRPara("a"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, no marker",
-			input:   "header",
-			want:    tk.IRDoc(tk.IRPara("header")),
+			name:  "header rejected, no marker",
+			input: "header",
+			want: tk.IRDoc(
+				tk.IRPara("header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, too many leading spaces",
-			input:   "    header",
-			want:    tk.IRDoc(tk.IRPara("    header")),
+			name:  "header rejected, too many leading spaces",
+			input: "    header",
+			want: tk.IRDoc(
+				tk.IRPara("    header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, missing delimiter",
-			input:   "#header",
-			want:    tk.IRDoc(tk.IRPara("#header")),
+			name:  "header rejected, missing delimiter",
+			input: "#header",
+			want: tk.IRDoc(
+				tk.IRPara("#header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, too many hashes",
-			input:   "####### header",
-			want:    tk.IRDoc(tk.IRPara("####### header")),
+			name:  "header rejected, too many hashes",
+			input: "####### header",
+			want: tk.IRDoc(
+				tk.IRPara("####### header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, too many hashes after indent",
-			input:   "   ####### header",
-			want:    tk.IRDoc(tk.IRPara("   ####### header")),
+			name:  "header rejected, too many hashes after indent",
+			input: "   ####### header",
+			want: tk.IRDoc(
+				tk.IRPara("   ####### header"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "header rejected, valid marker but missing delimieter",
-			input:   "##",
-			want:    tk.IRDoc(tk.IRPara("##")),
+			name:  "header rejected, valid marker but missing delimieter",
+			input: "##",
+			want: tk.IRDoc(
+				tk.IRPara("##"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break (---)",
-			input:   "---",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break (---)",
+			input: "---",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break (***)",
-			input:   "***",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break (***)",
+			input: "***",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break (___)",
-			input:   "___",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break (___)",
+			input: "___",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break, leading whitespace",
-			input:   "   ---",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break, leading spaces",
+			input: "   ---",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break, inter-marker whitespace",
-			input:   "- \t - \t -",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break, inter-marker whitespace",
+			input: "- \t - \t -",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break, trailing whitespace",
-			input:   "---   ",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break, trailing whitespace",
+			input: "---   ",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break, more than three identical markers",
-			input:   "-----------------------",
-			want:    tk.IRDoc(tk.IRThematicBreak()),
+			name:  "thematic break, more than three identical markers",
+			input: "-----------------------",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break rejected, too many leading spaces",
-			input:   "    ---",
-			want:    tk.IRDoc(tk.IRPara("    ---")),
+			name:  "thematic break rejected, too many leading spaces",
+			input: "    ---",
+			want: tk.IRDoc(
+				tk.IRPara("    ---"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break rejected, tabs in leading whitespace",
-			input:   "\t---",
-			want:    tk.IRDoc(tk.IRPara("\t---")),
+			name:  "thematic break rejected, tabs in leading whitespace",
+			input: "\t---",
+			want: tk.IRDoc(
+				tk.IRPara("\t---"),
+			),
 			wantErr: nil,
 		},
 		{
-			name:    "thematic break rejected, mixed marker characters",
-			input:   "-*-",
-			want:    tk.IRDoc(tk.IRPara("-*-")),
+			name:  "thematic break rejected, mixed marker characters",
+			input: "-*-",
+			want: tk.IRDoc(
+				tk.IRPara("-*-"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, plain text",
+			input: "> text",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("text"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, leading spaces",
+			input: "   > text",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("text"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, tab delimiter",
+			input: ">\ttext",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("text"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, no delimiter",
+			input: ">text",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("text"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, multiple lines",
+			input: "> a\n> b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a", "b"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, containing header",
+			input: "> # header",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRHeader(1, "header"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote rejected, too many leading spaces",
+			input: "    > text",
+			want: tk.IRDoc(
+				tk.IRPara("    > text"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, blank line splits paragraphs",
+			input: "> a\n>\n> b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+					tk.IRPara("b"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, starts with a blank line",
+			input: ">\n> a",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, only blank lines",
+			input: ">\n>\n",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, mixed indentation across lines",
+			input: "> a\n > b\n  > c",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a", "b", "c"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, terminates on first non-quote line",
+			input: "> a\nb",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+				),
+				tk.IRPara("b"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote, terminates on truly blank line",
+			input: "> a\n\n> b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+				),
+				tk.IRBlockQuote(
+					tk.IRPara("b"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "nested quotes, via >>",
+			input: ">> a",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRBlockQuote(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "nested quotes, via > >",
+			input: "> > a",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRBlockQuote(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "nested quotes, via >\t>",
+			input: ">\t> a",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRBlockQuote(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "mixed nested quotes across lines",
+			input: "> a\n>> b\n> c",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+					tk.IRBlockQuote(
+						tk.IRPara("b"),
+					),
+					tk.IRPara("c"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "nested quote separated by quoted blank lines",
+			input: "> a\n>\n>> b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+					tk.IRBlockQuote(
+						tk.IRPara("b"),
+					),
+				),
+			),
 			wantErr: nil,
 		},
 	}
