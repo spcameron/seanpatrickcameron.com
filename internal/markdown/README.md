@@ -99,6 +99,26 @@ The Header IR node stores both the full line span and the content span (excludes
 
 Headers are rendered as `<h1></h1>` ... `<h6></h6>` in HTML.
 
+#### Setext Headers (`===`, `---`)
+
+A Setext header is a two-line construct used to create level 1 (`=`) or level 2 (`-`) headings.
+
+A Setext header is recognized if and only if the following is true:
+
+- **Structure**: A paragraph candidate line (or contiguous paragraph run) is immediately followed by a valid underline line.
+- **No Blank Separation**: The underline line must appear directly after the paragraph content with no intervening blank line.
+- **Indentation**: The under line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Marker Character**: The first non-indent character of the underline is either `=` or `-`.
+- **Marker Run**: The underline line contains a run of one or more identical marker characters.
+- **Line Purity**: Aside from indentation and optional trailing spaces or tabs, the underline line must contain only the chosen marker charater. Internal spaces between markers are not permitted.
+- **Trailing Whitespace**: Trailing spaces or tabs after the marker run are permitted.
+
+The entire preceding paragraph run becomes the header content. The underline line contributes only the level and is not included in the content span.
+
+Setext headers consume exactly two logical components: the paragraph run and the underline line.
+
+Setext headers are lowered into the same `Header` IR node used for ATX headers and rendered as `<h1>` or `<h2>` in HTML.
+
 #### Thematic Breaks (`---`, `***`, `___`)
 
 A thematic break is a leaf block representing a horizontal rule.
@@ -111,7 +131,9 @@ A line is recognized as a thematic break if all of the following are true:
 - **Separator Rules**: Marker characters may be separated by any number of spaces or tabs, but no other characters are permitted.
 - **Line Purity**: Aside from indentation and optional inter-marker whitespace, the line must contain only the chosen marker. Trailing whitespace is permitted.
 
-A thematic break consumes exactly one line, and may interrupt paragraphs. Setext heading underlines are not supported, so `---` is always interpreted as a thematic break when it satisfies the rules above.
+A thematic break consumes exactly one line, and may interrupt paragraphs.
+
+When a line of dashes (`---`) directly follows a paragraph run and satisfies Setext underline rules, it is interpreted as a Setext level 2 header rather than a thematic break. Otherwise, tematic break rules apply.
 
 Breaks are rendered as `<hr>` in HTML.
 
@@ -196,10 +218,13 @@ New Markdown features are added by expanding rule sets within existing layers:
 This project treats Markdown as a small language and HTML as its target language.
 
 The design mirrors conventional compiler structure:
+
 - Immutable source buffer
 - Span-based structural nodes
 - Staged transformations
 - Explicit lowering
 - Target-language code generation
+
+Block constructs are parsed accodring to clear structural rules. Surface syntax is normalized early: distinct syntactic forms that represent the same semantic construct (e.g., ATX headers and Setext headers) are lowered into a single `Header` IR node. Downstream stages operate only on semantic structure, not original delimiter forms.
 
 The system remains mechanically predictable and extensible while preserving precise coordinate semantics throughout.

@@ -128,6 +128,24 @@ func TestCompile(t *testing.T) {
 			html:    "<blockquote><hr></blockquote>",
 			wantErr: nil,
 		},
+		{
+			name: "setext, level 1",
+			md: strings.Join([]string{
+				"h",
+				"===",
+			}, "\n"),
+			html:    "<h1>h</h1>",
+			wantErr: nil,
+		},
+		{
+			name: "setext, level 2",
+			md: strings.Join([]string{
+				"h",
+				"---",
+			}, "\n"),
+			html:    "<h2>h</h2>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

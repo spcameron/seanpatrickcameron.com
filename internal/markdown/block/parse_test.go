@@ -682,6 +682,208 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "setext heading, h1 (minimum)",
+			input: "heading\n=",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, h1 (typical)",
+			input: "heading\n===",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, h2 (minimum)",
+			input: "heading\n-",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, h2 (typical)",
+			input: "heading\n---",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading and paragraph",
+			input: "heading\n---\nnext",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, trailing spaces",
+			input: "heading\n===   ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, trailing tabs",
+			input: "heading\n===\t\t",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, mixed trailing spaces and tabs",
+			input: "heading\n===\t \t ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext heading, leading spaces",
+			input: "heading\n   ---",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, too many leading spaces",
+			input: "heading\n    ---",
+			want: tk.IRDoc(
+				tk.IRPara("heading", "    ---"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, underline with internal spaces (dash)",
+			input: "heading\n- - -",
+			want: tk.IRDoc(
+				tk.IRPara("heading"),
+				tk.IRThematicBreak(),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, underline with internal spaces (equals)",
+			input: "heading\n= = =",
+			want: tk.IRDoc(
+				tk.IRPara("heading", "= = ="),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, underline with non-marker character",
+			input: "heading\n--x--",
+			want: tk.IRDoc(
+				tk.IRPara("heading", "--x--"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, underline with mixed markers",
+			input: "heading\n-=-",
+			want: tk.IRDoc(
+				tk.IRPara("heading", "-=-"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, underline with trailing non-space",
+			input: "heading\n---x",
+			want: tk.IRDoc(
+				tk.IRPara("heading", "---x"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, h2 takes precedence over thematic break for '---'",
+			input: "heading\n---\nnext",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "thematic break, '- - -' does not become setext",
+			input: "heading\n- - -\nnext",
+			want: tk.IRDoc(
+				tk.IRPara("heading"),
+				tk.IRThematicBreak(),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "thematic break, '***' does not become setext",
+			input: "heading\n***\nnext",
+			want: tk.IRDoc(
+				tk.IRPara("heading"),
+				tk.IRThematicBreak(),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, multiline content",
+			input: "line1\nline2\n---",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "line1", "line2"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, multiline content stops before underline",
+			input: "line1\nline2\n===\nnext",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "line1", "line2"),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext rejected, blank line between content and underline",
+			input: "heading\n\n---",
+			want: tk.IRDoc(
+				tk.IRPara("heading"),
+				tk.IRThematicBreak(),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, underline followed by blank line",
+			input: "heading\n---\n\nnext",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "heading"),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, underline at start of doc is not a heading (dashes)",
+			input: "---",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext, underline at start of doc is not a heading (equals)",
+			input: "===",
+			want: tk.IRDoc(
+				tk.IRPara("==="),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

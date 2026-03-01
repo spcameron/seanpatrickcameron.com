@@ -293,20 +293,43 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		return nil, false, nil
 	}
 
-	span := source.ByteSpan{
+	contentSpan := source.ByteSpan{
 		Start: spans[0].Start,
 		End:   spans[len(spans)-1].End,
 	}
 
+	if line, ok := c.Peek(); ok {
+		level, isSetext := r.tryParseSetextHeadingLine(c.Source, line)
+		if isSetext {
+			underline, ok := c.Next()
+			if !ok {
+				return nil, false, nil
+			}
+
+			headerSpan := source.ByteSpan{
+				Start: spans[0].Start,
+				End:   underline.Span.End,
+			}
+
+			applied := ir.Header{
+				Level:       level,
+				Span:        headerSpan,
+				ContentSpan: contentSpan,
+			}
+
+			return applied, true, nil
+		}
+	}
+
 	applied := ir.Paragraph{
 		Lines: spans,
-		Span:  span,
+		Span:  contentSpan,
 	}
 
 	return applied, true, nil
 }
 
-func (ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, error) {
+func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, error) {
 	line, ok := c.Peek()
 	if !ok {
 		return nil, false, nil
@@ -335,6 +358,11 @@ func (ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, er
 			break
 		}
 
+		_, isSetext := r.tryParseSetextHeadingLine(c.Source, line)
+		if isSetext {
+			break
+		}
+
 		startsBlock, err := c.StartsNonParagraphBlock()
 		if err != nil {
 			return nil, false, err
@@ -353,4 +381,61 @@ func (ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, er
 
 	return spans, true, nil
 
+}
+
+func (ParagraphRule) tryParseSetextHeadingLine(src *source.Source, line Line) (int, bool) {
+	if line.IsBlankLine(src) {
+		return 0, false
+	}
+
+	offset := line.BlockIndentSpaces(src)
+	if offset > MaxValidIndentation {
+		return 0, false
+	}
+
+	s := src.Slice(line.Span)
+	pos := offset
+
+	if pos >= len(s) {
+		return 0, false
+	}
+
+	var marker byte
+	var level int
+	switch s[pos] {
+	case '=':
+		marker = s[pos]
+		level = 1
+	case '-':
+		marker = s[pos]
+		level = 2
+	default:
+		return 0, false
+	}
+
+	for pos < len(s) {
+		b := s[pos]
+		if b == ' ' || b == '\t' {
+			break
+		}
+
+		if b != marker {
+			return 0, false
+		}
+
+		pos++
+	}
+
+	for pos < len(s) {
+		b := s[pos]
+		switch b {
+		case ' ', '\t':
+			pos++
+			continue
+		default:
+			return 0, false
+		}
+	}
+
+	return level, true
 }
