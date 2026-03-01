@@ -10,6 +10,12 @@ date: "1987-06-21"
 ##### Header 5
 ###### Header 6
 
+This header is underlined by setext (equals).
+===
+
+This header is underlined by setext (dashes).
+---
+
 This is a paragraph.
 
 This is a paragraph
@@ -24,7 +30,7 @@ This line
 is separated
 ***
 by thematic breaks.
-___
+_ _ _
 
 > This is a block quote.
 > > This is a nested block quote.
