@@ -64,7 +64,7 @@ All parsing and lowering operate on a single `Source`. Structural elements carry
 
 ### 2. IR vs AST Separation
 
-The compiler distinguishes between **Block IR** (structural parsing) and **AST** (semantic representaiton). Block parsing occurs first and determines structural boundaries, while lowering to AST determines semeantic meaning. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning.
+The compiler distinguishes between **Block IR** (structural parsing) and **AST** (semantic representaiton). Block parsing occurs first and determines structural boundaries, while lowering to AST determines semantic meaning. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning.
 
 ### 3. Lowering as a First-Class Stage
 
@@ -80,6 +80,18 @@ Scanners are mechanical, meaning they do *not* interpret structure or create sem
 
 ## Markdown Rules (CommonMark-ish)
 
+### Indentation Model
+
+Block-level constructs use visual column indentation.
+
+- Indentation is measured in columns.
+- A space (` `) advances indentation by one column.
+- A tab (`\t`) advances indentation to the next multiple of 4 columns.
+- Only leading spaces and tabs contribute to indentation.
+- A block rules that reference "0-3 spaces" are interpreted as "0-3 columns".
+
+Indentation is used only for structural recognition. Tabs are not expanded in content.
+
 ### Block Elements
 
 #### ATX Headers (`#`)
@@ -88,7 +100,7 @@ A header is a block used to create titles, subtitles, or otherwise structure con
 
 A line is recognized as a header if and only if the following is true:
 
-- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Indentation**: The line begins with 0-3 columns of indentation.
 - **Marker Run**: After leading spaces, there is a run of 1-6 `#` characters.
 - **Delimiter**: The marker run is followed by at least one delimiter character: space or tab.
 - **Content**: Header content is defined as the rest of the line after consuming all consecutive spaces or tabs following the marker run.
@@ -107,7 +119,7 @@ A Setext header is recognized if and only if the following is true:
 
 - **Structure**: A paragraph candidate line (or contiguous paragraph run) is immediately followed by a valid underline line.
 - **No Blank Separation**: The underline line must appear directly after the paragraph content with no intervening blank line.
-- **Indentation**: The under line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Indentation**: The line begins with 0-3 columns of indentation.
 - **Marker Character**: The first non-indent character of the underline is either `=` or `-`.
 - **Marker Run**: The underline line contains a run of one or more identical marker characters.
 - **Line Purity**: Aside from indentation and optional trailing spaces or tabs, the underline line must contain only the chosen marker charater. Internal spaces between markers are not permitted.
@@ -125,7 +137,7 @@ A thematic break is a leaf block representing a horizontal rule.
 
 A line is recognized as a thematic break if all of the following are true:
 
-- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Indentation**: The line begins with 0-3 columns of indentation.
 - **Marker Character**: The first non-indent character is one of `-` `*` or `_`.
 - **Marker Count**: The line contains at least three marker characters, and all marker characters must be identical.
 - **Separator Rules**: Marker characters may be separated by any number of spaces or tabs, but no other characters are permitted.
@@ -143,13 +155,13 @@ A block quote is a container block used to quote or otherwise offset content. Bl
 
 A line is recognized as a part of a block quote if and only if the following is true:
 
-- **Indentation**: The line begins with 0-3 spaces. Tabs do not count as indentation.
+- **Indentation**: The line begins with 0-3 columns of indentation.
 - **Marker Unit**: After indentation, the line contains at least one quote marker unit. A quote marker unit is:
     - a single `>` character, followed by
     - an optional single delimiter character, space or tab.
 - **Marker Run**: The quote marker run is one or more consecutive quote marker units. The nesting depth of the line is the number of `>` characters consumer by the marker run.
 - **Content**: Quote line content is defined as the remainder of the line after consuming indentation and the full marker run.
-- **Whitespace Preservation**: Only one delimiter character (space or tab) may be consumed after each `>` marker. Any additional spaces or tabs are preserved as contnet. Tabs are not expanded.
+- **Whitespace Preservation**: Only one delimiter character (space or tab) may be consumed after each `>` marker. Any additional spaces or tabs are preserved as content.
 
 A block quote consists of a maximal contiguous sequence of quote-eligible lines. Lazy continuation is not supported; every physical line in a block quote must bear a leading `>` marker.
 
@@ -225,6 +237,6 @@ The design mirrors conventional compiler structure:
 - Explicit lowering
 - Target-language code generation
 
-Block constructs are parsed accodring to clear structural rules. Surface syntax is normalized early: distinct syntactic forms that represent the same semantic construct (e.g., ATX headers and Setext headers) are lowered into a single `Header` IR node. Downstream stages operate only on semantic structure, not original delimiter forms.
+Block constructs are parsed according to clear structural rules. Surface syntax is normalized early: distinct syntactic forms that represent the same semantic construct (e.g., ATX headers and Setext headers) are lowered into a single `Header` IR node. Downstream stages operate only on semantic structure, not original delimiter forms.
 
 The system remains mechanically predictable and extensible while preserving precise coordinate semantics throughout.

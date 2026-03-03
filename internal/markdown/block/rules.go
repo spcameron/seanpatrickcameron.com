@@ -77,20 +77,20 @@ func (BlockQuoteRule) tryConsumeQuoteLine(c *Cursor) (Line, Line, bool, error) {
 		return Line{}, Line{}, false, nil
 	}
 
-	// count the leading spaces, reject if more than 3
-	offset := line.BlockIndentSpaces(c.Source)
-	if offset > MaxValidIndentation {
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes := line.BlockIndent(c.Source)
+	if indentCols > MaxValidIndentation {
 		return Line{}, Line{}, false, nil
 	}
 
 	// derived line guard
 	derived := !line.IsPhysicalLineStart(c.Source)
-	if derived && offset > 0 {
+	if derived && indentBytes > 0 {
 		return Line{}, Line{}, false, nil
 	}
 
 	s := c.Source.Slice(line.Span)
-	pos := offset
+	pos := indentBytes
 
 	// validate the marker
 	if pos >= len(s) || s[pos] != '>' {
@@ -153,14 +153,14 @@ func (HeaderRule) tryParseHeaderLine(src *source.Source, line Line) (int, source
 		return 0, source.ByteSpan{}, false
 	}
 
-	// count the leading spaces, reject if more than 3
-	offset := line.BlockIndentSpaces(src)
-	if offset > MaxValidIndentation {
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes := line.BlockIndent(src)
+	if indentCols > MaxValidIndentation {
 		return 0, source.ByteSpan{}, false
 	}
 
 	s := src.Slice(line.Span)
-	pos := offset
+	pos := indentBytes
 	level := 0
 
 	// validate the marker
@@ -188,6 +188,7 @@ func (HeaderRule) tryParseHeaderLine(src *source.Source, line Line) (int, source
 	}
 
 	// TODO: consider trimming suffix '#' characters
+	// separate flow, not simply added to TrimRight
 
 	// trim tailing spaces and tabs
 	rawContent := s[pos:]
@@ -234,14 +235,14 @@ func (ThematicBreakRule) tryParseThematicBreakLine(src *source.Source, line Line
 		return false
 	}
 
-	// count the leading spaces, reject if more than 3
-	offset := line.BlockIndentSpaces(src)
-	if offset > MaxValidIndentation {
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes := line.BlockIndent(src)
+	if indentCols > MaxValidIndentation {
 		return false
 	}
 
 	s := src.Slice(line.Span)
-	pos := offset
+	pos := indentBytes
 
 	if pos >= len(s) {
 		return false
@@ -388,13 +389,14 @@ func (ParagraphRule) tryParseSetextHeadingLine(src *source.Source, line Line) (i
 		return 0, false
 	}
 
-	offset := line.BlockIndentSpaces(src)
-	if offset > MaxValidIndentation {
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes := line.BlockIndent(src)
+	if indentCols > MaxValidIndentation {
 		return 0, false
 	}
 
 	s := src.Slice(line.Span)
-	pos := offset
+	pos := indentBytes
 
 	if pos >= len(s) {
 		return 0, false
