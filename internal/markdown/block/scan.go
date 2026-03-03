@@ -6,6 +6,10 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+const (
+	tabWidth = 4
+)
+
 func Scan(src *source.Source) ([]Line, error) {
 	input := src.Raw
 	scanner := NewScanner(input)
@@ -40,15 +44,39 @@ func (l Line) IsPhysicalLineStart(src *source.Source) bool {
 	return src.Raw[start-1] == '\n'
 }
 
-func (l Line) BlockIndentSpaces(src *source.Source) int {
+// BlockIndent computes the leading indentation of the line.
+//
+// Indentation is measure in visual columns. A space advances
+// one column; a tab advances to the next multiple of tabWidth
+// columns. Only leading ' ' and '\t' are considered.
+//
+// The returned values are:
+//   - indentCols: indentation measured in columns
+//   - indentBytes: number of leading bytes consumed
+//
+// Scanning stops at the first non-space, non-tab byte.
+func (l Line) BlockIndent(src *source.Source) (indentCols int, indentBytes int) {
 	s := src.Slice(l.Span)
 
-	indent := 0
-	for indent < len(s) && s[indent] == ' ' {
-		indent++
+	col := 0
+	i := 0
+
+outer:
+	for i < len(s) {
+		b := s[i]
+		switch b {
+		case ' ':
+			col++
+			i++
+		case '\t':
+			col += tabWidth - (col % tabWidth)
+			i++
+		default:
+			break outer
+		}
 	}
 
-	return indent
+	return col, i
 }
 
 type Scanner struct {
