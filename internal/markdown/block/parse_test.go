@@ -1,6 +1,7 @@
 package block
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
@@ -946,6 +947,62 @@ func TestBuild(t *testing.T) {
 			input: "    - a",
 			want: tk.IRDoc(
 				tk.IRPara("    - a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: two sibling items",
+			input: strings.Join([]string{
+				"- a",
+				"- b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: sibling items may mix markers",
+			input: strings.Join([]string{
+				"- a",
+				"* b",
+				"+ c",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+					tk.IRListItem(
+						tk.IRPara("c"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: list terminates on non-item line at same indent",
+			input: strings.Join([]string{
+				"- a",
+				"x",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara("x"),
 			),
 			wantErr: nil,
 		},

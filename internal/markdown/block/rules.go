@@ -169,22 +169,18 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 	// NOTE: committed to building the list at this point
 
-	listSpans := []source.ByteSpan{}
+	lineSpans := []source.ByteSpan{}
 	listItems := []ir.ListItem{}
 
 	// NOTE: outer loop
 	// parse one list item at a time (sibling)
+buildList:
 	for {
 		// consume the next line
 		markerLine, _ := c.Next()
 		itemLines := []Line{}
 
-		span := source.ByteSpan{
-			Start: markerLine.Span.Start,
-			End:   markerLine.Span.End,
-		}
-
-		listSpans = append(listSpans, span)
+		lineSpans = append(lineSpans, markerLine.Span)
 
 		// consume the delimiter run
 		for pos < len(s) {
@@ -236,10 +232,8 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			// non-blank and meets the content baseline
 			if absIndentCols >= itemContentCols {
 				line, _ := c.Next()
+				lineSpans = append(lineSpans, line.Span)
 				itemLines = append(itemLines, line)
-
-				// NOTE: probably add line.Span to listSpans now
-				// although could wait until finalizing list item
 
 				// reset trailing blanks to zero here
 
@@ -260,7 +254,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		// finalize the list item
 		var itemSpan source.ByteSpan
 		if len(itemLines) > 0 {
-			itemSpan.Start = itemLines[0].Span.Start
+			itemSpan.Start = markerLine.Span.Start
 			itemSpan.End = itemLines[len(itemLines)-1].Span.End
 		}
 
@@ -269,8 +263,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			Children: children,
 		}
 
-		// update listSpans and listItems
-		listSpans = append(listSpans, item.Span)
+		// update listItems
 		listItems = append(listItems, item)
 
 		// peek for sibling item
@@ -284,7 +277,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		}
 
 		// calculate the next line indentation (visual columns)
-		absIndentCols, _ := c.AbsBlockIndent(nextLine)
+		absIndentCols, indentBytes := c.AbsBlockIndent(nextLine)
 
 		// dedent, list ends
 		if absIndentCols < listIndentCols {
@@ -296,16 +289,43 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			break
 		}
 
+		// the following is repeated from first-line validation
+		// extract to helper
+		//
 		// potential sibling item
 		// validate marker & delimiter as before
 		// if valid, continue; if not, list ends
-		break
+		s = c.Source.Slice(nextLine.Span)
+		pos = indentBytes
+		col = listIndentCols
+
+		// validate the first marker character
+		if pos >= len(s) {
+			break
+		}
+		switch s[pos] {
+		case '-', '*', '+':
+		//ok
+		default:
+			break buildList
+		}
+
+		// consume the marker
+		pos++
+		col++
+
+		// validate the delimiter (at least one space or tab)
+		if pos >= len(s) || (s[pos] != ' ' && s[pos] != '\t') {
+			break buildList
+		}
+
+		// valid sibling, continue loop
 	}
 
 	var listSpan source.ByteSpan
-	if len(listSpans) > 0 {
-		listSpan.Start = listSpans[0].Start
-		listSpan.End = listSpans[len(listSpans)-1].End
+	if len(lineSpans) > 0 {
+		listSpan.Start = lineSpans[0].Start
+		listSpan.End = lineSpans[len(lineSpans)-1].End
 	}
 
 	applied := ir.UnorderedList{
