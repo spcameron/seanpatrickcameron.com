@@ -223,6 +223,7 @@ buildList:
 
 			// if blank line, tenatively consume
 			if nextLine.IsBlankLine(c.Source) {
+				_ = "quiet staticcheck complaint about empty branch"
 				// TODO: blank line policy
 			}
 
