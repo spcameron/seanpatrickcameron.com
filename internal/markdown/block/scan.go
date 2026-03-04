@@ -59,24 +59,24 @@ func (l Line) BlockIndent(src *source.Source) (indentCols int, indentBytes int) 
 	s := src.Slice(l.Span)
 
 	col := 0
-	i := 0
+	pos := 0
 
 outer:
-	for i < len(s) {
-		b := s[i]
+	for pos < len(s) {
+		b := s[pos]
 		switch b {
 		case ' ':
 			col++
-			i++
+			pos++
 		case '\t':
 			col += tabWidth - (col % tabWidth)
-			i++
+			pos++
 		default:
 			break outer
 		}
 	}
 
-	return col, i
+	return col, pos
 }
 
 type Scanner struct {

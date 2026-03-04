@@ -15,14 +15,22 @@ var (
 )
 
 func Build(src *source.Source, lines []Line) (ir.Document, error) {
-	irDoc := ir.Document{
-		Source: src,
-		Blocks: []ir.Block{},
+	blocks, err := buildBlocks(src, defaultRules(), lines, 0)
+	if err != nil {
+		return ir.Document{}, err
 	}
 
-	rules := defaultRules()
+	irDoc := ir.Document{
+		Source: src,
+		Blocks: blocks,
+	}
 
-	c := NewCursor(src, rules, lines)
+	return irDoc, nil
+}
+
+func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCols int) ([]ir.Block, error) {
+	c := NewCursor(src, rules, lines, baselineCols)
+	blocks := []ir.Block{}
 
 	for {
 		c.SkipBlankLines()
@@ -31,29 +39,34 @@ func Build(src *source.Source, lines []Line) (ir.Document, error) {
 			break
 		}
 
+		// baseline scope termination
+		line, _ := c.Peek()
+		if _, _, ok := c.RelBlockIndent(line); !ok {
+			break
+		}
+
 		matched := false
 
 		for _, rule := range c.Rules {
 			applied, ok, err := c.TryApply(rule)
 			if err != nil {
-				return ir.Document{}, err
+				return nil, err
 			}
 			if !ok {
 				continue
 			}
 
 			matched = true
-			irDoc.Blocks = append(irDoc.Blocks, applied)
+			blocks = append(blocks, applied)
 			break
 		}
 
 		if !matched {
-			return ir.Document{}, fmt.Errorf("%w: (index %d)", ErrNoRuleMatched, c.Index)
+			return nil, fmt.Errorf("%w: (index %d)", ErrNoRuleMatched, c.Index)
 		}
-
 	}
 
-	return irDoc, nil
+	return blocks, nil
 }
 
 func defaultRules() []BuildRule {
@@ -61,6 +74,7 @@ func defaultRules() []BuildRule {
 		BlockQuoteRule{},
 		HeaderRule{},
 		ThematicBreakRule{},
+		UnorderedListRule{},
 		ParagraphRule{},
 	}
 }

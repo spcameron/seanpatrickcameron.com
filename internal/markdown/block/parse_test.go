@@ -884,6 +884,71 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "ul: single item, single line",
+			input: "- a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: rejects missing delimiter",
+			input: "-a",
+			want: tk.IRDoc(
+				tk.IRPara("-a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts '*' markers",
+			input: "* a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts '+' markers",
+			input: "+ a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts 0-3 indentation at scope",
+			input: "   - a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			// NOTE: will become code block later
+			name:  "ul: rejects 4+ indentation at scope",
+			input: "    - a",
+			want: tk.IRDoc(
+				tk.IRPara("    - a"),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

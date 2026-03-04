@@ -13,16 +13,30 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 
 func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
 	return ir.BlockQuote{
-		Children: children,
 		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
+
+func IRUnorderedList(items ...ir.ListItem) ir.UnorderedList {
+	return ir.UnorderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+	}
+}
+
+func IRListItem(children ...ir.Block) ir.ListItem {
+	return ir.ListItem{
+		Span:     source.ByteSpan{},
+		Children: children,
 	}
 }
 
 func IRHeader(level int, input ...string) ir.Header {
 	return ir.Header{
-		Level:       level,
 		Span:        source.ByteSpan{},
 		ContentSpan: source.ByteSpan{},
+		Level:       level,
 	}
 }
 
@@ -36,8 +50,8 @@ func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
 	return ir.Paragraph{
-		Lines: lines,
 		Span:  source.ByteSpan{},
+		Lines: lines,
 	}
 }
 
@@ -62,6 +76,28 @@ func normalizeBlocks(blocks []ir.Block) []ir.Block {
 			}
 			b.Children = normalizeBlocks(b.Children)
 			blocks[i] = b
+		case ir.UnorderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ir.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ir.Block{}
+				}
+				item.Children = normalizeBlocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+		case ir.ListItem:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ir.Block{}
+			}
+			b.Children = normalizeBlocks(b.Children)
+			blocks[i] = b
 		case ir.Header:
 			b.Span = source.ByteSpan{}
 			b.ContentSpan = source.ByteSpan{}
@@ -70,11 +106,10 @@ func normalizeBlocks(blocks []ir.Block) []ir.Block {
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
 		case ir.Paragraph:
+			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
 				b.Lines = []source.ByteSpan{}
 			}
-
-			b.Span = source.ByteSpan{}
 			for j := range b.Lines {
 				b.Lines[j] = source.ByteSpan{}
 			}

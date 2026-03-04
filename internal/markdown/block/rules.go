@@ -7,6 +7,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// TODO: remove redundant ok checks on Next
+
 const MaxValidIndentation = 3
 
 type BuildRule interface {
@@ -46,12 +48,10 @@ func (r BlockQuoteRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	// call recursive build with trimmed lines
-	innerDoc, err := Build(c.Source, trimmedLines)
+	innerBlocks, err := buildBlocks(c.Source, c.Rules, trimmedLines, c.BaselineCols)
 	if err != nil {
 		return nil, false, err
 	}
-
-	children := innerDoc.Blocks
 
 	span := source.ByteSpan{
 		Start: spans[0].Start,
@@ -59,7 +59,7 @@ func (r BlockQuoteRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	applied := ir.BlockQuote{
-		Children: children,
+		Children: innerBlocks,
 		Span:     span,
 	}
 
@@ -72,14 +72,14 @@ func (BlockQuoteRule) tryConsumeQuoteLine(c *Cursor) (Line, Line, bool, error) {
 		return Line{}, Line{}, false, nil
 	}
 
-	// truly blank line terminates the quote run
+	// blank line terminates the quote run
 	if line.IsBlankLine(c.Source) {
 		return Line{}, Line{}, false, nil
 	}
 
 	// count the leading indentation, reject if greater than 3 visual columns
-	indentCols, indentBytes := line.BlockIndent(c.Source)
-	if indentCols > MaxValidIndentation {
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
 		return Line{}, Line{}, false, nil
 	}
 
@@ -121,6 +121,201 @@ func (BlockQuoteRule) tryConsumeQuoteLine(c *Cursor) (Line, Line, bool, error) {
 	return full, trimmed, true, nil
 }
 
+type UnorderedListRule struct{}
+
+func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	line, ok := c.Peek()
+	if !ok {
+		return nil, false, nil
+	}
+	if line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading indentation
+	// reject line if indent is greater than 3 visual columns,
+	// or if the indentation is less than the cursor baseline
+	relIndentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || relIndentCols > MaxValidIndentation {
+		return nil, false, nil
+	}
+
+	// calculate the list indentation (visual columns)
+	listIndentCols, _ := c.AbsBlockIndent(line)
+
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+	col := listIndentCols
+
+	// validate the first marker character
+	if pos >= len(s) {
+		return nil, false, nil
+	}
+	switch s[pos] {
+	case '-', '*', '+':
+	// ok
+	default:
+		return nil, false, nil
+	}
+
+	// consume the marker
+	pos++
+	col++
+
+	// validate the delimiter (at least one space or tab)
+	if pos >= len(s) || (s[pos] != ' ' && s[pos] != '\t') {
+		return nil, false, nil
+	}
+
+	// NOTE: committed to building the list at this point
+
+	listSpans := []source.ByteSpan{}
+	listItems := []ir.ListItem{}
+
+	// NOTE: outer loop
+	// parse one list item at a time (sibling)
+	for {
+		// consume the next line
+		markerLine, _ := c.Next()
+		itemLines := []Line{}
+
+		span := source.ByteSpan{
+			Start: markerLine.Span.Start,
+			End:   markerLine.Span.End,
+		}
+
+		listSpans = append(listSpans, span)
+
+		// consume the delimiter run
+		for pos < len(s) {
+			b := s[pos]
+			if b == ' ' {
+				col++
+				pos++
+				continue
+			}
+			if b == '\t' {
+				col += tabWidth - (col % tabWidth)
+				pos++
+				continue
+			}
+			break
+		}
+
+		itemContentCols := col
+		lineContentByte := pos
+
+		contentStart := markerLine.Span.Start + source.BytePos(lineContentByte)
+
+		line := Line{
+			Span: source.ByteSpan{
+				Start: contentStart,
+				End:   markerLine.Span.End,
+			},
+		}
+
+		itemLines = append(itemLines, line)
+
+		// NOTE: inner loop
+		// collect the current item's body lines (continuation)
+		for {
+			nextLine, ok := c.Peek()
+			// if EOF, stop collecting, proceed to finalization
+			if !ok {
+				break
+			}
+
+			// if blank line, tenatively consume
+			if nextLine.IsBlankLine(c.Source) {
+				// TODO: blank line policy
+			}
+
+			// absolute indentation for the next line
+			absIndentCols, _ := c.AbsBlockIndent(nextLine)
+
+			// non-blank and meets the content baseline
+			if absIndentCols >= itemContentCols {
+				line, _ := c.Next()
+				itemLines = append(itemLines, line)
+
+				// NOTE: probably add line.Span to listSpans now
+				// although could wait until finalizing list item
+
+				// reset trailing blanks to zero here
+
+				continue
+			}
+
+			// non-blank but does not meet the content baseline
+			// stop collecting, roll back any trailing blanks
+			break
+		}
+
+		// recursively parse children
+		children, err := buildBlocks(c.Source, c.Rules, itemLines, itemContentCols)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// finalize the list item
+		var itemSpan source.ByteSpan
+		if len(itemLines) > 0 {
+			itemSpan.Start = itemLines[0].Span.Start
+			itemSpan.End = itemLines[len(itemLines)-1].Span.End
+		}
+
+		item := ir.ListItem{
+			Span:     itemSpan,
+			Children: children,
+		}
+
+		// update listSpans and listItems
+		listSpans = append(listSpans, item.Span)
+		listItems = append(listItems, item)
+
+		// peek for sibling item
+		nextLine, ok := c.Peek()
+		if !ok {
+			break
+		}
+		if nextLine.IsBlankLine(c.Source) {
+			break
+			// possible to allow blank lines between items later
+		}
+
+		// calculate the next line indentation (visual columns)
+		absIndentCols, _ := c.AbsBlockIndent(nextLine)
+
+		// dedent, list ends
+		if absIndentCols < listIndentCols {
+			break
+		}
+
+		// not a sibling item, list ends
+		if absIndentCols != listIndentCols {
+			break
+		}
+
+		// potential sibling item
+		// validate marker & delimiter as before
+		// if valid, continue; if not, list ends
+		break
+	}
+
+	var listSpan source.ByteSpan
+	if len(listSpans) > 0 {
+		listSpan.Start = listSpans[0].Start
+		listSpan.End = listSpans[len(listSpans)-1].End
+	}
+
+	applied := ir.UnorderedList{
+		Span:  listSpan,
+		Items: listItems,
+	}
+
+	return applied, true, nil
+}
+
 type HeaderRule struct{}
 
 func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
@@ -129,7 +324,7 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		return nil, false, nil
 	}
 
-	level, contentSpan, ok := r.tryParseHeaderLine(c.Source, line)
+	level, contentSpan, ok := r.tryParseHeaderLine(c, line)
 	if !ok {
 		return nil, false, nil
 	}
@@ -148,14 +343,16 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	return applied, true, nil
 }
 
-func (HeaderRule) tryParseHeaderLine(src *source.Source, line Line) (int, source.ByteSpan, bool) {
+func (HeaderRule) tryParseHeaderLine(c *Cursor, line Line) (int, source.ByteSpan, bool) {
+	src := c.Source
+
 	if line.IsBlankLine(src) {
 		return 0, source.ByteSpan{}, false
 	}
 
 	// count the leading indentation, reject if greater than 3 visual columns
-	indentCols, indentBytes := line.BlockIndent(src)
-	if indentCols > MaxValidIndentation {
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
 		return 0, source.ByteSpan{}, false
 	}
 
@@ -182,7 +379,7 @@ func (HeaderRule) tryParseHeaderLine(src *source.Source, line Line) (int, source
 		return 0, source.ByteSpan{}, false
 	}
 
-	// consume the delimiter
+	// consume the delimiter and leading whitespace
 	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
 		pos++
 	}
@@ -213,7 +410,7 @@ func (r ThematicBreakRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		return nil, false, nil
 	}
 
-	if !r.tryParseThematicBreakLine(c.Source, line) {
+	if !r.tryParseThematicBreakLine(c, line) {
 		return nil, false, nil
 	}
 
@@ -230,14 +427,16 @@ func (r ThematicBreakRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 }
 
-func (ThematicBreakRule) tryParseThematicBreakLine(src *source.Source, line Line) bool {
+func (ThematicBreakRule) tryParseThematicBreakLine(c *Cursor, line Line) bool {
+	src := c.Source
+
 	if line.IsBlankLine(src) {
 		return false
 	}
 
 	// count the leading indentation, reject if greater than 3 visual columns
-	indentCols, indentBytes := line.BlockIndent(src)
-	if indentCols > MaxValidIndentation {
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
 		return false
 	}
 
@@ -300,7 +499,7 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	if line, ok := c.Peek(); ok {
-		level, isSetext := r.tryParseSetextHeadingLine(c.Source, line)
+		level, isSetext := r.tryParseSetextHeadingLine(c, line)
 		if isSetext {
 			underline, ok := c.Next()
 			if !ok {
@@ -359,7 +558,7 @@ func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, 
 			break
 		}
 
-		_, isSetext := r.tryParseSetextHeadingLine(c.Source, line)
+		_, isSetext := r.tryParseSetextHeadingLine(c, line)
 		if isSetext {
 			break
 		}
@@ -384,14 +583,16 @@ func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, 
 
 }
 
-func (ParagraphRule) tryParseSetextHeadingLine(src *source.Source, line Line) (int, bool) {
+func (ParagraphRule) tryParseSetextHeadingLine(c *Cursor, line Line) (int, bool) {
+	src := c.Source
+
 	if line.IsBlankLine(src) {
 		return 0, false
 	}
 
 	// count the leading indentation, reject if greater than 3 visual columns
-	indentCols, indentBytes := line.BlockIndent(src)
-	if indentCols > MaxValidIndentation {
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
 		return 0, false
 	}
 
