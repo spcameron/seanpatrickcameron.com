@@ -212,6 +212,11 @@ buildList:
 
 		itemLines = append(itemLines, line)
 
+		blankRun := false
+		var blankMark int
+		var blankSpanMark int
+		var blankItemLineMark int
+
 		// NOTE: inner loop
 		// collect the current item's body lines (continuation)
 		for {
@@ -223,8 +228,20 @@ buildList:
 
 			// if blank line, tenatively consume
 			if nextLine.IsBlankLine(c.Source) {
-				_ = "quiet staticcheck complaint about empty branch"
-				// TODO: blank line policy
+				// if starting blank run, mark checkpoints in case of rollback
+				if !blankRun {
+					blankRun = true
+					blankMark = c.Mark()
+					blankSpanMark = len(lineSpans)
+					blankItemLineMark = len(itemLines)
+				}
+
+				// consume blank line
+				line, _ = c.Next()
+				lineSpans = append(lineSpans, line.Span)
+				itemLines = append(itemLines, line)
+
+				continue
 			}
 
 			// absolute indentation for the next line
@@ -232,17 +249,29 @@ buildList:
 
 			// non-blank and meets the content baseline
 			if absIndentCols >= itemContentCols {
+				// reset blank run flag
+				blankRun = false
+
+				// consume next line
 				line, _ := c.Next()
 				lineSpans = append(lineSpans, line.Span)
 				itemLines = append(itemLines, line)
-
-				// reset trailing blanks to zero here
 
 				continue
 			}
 
 			// non-blank but does not meet the content baseline
 			// stop collecting, roll back any trailing blanks
+			if blankRun {
+				// reset blank run flag
+				blankRun = false
+
+				// roll back cursor position, spans and items
+				c.Reset(blankMark)
+				lineSpans = lineSpans[:blankSpanMark]
+				itemLines = itemLines[:blankItemLineMark]
+			}
+
 			break
 		}
 
