@@ -146,7 +146,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	// attempt to collect item body lines, append item,
 	// and then check for sibling items or break
 	for {
-		lines, spans, err := r.consumeListItemBodyLines(c, result)
+		lines, spans, err := r.consumeItemBody(c, result)
 		if err != nil {
 			return nil, false, err
 		}
@@ -239,7 +239,7 @@ func (r UnorderedListRule) tryConsumeSiblingItem(c *Cursor, listIndentCols int) 
 	return r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
 }
 
-func (r UnorderedListRule) consumeListItemBodyLines(c *Cursor, start MarkerLineResult) ([]Line, []source.ByteSpan, error) {
+func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([]Line, []source.ByteSpan, error) {
 
 	itemSpans := []source.ByteSpan{start.MarkerLine.Span}
 	itemLines := []Line{start.ContentLine}

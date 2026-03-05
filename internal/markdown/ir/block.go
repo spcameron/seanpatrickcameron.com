@@ -21,28 +21,6 @@ func (bq BlockQuote) String() string {
 	return fmt.Sprintf("[BlockQuote] (Children = %d)", len(bq.Children))
 }
 
-type UnorderedList struct {
-	Span  source.ByteSpan
-	Items []ListItem
-}
-
-func (UnorderedList) isBlock() {}
-
-func (ul UnorderedList) String() string {
-	return fmt.Sprintf("[UnorderedList] (Items = %d)", len(ul.Items))
-}
-
-type ListItem struct {
-	Span     source.ByteSpan
-	Children []Block
-}
-
-func (ListItem) isBlock() {}
-
-func (li ListItem) String() string {
-	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
-}
-
 type Header struct {
 	Span        source.ByteSpan
 	ContentSpan source.ByteSpan
@@ -63,6 +41,28 @@ func (ThematicBreak) isBlock() {}
 
 func (tb ThematicBreak) String() string {
 	return "[ThematicBreak]"
+}
+
+type UnorderedList struct {
+	Span  source.ByteSpan
+	Items []ListItem
+}
+
+func (UnorderedList) isBlock() {}
+
+func (ul UnorderedList) String() string {
+	return fmt.Sprintf("[UnorderedList] (Items = %d)", len(ul.Items))
+}
+
+type ListItem struct {
+	Span     source.ByteSpan
+	Children []Block
+}
+
+func (ListItem) isBlock() {}
+
+func (li ListItem) String() string {
+	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
 }
 
 type Paragraph struct {

@@ -107,6 +107,27 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "ul, two items",
+			input: "- a\n- b",
+			htmlNode: html.FragmentNode(
+				html.ElemNode(
+					"ul",
+					nil,
+					html.ElemNode(
+						"li",
+						nil,
+						html.TextNode("a"),
+					),
+					html.ElemNode(
+						"li",
+						nil,
+						html.TextNode("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

@@ -146,6 +146,25 @@ func TestCompile(t *testing.T) {
 			html:    "<h2>h</h2>",
 			wantErr: nil,
 		},
+		{
+			name: "ul, two items",
+			md: strings.Join([]string{
+				"- a",
+				"- b",
+			}, "\n"),
+			html:    "<ul><li>a</li><li>b</li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, nested list",
+			md: strings.Join([]string{
+				"- a",
+				"  - b",
+				"- c",
+			}, "\n"),
+			html:    "<ul><li>a</li><li><ul><li>b</li></ul></li><li>c</li></ul>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
