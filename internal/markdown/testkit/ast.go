@@ -34,6 +34,21 @@ func ASTThematicBreak() ast.ThematicBreak {
 	}
 }
 
+func ASTUnorderedList(tight bool, items ...ast.ListItem) ast.UnorderedList {
+	return ast.UnorderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+	}
+}
+
+func ASTListItem(children ...ast.Block) ast.ListItem {
+	return ast.ListItem{
+		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
+
 func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 	return ast.Paragraph{
 		Span:    source.ByteSpan{},
@@ -64,37 +79,60 @@ func NormalizeAST(doc ast.Document) ast.Document {
 		doc.Blocks = []ast.Block{}
 	}
 
-	for i := range doc.Blocks {
-		b := doc.Blocks[i]
-		doc.Blocks[i] = NormalizeASTBlock(b)
-	}
+	doc.Blocks = NormalizeASTBlocks(doc.Blocks)
 
 	return doc
 }
 
-func NormalizeASTBlock(b ast.Block) ast.Block {
-	switch v := b.(type) {
-	case ast.BlockQuote:
-		v.Span = source.ByteSpan{}
-		for i := range v.Children {
-			block := v.Children[i]
-			v.Children[i] = NormalizeASTBlock(block)
+func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
+	for i := range blocks {
+		switch b := blocks[i].(type) {
+		case ast.BlockQuote:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ast.Block{}
+			}
+			b.Children = NormalizeASTBlocks(b.Children)
+			blocks[i] = b
+		case ast.Header:
+			b.Span = source.ByteSpan{}
+			b.Inlines = NormalizeASTInlines(b.Inlines)
+			blocks[i] = b
+		case ast.ThematicBreak:
+			b.Span = source.ByteSpan{}
+			blocks[i] = b
+		case ast.UnorderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ast.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ast.Block{}
+				}
+				item.Children = NormalizeASTBlocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+		case ast.ListItem:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ast.Block{}
+			}
+			b.Children = NormalizeASTBlocks(b.Children)
+			blocks[i] = b
+		case ast.Paragraph:
+			b.Span = source.ByteSpan{}
+			b.Inlines = NormalizeASTInlines(b.Inlines)
+			blocks[i] = b
+		default:
+			panic(fmt.Sprintf("unhandled block type %T", b))
 		}
-		return v
-	case ast.Header:
-		v.Span = source.ByteSpan{}
-		v.Inlines = NormalizeASTInlines(v.Inlines)
-		return v
-	case ast.ThematicBreak:
-		v.Span = source.ByteSpan{}
-		return v
-	case ast.Paragraph:
-		v.Span = source.ByteSpan{}
-		v.Inlines = NormalizeASTInlines(v.Inlines)
-		return v
-	default:
-		panic(fmt.Sprintf("unhandled block type %T", v))
 	}
+
+	return blocks
 }
 
 func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {

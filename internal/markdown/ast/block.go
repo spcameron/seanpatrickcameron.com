@@ -43,6 +43,29 @@ func (tb ThematicBreak) String() string {
 	return "[Thematic Break]"
 }
 
+type UnorderedList struct {
+	Span  source.ByteSpan
+	Items []ListItem
+	Tight bool
+}
+
+func (UnorderedList) isBlock() {}
+
+func (ul UnorderedList) String() string {
+	return fmt.Sprintf("[UnorderedList] (Items = %d)", len(ul.Items))
+}
+
+type ListItem struct {
+	Span     source.ByteSpan
+	Children []Block
+}
+
+func (ListItem) isBlock() {}
+
+func (li ListItem) String() string {
+	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
+}
+
 type Paragraph struct {
 	Span    source.ByteSpan
 	Inlines []Inline

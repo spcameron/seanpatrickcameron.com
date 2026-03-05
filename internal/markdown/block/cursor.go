@@ -8,18 +8,20 @@ import (
 )
 
 type Cursor struct {
-	Source *source.Source
-	Rules  []BuildRule
-	Lines  []Line
-	Index  int
+	Source       *source.Source
+	Rules        []BuildRule
+	Lines        []Line
+	Index        int
+	BaselineCols int
 }
 
-func NewCursor(src *source.Source, rules []BuildRule, lines []Line) *Cursor {
+func NewCursor(src *source.Source, rules []BuildRule, lines []Line, baselineCols int) *Cursor {
 	return &Cursor{
-		Source: src,
-		Rules:  rules,
-		Lines:  lines,
-		Index:  0,
+		Source:       src,
+		Rules:        rules,
+		Lines:        lines,
+		Index:        0,
+		BaselineCols: 0,
 	}
 }
 
@@ -41,6 +43,14 @@ func (c *Cursor) Next() (Line, bool) {
 	return out, true
 }
 
+func (c *Cursor) MustNext() Line {
+	line, ok := c.Next()
+	if !ok {
+		panic("block cursor invariant violated: Next() returned false after Peek() succeeded")
+	}
+	return line
+}
+
 func (c *Cursor) Mark() int {
 	return c.Index
 }
@@ -51,6 +61,20 @@ func (c *Cursor) Reset(i int) {
 
 func (c *Cursor) EOF() bool {
 	return c.Index >= len(c.Lines)
+}
+
+func (c *Cursor) AbsBlockIndent(line Line) (absCols int, indentBytes int) {
+	return line.BlockIndent(c.Source)
+}
+
+func (c *Cursor) RelBlockIndent(line Line) (relCols int, indentBytes int, ok bool) {
+	absCols, indentBytes := line.BlockIndent(c.Source)
+	relCols = absCols - c.BaselineCols
+	if relCols < 0 {
+		return 0, indentBytes, false
+	}
+
+	return relCols, indentBytes, true
 }
 
 func (c *Cursor) SkipBlankLines() {

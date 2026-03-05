@@ -33,6 +33,8 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 		return renderHeader(src, v)
 	case ast.ThematicBreak:
 		return renderThematicBreak()
+	case ast.UnorderedList:
+		return renderUnorderedList(src, v)
 	case ast.Paragraph:
 		return renderParagraph(src, v)
 	default:
@@ -58,6 +60,14 @@ func appendChild(children []html.Node, child html.Node) []html.Node {
 	return append(children, child)
 }
 
+func appendChildren(dst []html.Node, src []html.Node) []html.Node {
+	for _, n := range src {
+		dst = appendChild(dst, n)
+	}
+
+	return dst
+}
+
 func renderBlockQuote(src *source.Source, bq ast.BlockQuote) (html.Node, error) {
 	node := html.Element{
 		Tag:      "blockquote",
@@ -71,26 +81,22 @@ func renderBlockQuote(src *source.Source, bq ast.BlockQuote) (html.Node, error) 
 			return nil, err
 		}
 
-		node.Children = append(node.Children, htmlChild)
+		node.Children = appendChild(node.Children, htmlChild)
 	}
 
 	return node, nil
 }
 
 func renderHeader(src *source.Source, h ast.Header) (html.Node, error) {
+	children, err := renderInlines(src, h.Inlines)
+	if err != nil {
+		return nil, err
+	}
+
 	node := html.Element{
 		Tag:      fmt.Sprintf("h%d", h.Level),
 		Attr:     html.Attributes{},
-		Children: make([]html.Node, 0, len(h.Inlines)),
-	}
-
-	for _, inl := range h.Inlines {
-		child, err := renderInline(src, inl)
-		if err != nil {
-			return nil, err
-		}
-
-		node.Children = appendChild(node.Children, child)
+		Children: children,
 	}
 
 	return node, nil
@@ -105,23 +111,92 @@ func renderThematicBreak() (html.Node, error) {
 	return node, nil
 }
 
+func renderUnorderedList(src *source.Source, ul ast.UnorderedList) (html.Node, error) {
+	node := html.Element{
+		Tag:      "ul",
+		Attr:     html.Attributes{},
+		Children: make([]html.Node, 0, len(ul.Items)),
+	}
+
+	for _, ulItem := range ul.Items {
+		liNode, err := renderListItem(src, ulItem, ul.Tight)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Children = appendChild(node.Children, liNode)
+	}
+
+	return node, nil
+}
+
+// tight-list rendering: unwraps a single paragraph child
+func renderListItem(src *source.Source, li ast.ListItem, tight bool) (html.Node, error) {
+	node := html.Element{
+		Tag:  "li",
+		Attr: html.Attributes{},
+	}
+
+	if tight {
+		for _, liChild := range li.Children {
+			if p, ok := liChild.(ast.Paragraph); ok {
+				inlines, err := renderInlines(src, p.Inlines)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = appendChildren(node.Children, inlines)
+			} else {
+				htmlChild, err := renderBlock(src, liChild)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = appendChild(node.Children, htmlChild)
+			}
+		}
+
+		return node, nil
+	}
+
+	for _, liChild := range li.Children {
+		htmlChild, err := renderBlock(src, liChild)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Children = appendChild(node.Children, htmlChild)
+	}
+
+	return node, nil
+}
+
 func renderParagraph(src *source.Source, p ast.Paragraph) (html.Node, error) {
+	children, err := renderInlines(src, p.Inlines)
+	if err != nil {
+		return nil, err
+	}
+
 	node := html.Element{
 		Tag:      "p",
 		Attr:     html.Attributes{},
-		Children: make([]html.Node, 0, len(p.Inlines)),
+		Children: children,
 	}
 
-	for _, inl := range p.Inlines {
+	return node, nil
+}
+
+func renderInlines(src *source.Source, inlines []ast.Inline) ([]html.Node, error) {
+	children := make([]html.Node, 0, len(inlines))
+
+	for _, inl := range inlines {
 		child, err := renderInline(src, inl)
 		if err != nil {
 			return nil, err
 		}
 
-		node.Children = appendChild(node.Children, child)
+		children = appendChild(children, child)
 	}
 
-	return node, nil
+	return children, nil
 }
 
 func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {

@@ -1,6 +1,7 @@
 package block
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
@@ -881,6 +882,300 @@ func TestBuild(t *testing.T) {
 			input: "===",
 			want: tk.IRDoc(
 				tk.IRPara("==="),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: single item, single line",
+			input: "- a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: rejects missing delimiter",
+			input: "-a",
+			want: tk.IRDoc(
+				tk.IRPara("-a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts '*' markers",
+			input: "* a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts '+' markers",
+			input: "+ a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: accepts 0-3 indentation at scope",
+			input: "   - a",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			// NOTE: will become code block later
+			name:  "ul: rejects 4+ indentation at scope",
+			input: "    - a",
+			want: tk.IRDoc(
+				tk.IRPara("    - a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: two sibling items",
+			input: strings.Join([]string{
+				"- a",
+				"- b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: sibling items may mix markers",
+			input: strings.Join([]string{
+				"- a",
+				"* b",
+				"+ c",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+					tk.IRListItem(
+						tk.IRPara("c"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: list terminates on non-item line at same indent",
+			input: strings.Join([]string{
+				"- a",
+				"x",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara("x"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: item content is parsed as child blocks",
+			input: "- # h",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRHeader(1, "h"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: continuation line indented equal to content baseline accepted",
+			input: strings.Join([]string{
+				"- a",
+				"  b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a", "b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: continuation line dedented to content baseline terminates list",
+			input: strings.Join([]string{
+				"- a",
+				" b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara(" b"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: continuation line indented greater than content baseline accepted",
+			input: strings.Join([]string{
+				"- a",
+				"    b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a", "  b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: nested list via indentation",
+			input: strings.Join([]string{
+				"- a",
+				"  - b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRUnorderedList(
+							true,
+							tk.IRListItem(
+								tk.IRPara("b"),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: sibling item after nested list",
+			input: strings.Join([]string{
+				"- a",
+				"  - b",
+				"- c",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRUnorderedList(
+							true,
+							tk.IRListItem(
+								tk.IRPara("b"),
+							),
+						),
+					),
+					tk.IRListItem(
+						tk.IRPara("c"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: blank line inside items separates paragraphs",
+			input: strings.Join([]string{
+				"- a",
+				"",
+				"  b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					false,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: trailing blank not followed by continuation rolls back",
+			input: strings.Join([]string{
+				"- a",
+				"",
+				"x",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara("x"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: blank line between sibling items ends list",
+			input: strings.Join([]string{
+				"- a",
+				"",
+				"- b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					false,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
 			),
 			wantErr: nil,
 		},

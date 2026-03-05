@@ -146,6 +146,73 @@ func TestCompile(t *testing.T) {
 			html:    "<h2>h</h2>",
 			wantErr: nil,
 		},
+		{
+			name: "ul, two items",
+			md: strings.Join([]string{
+				"- a",
+				"- b",
+			}, "\n"),
+			html:    "<ul><li>a</li><li>b</li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, nested list",
+			md: strings.Join([]string{
+				"- a",
+				"  - b",
+				"- c",
+			}, "\n"),
+			html:    "<ul><li>a<ul><li>b</li></ul></li><li>c</li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, loose list via blank line between items",
+			md: strings.Join([]string{
+				"- a",
+				"",
+				"- b",
+			}, "\n"),
+			html:    "<ul><li><p>a</p></li><li><p>b</p></li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, trailing blank line after last item rolls back",
+			md: strings.Join([]string{
+				"- a",
+				"",
+				"x",
+			}, "\n"),
+			html:    "<ul><li>a</li></ul><p>x</p>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, loose list via blank line inside an item",
+			md: strings.Join([]string{
+				"- a",
+				"",
+				"  x",
+			}, "\n"),
+			html:    "<ul><li><p>a</p><p>x</p></li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, nested list does not force looseness",
+			md: strings.Join([]string{
+				"- a",
+				"  - b",
+			}, "\n"),
+			html:    "<ul><li>a<ul><li>b</li></ul></li></ul>",
+			wantErr: nil,
+		},
+		{
+			name: "ul, dedent ends list, next line becomes paragraph",
+			md: strings.Join([]string{
+				"- a",
+				"x",
+			}, "\n"),
+			html:    "<ul><li>a</li></ul><p>x</p>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

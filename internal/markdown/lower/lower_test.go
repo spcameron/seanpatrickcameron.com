@@ -62,6 +62,22 @@ func TestLowerDocument(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "ul, two items",
+			input: "- a\n- b",
+			astDoc: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					true,
+					tk.ASTListItem(
+						tk.ASTPara(tk.ASTText()),
+					),
+					tk.ASTListItem(
+						tk.ASTPara((tk.ASTText())),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

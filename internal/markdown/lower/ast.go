@@ -36,6 +36,10 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 		return buildHeader(src, v)
 	case ir.ThematicBreak:
 		return buildThematicBreak(v)
+	case ir.UnorderedList:
+		return buildUnorderedList(src, v)
+	case ir.ListItem:
+		return buildListItem(src, v)
 	case ir.Paragraph:
 		return buildParagraph(src, v)
 	default:
@@ -81,6 +85,52 @@ func buildHeader(src *source.Source, h ir.Header) (ast.Block, error) {
 func buildThematicBreak(tb ir.ThematicBreak) (ast.Block, error) {
 	block := ast.ThematicBreak{
 		Span: tb.Span,
+	}
+
+	return block, nil
+}
+
+func buildUnorderedList(src *source.Source, ul ir.UnorderedList) (ast.Block, error) {
+	astItems := make([]ast.ListItem, 0, len(ul.Items))
+
+	for _, ulItem := range ul.Items {
+		astBlock, err := buildBlock(src, ulItem)
+		if err != nil {
+			return nil, err
+		}
+
+		astItem, ok := astBlock.(ast.ListItem)
+		if !ok {
+			panic("ast build requires list item type assertion to pass")
+		}
+
+		astItems = append(astItems, astItem)
+	}
+
+	block := ast.UnorderedList{
+		Span:  ul.Span,
+		Items: astItems,
+		Tight: ul.Tight,
+	}
+
+	return block, nil
+}
+
+func buildListItem(src *source.Source, li ir.ListItem) (ast.Block, error) {
+	astChildren := make([]ast.Block, 0, len(li.Children))
+
+	for _, liChild := range li.Children {
+		astChild, err := buildBlock(src, liChild)
+		if err != nil {
+			return nil, err
+		}
+
+		astChildren = append(astChildren, astChild)
+	}
+
+	block := ast.ListItem{
+		Span:     li.Span,
+		Children: astChildren,
 	}
 
 	return block, nil

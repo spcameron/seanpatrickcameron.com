@@ -1,6 +1,8 @@
 package testkit
 
 import (
+	"fmt"
+
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
@@ -13,16 +15,16 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 
 func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
 	return ir.BlockQuote{
-		Children: children,
 		Span:     source.ByteSpan{},
+		Children: children,
 	}
 }
 
 func IRHeader(level int, input ...string) ir.Header {
 	return ir.Header{
-		Level:       level,
 		Span:        source.ByteSpan{},
 		ContentSpan: source.ByteSpan{},
+		Level:       level,
 	}
 }
 
@@ -32,12 +34,26 @@ func IRThematicBreak() ir.ThematicBreak {
 	}
 }
 
+func IRUnorderedList(tight bool, items ...ir.ListItem) ir.UnorderedList {
+	return ir.UnorderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+	}
+}
+
+func IRListItem(children ...ir.Block) ir.ListItem {
+	return ir.ListItem{
+		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
 func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
 	return ir.Paragraph{
-		Lines: lines,
 		Span:  source.ByteSpan{},
+		Lines: lines,
 	}
 }
 
@@ -47,12 +63,12 @@ func NormalizeIR(doc ir.Document) ir.Document {
 		doc.Blocks = []ir.Block{}
 	}
 
-	doc.Blocks = normalizeBlocks(doc.Blocks)
+	doc.Blocks = NormalizeIRBLocks(doc.Blocks)
 
 	return doc
 }
 
-func normalizeBlocks(blocks []ir.Block) []ir.Block {
+func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 	for i := range blocks {
 		switch b := blocks[i].(type) {
 		case ir.BlockQuote:
@@ -60,7 +76,7 @@ func normalizeBlocks(blocks []ir.Block) []ir.Block {
 			if b.Children == nil {
 				b.Children = []ir.Block{}
 			}
-			b.Children = normalizeBlocks(b.Children)
+			b.Children = NormalizeIRBLocks(b.Children)
 			blocks[i] = b
 		case ir.Header:
 			b.Span = source.ByteSpan{}
@@ -69,16 +85,39 @@ func normalizeBlocks(blocks []ir.Block) []ir.Block {
 		case ir.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
+		case ir.UnorderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ir.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ir.Block{}
+				}
+				item.Children = NormalizeIRBLocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+		case ir.ListItem:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ir.Block{}
+			}
+			b.Children = NormalizeIRBLocks(b.Children)
+			blocks[i] = b
 		case ir.Paragraph:
+			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
 				b.Lines = []source.ByteSpan{}
 			}
-
-			b.Span = source.ByteSpan{}
 			for j := range b.Lines {
 				b.Lines[j] = source.ByteSpan{}
 			}
 			blocks[i] = b
+		default:
+			panic(fmt.Sprintf("unhandled block type %T", b))
 		}
 	}
 
