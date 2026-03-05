@@ -45,7 +45,7 @@ This guarantees a single source of truth for content, stable byte-coordinate sem
 ### Representation Boundaries
 
 - `source.Source`: Immutable input buffer with span utilities and line/column mapping.
-- `ir.Document`: Block-level intermediate representation. Structual only and span-based.
+- `ir.Document`: Block-level intermediate representation. Structural only and span-based.
 - `ast.Document`: Semantic tree suitable for code generation. Span-based.
 - `html.Node`: Target-language representation (HTML tree). String-backed.
 
@@ -64,7 +64,7 @@ All parsing and lowering operate on a single `Source`. Structural elements carry
 
 ### 2. IR vs AST Separation
 
-The compiler distinguishes between **Block IR** (structural parsing) and **AST** (semantic representaiton). Block parsing occurs first and determines structural boundaries, while lowering to AST determines semantic meaning. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning.
+The compiler distinguishes between **Block IR** (structural parsing) and **AST** (semantic representation). Block parsing occurs first and determines structural boundaries, while lowering to AST determines semantic meaning. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning.
 
 ### 3. Lowering as a First-Class Stage
 
@@ -122,7 +122,7 @@ A Setext header is recognized if and only if the following is true:
 - **Indentation**: The line begins with 0-3 columns of indentation.
 - **Marker Character**: The first non-indent character of the underline is either `=` or `-`.
 - **Marker Run**: The underline line contains a run of one or more identical marker characters.
-- **Line Purity**: Aside from indentation and optional trailing spaces or tabs, the underline line must contain only the chosen marker charater. Internal spaces between markers are not permitted.
+- **Line Purity**: Aside from indentation and optional trailing spaces or tabs, the underline line must contain only the chosen marker character. Internal spaces between markers are not permitted.
 - **Trailing Whitespace**: Trailing spaces or tabs after the marker run are permitted.
 
 The entire preceding paragraph run becomes the header content. The underline line contributes only the level and is not included in the content span.
@@ -145,7 +145,7 @@ A line is recognized as a thematic break if all of the following are true:
 
 A thematic break consumes exactly one line, and may interrupt paragraphs.
 
-When a line of dashes (`---`) directly follows a paragraph run and satisfies Setext underline rules, it is interpreted as a Setext level 2 header rather than a thematic break. Otherwise, tematic break rules apply.
+When a line of dashes (`---`) directly follows a paragraph run and satisfies Setext underline rules, it is interpreted as a Setext level 2 header rather than a thematic break. Otherwise, thematic break rules apply.
 
 Breaks are rendered as `<hr>` in HTML.
 
@@ -171,6 +171,105 @@ Multiple consecutive `>` markers indicate nested block quotes. Each nesting laye
 
 Block quotes are rendered as `<blockquote>...</blockquote>` in HTML.
 
+#### Unordered Lists (`-`, `*`, `+`)
+
+An unordered list is a container block composed of one or more list items. Each item begins with a list marker followed by a delimiter and item content. List items may contain any other block element supported by the compiler.
+
+A line is recognized as the beginning of an unordered list item if and only if the following is true:
+
+- **Indentation**: The line begins with 0-3 columns of indentation.
+- **Marker Character**: After indentation, the line begins with one of the marker characters `-`, `*`, or `+`.
+- **Delimiter**: The marker must be followed by at least one delimiter character, a space or a tab.
+- **Content Start**: After the marker and delimiter run, the remainder of the line forms the first content line of the list item.
+
+The list indentation column is defined as the visual column of the marker character. The item content baseline is the visual column immediately after the delimiter run.
+
+##### Item Body Continuation
+
+After a marker line is consumed, additional lines may belong to the same list item.
+
+A subsequent line is treated as a continuation of the current item if the line is not blank and the line's indentation is greater than or equal to the item content baseline column.
+
+Continuation lines are included in the list item body. When a continuation line is incorporated into the item body, its indentation up to the item content baseline is removed before recursive block parsing. Any indentation beyond the baseline is preserved as content.
+
+Continuation lines are parsed recursively as block content using the item content baseline as the indentation baseline.
+
+##### Blank Lines Within Items
+
+Blank lines may appear within the body of a list item.
+
+Blank lines are tentatively consumed. If the next non-blank line satisfies the continuation rule (indentation >= item content baseline), the blank lines remain part of the item body.
+
+If the following non-blank line does not satisfy the continuation rule, the blank lines are discarded and parsing resumes outside the list item.
+
+##### Blank Lines Between Items
+
+Blank lines are permitted between sibling list items.
+
+After completing an item, the parser may encounter one or more blank lines before the next item marker. These blank lines are tentatively consumed while attempting to recognize a sibling item.
+
+If a valid sibling item follows, the blank lines are considered part of the list structure. If no sibling item follows, the parser rolls back and the blank lines remain outside the list.
+
+##### Item Termination
+
+A list item ends when a subsequent non-blank line has indentation less than the item content baseline or begins a sibling list item at the same list indentation level.
+
+##### Sibling Items
+
+After completing an item, the parser attempts to recognize another list item.
+
+A sibling item is recognized if:
+
+- After optional blank lines, the next line's indentation is exactly equal to the list indentation column, and
+- The line satisfies the list marker and delimiter rules.
+
+If these conditions are met, a new list item begins.
+
+##### List Termination
+
+The unordered list ends when the next line has indentation less than the list indentation column or does not form a valid sibling list item.
+
+If blank lines are encountered that are not followed by a valid sibling marker, they are not considered part of the list.
+
+##### Tight and Loose Lists
+
+During parsing, each unordered list is classified as either *tight* or *loose*.
+
+A list becomes loose if either of the following conditions occurs:
+
+- Blank lines appear between sibling list items, or
+- Blank lines appear within a list item body and are retained as part of that item.
+
+If neither condition occurs, the list is classified as tight.
+
+This classification is determined during IR construction and stored on the `UnorderedList` node.
+
+##### Structure
+
+Each list item is parsed as a separate block scope. The marker and delimiter are removed and the item body is parsed recursively using the item content baseline as the indentation baseline.
+
+The `ListItem` span begins at the marker line and ends at the last physical line belonging to the item body. The `UnorderedList` span covers the full extent of its items.
+
+##### Rendering
+
+Unordered lists are rendered as:
+
+```
+<ul>
+    <li>...</li>
+    <li>...</li>
+</ul>
+```
+
+Rendering behavior depends on whether the list is tight or loose. Paragraph blocks inside list items do not produce `<p>` elements. Instead, their inline content is rendered directly inside the `<li>` element.
+
+##### List Nesting
+
+Lists may be nested by increasing indentation relative to the parent item's content baseline.
+
+If a continuation line within a list item begins with indentation greater than or equal to the item content baseline and itself forms a valid list marker, a nested list is recognized.
+
+Nested lists are parsed recursively using the same indentation rules, allowing arbitrarily deep list hierarchies.
 
 ### Inline Elements
 
