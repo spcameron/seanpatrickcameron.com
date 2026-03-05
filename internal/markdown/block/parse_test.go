@@ -890,6 +890,7 @@ func TestBuild(t *testing.T) {
 			input: "- a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -910,6 +911,7 @@ func TestBuild(t *testing.T) {
 			input: "* a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -922,6 +924,7 @@ func TestBuild(t *testing.T) {
 			input: "+ a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -934,6 +937,7 @@ func TestBuild(t *testing.T) {
 			input: "   - a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -958,6 +962,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -977,6 +982,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -998,6 +1004,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -1011,6 +1018,7 @@ func TestBuild(t *testing.T) {
 			input: "- # h",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRHeader(1, "h"),
 					),
@@ -1026,6 +1034,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a", "b"),
 					),
@@ -1041,6 +1050,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
@@ -1057,6 +1067,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a", "  b"),
 					),
@@ -1072,9 +1083,11 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 						tk.IRUnorderedList(
+							true,
 							tk.IRListItem(
 								tk.IRPara("b"),
 							),
@@ -1093,9 +1106,11 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 						tk.IRUnorderedList(
+							true,
 							tk.IRListItem(
 								tk.IRPara("b"),
 							),
@@ -1117,6 +1132,7 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					false,
 					tk.IRListItem(
 						tk.IRPara("a"),
 						tk.IRPara("b"),
@@ -1134,11 +1150,12 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					true,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
 				),
-				tk.IRPara("a"),
+				tk.IRPara("x"),
 			),
 			wantErr: nil,
 		},
@@ -1151,11 +1168,10 @@ func TestBuild(t *testing.T) {
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
+					false,
 					tk.IRListItem(
 						tk.IRPara("a"),
 					),
-				),
-				tk.IRUnorderedList(
 					tk.IRListItem(
 						tk.IRPara("b"),
 					),

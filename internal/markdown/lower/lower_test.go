@@ -67,6 +67,7 @@ func TestLowerDocument(t *testing.T) {
 			input: "- a\n- b",
 			astDoc: tk.ASTDoc(
 				tk.ASTUnorderedList(
+					true,
 					tk.ASTListItem(
 						tk.ASTPara(tk.ASTText()),
 					),

@@ -142,13 +142,17 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	listItems := make([]ir.ListItem, 0, 4)
+	tight := true
 
 	// attempt to collect item body lines, append item,
 	// and then check for sibling items or break
 	for {
-		lines, spans, err := r.consumeItemBody(c, result)
+		lines, spans, keptBlank, err := r.consumeItemBody(c, result)
 		if err != nil {
 			return nil, false, err
+		}
+		if keptBlank {
+			tight = false
 		}
 
 		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols)
@@ -173,12 +177,16 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 		listItems = append(listItems, item)
 
-		result, ok, err = r.tryConsumeSiblingItem(c, result.ListIndentCols)
+		sepBlanks := false
+		result, sepBlanks, ok, err = r.tryConsumeSiblingItem(c, result.ListIndentCols)
 		if err != nil {
 			return nil, false, err
 		}
 		if !ok {
 			break
+		}
+		if sepBlanks {
+			tight = false
 		}
 	}
 
@@ -195,6 +203,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	applied := ir.UnorderedList{
 		Span:  listSpan,
 		Items: listItems,
+		Tight: tight,
 	}
 
 	return applied, true, nil
@@ -221,11 +230,27 @@ func (r UnorderedListRule) tryConsumeFirstItem(c *Cursor) (MarkerLineResult, boo
 	return r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
 }
 
-func (r UnorderedListRule) tryConsumeSiblingItem(c *Cursor, listIndentCols int) (MarkerLineResult, bool, error) {
-	// peek next line, reject if EOF or blank
+func (r UnorderedListRule) tryConsumeSiblingItem(c *Cursor, listIndentCols int) (MarkerLineResult, bool, bool, error) {
+	// mark cursor location in case rollback
+	m := c.Mark()
+	consumedBlanks := false
+
+	// peek next line, reject if EOF
 	line, ok := c.Peek()
-	if !ok || line.IsBlankLine(c.Source) {
-		return MarkerLineResult{}, false, nil
+	if !ok {
+		return MarkerLineResult{}, false, false, nil
+	}
+
+	// consume trailing blank lines
+	for line.IsBlankLine(c.Source) {
+		c.MustNext()
+		consumedBlanks = true
+
+		line, ok = c.Peek()
+		if !ok {
+			c.Reset(m)
+			return MarkerLineResult{}, false, false, nil
+		}
 	}
 
 	// measure the line indentation (visual columns)
@@ -233,14 +258,26 @@ func (r UnorderedListRule) tryConsumeSiblingItem(c *Cursor, listIndentCols int) 
 	// or if greater than listIndentCols (not a sibling item)
 	absIndentCols, indentBytes := c.AbsBlockIndent(line)
 	if absIndentCols != listIndentCols {
-		return MarkerLineResult{}, false, nil
+		c.Reset(m)
+		return MarkerLineResult{}, false, false, nil
 	}
 
-	return r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
+	// try to parse the next non-blank line
+	// if parse fails, roll back the trailing blanks
+	result, ok, err := r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
+	if err != nil {
+		c.Reset(m)
+		return MarkerLineResult{}, false, false, nil
+	}
+	if !ok {
+		c.Reset(m)
+		return MarkerLineResult{}, false, false, nil
+	}
+
+	return result, consumedBlanks, true, nil
 }
 
-func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([]Line, []source.ByteSpan, error) {
-
+func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([]Line, []source.ByteSpan, bool, error) {
 	itemSpans := []source.ByteSpan{start.MarkerLine.Span}
 	itemLines := []Line{start.ContentLine}
 
@@ -252,6 +289,8 @@ func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([
 	}{
 		active: false,
 	}
+
+	keptBlank := false
 
 	for {
 		// peek next line, reject if EOF
@@ -283,13 +322,21 @@ func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([
 
 		// non-blank and meets the content baseline
 		if absIndentCols >= start.ItemContentCols {
+			// toggle flag if continuation line follows a blank line
+			if blankRun.active {
+				keptBlank = true
+			}
+
 			// reset blank run flag
 			blankRun.active = false
 
 			// consume the next line
 			line := c.MustNext()
 			itemSpans = append(itemSpans, line.Span)
-			itemLines = append(itemLines, line)
+
+			// append a derived line trimed to the item baseline for recursive parsing
+			trimmed := line.TrimIndentToCols(c.Source, start.ItemContentCols)
+			itemLines = append(itemLines, trimmed)
 
 			continue
 		}
@@ -309,7 +356,7 @@ func (r UnorderedListRule) consumeItemBody(c *Cursor, start MarkerLineResult) ([
 		break
 	}
 
-	return itemLines, itemSpans, nil
+	return itemLines, itemSpans, keptBlank, nil
 }
 
 func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCols, indentBytes int) (MarkerLineResult, bool, error) {

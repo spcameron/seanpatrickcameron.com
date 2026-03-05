@@ -34,10 +34,11 @@ func ASTThematicBreak() ast.ThematicBreak {
 	}
 }
 
-func ASTUnorderedList(items ...ast.ListItem) ast.UnorderedList {
+func ASTUnorderedList(tight bool, items ...ast.ListItem) ast.UnorderedList {
 	return ast.UnorderedList{
 		Span:  source.ByteSpan{},
 		Items: items,
+		Tight: tight,
 	}
 }
 

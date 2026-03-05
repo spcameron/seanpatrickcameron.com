@@ -46,6 +46,7 @@ func (tb ThematicBreak) String() string {
 type UnorderedList struct {
 	Span  source.ByteSpan
 	Items []ListItem
+	Tight bool
 }
 
 func (UnorderedList) isBlock() {}

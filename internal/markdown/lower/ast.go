@@ -110,6 +110,7 @@ func buildUnorderedList(src *source.Source, ul ir.UnorderedList) (ast.Block, err
 	block := ast.UnorderedList{
 		Span:  ul.Span,
 		Items: astItems,
+		Tight: ul.Tight,
 	}
 
 	return block, nil

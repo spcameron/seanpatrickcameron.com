@@ -34,10 +34,11 @@ func IRThematicBreak() ir.ThematicBreak {
 	}
 }
 
-func IRUnorderedList(items ...ir.ListItem) ir.UnorderedList {
+func IRUnorderedList(tight bool, items ...ir.ListItem) ir.UnorderedList {
 	return ir.UnorderedList{
 		Span:  source.ByteSpan{},
 		Items: items,
+		Tight: tight,
 	}
 }
 

@@ -35,8 +35,6 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 		return renderThematicBreak()
 	case ast.UnorderedList:
 		return renderUnorderedList(src, v)
-	case ast.ListItem:
-		return renderListItem(src, v)
 	case ast.Paragraph:
 		return renderParagraph(src, v)
 	default:
@@ -60,6 +58,14 @@ func appendChild(children []html.Node, child html.Node) []html.Node {
 	}
 
 	return append(children, child)
+}
+
+func appendChildren(dst []html.Node, src []html.Node) []html.Node {
+	for _, n := range src {
+		dst = appendChild(dst, n)
+	}
+
+	return dst
 }
 
 func renderBlockQuote(src *source.Source, bq ast.BlockQuote) (html.Node, error) {
@@ -113,40 +119,42 @@ func renderUnorderedList(src *source.Source, ul ast.UnorderedList) (html.Node, e
 	}
 
 	for _, ulItem := range ul.Items {
-		htmlChild, err := renderBlock(src, ulItem)
+		liNode, err := renderListItem(src, ulItem, ul.Tight)
 		if err != nil {
 			return nil, err
 		}
 
-		node.Children = appendChild(node.Children, htmlChild)
+		node.Children = appendChild(node.Children, liNode)
 	}
 
 	return node, nil
 }
 
 // tight-list rendering: unwraps a single paragraph child
-func renderListItem(src *source.Source, li ast.ListItem) (html.Node, error) {
-	if len(li.Children) == 1 {
-		if p, ok := li.Children[0].(ast.Paragraph); ok {
-			children, err := renderInlines(src, p.Inlines)
-			if err != nil {
-				return nil, err
-			}
-
-			node := html.Element{
-				Tag:      "li",
-				Attr:     html.Attributes{},
-				Children: children,
-			}
-
-			return node, nil
-		}
+func renderListItem(src *source.Source, li ast.ListItem, tight bool) (html.Node, error) {
+	node := html.Element{
+		Tag:  "li",
+		Attr: html.Attributes{},
 	}
 
-	node := html.Element{
-		Tag:      "li",
-		Attr:     html.Attributes{},
-		Children: make([]html.Node, 0, len(li.Children)),
+	if tight {
+		for _, liChild := range li.Children {
+			if p, ok := liChild.(ast.Paragraph); ok {
+				inlines, err := renderInlines(src, p.Inlines)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = appendChildren(node.Children, inlines)
+			} else {
+				htmlChild, err := renderBlock(src, liChild)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = appendChild(node.Children, htmlChild)
+			}
+		}
+
+		return node, nil
 	}
 
 	for _, liChild := range li.Children {
