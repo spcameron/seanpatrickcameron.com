@@ -43,6 +43,14 @@ func (c *Cursor) Next() (Line, bool) {
 	return out, true
 }
 
+func (c *Cursor) MustNext() Line {
+	line, ok := c.Next()
+	if !ok {
+		panic("block cursor invariant violated: Next() returned false after Peek() succeeded")
+	}
+	return line
+}
+
 func (c *Cursor) Mark() int {
 	return c.Index
 }

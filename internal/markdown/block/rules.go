@@ -7,7 +7,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-// TODO: remove redundant ok checks on Next
+// TODO: remove redundant ok checks on Next --> Use MustNext
+// TODO: condense ok and line empty checks on initial peeks
 
 const MaxValidIndentation = 3
 
@@ -121,171 +122,48 @@ func (BlockQuoteRule) tryConsumeQuoteLine(c *Cursor) (Line, Line, bool, error) {
 	return full, trimmed, true, nil
 }
 
+type MarkerLineResult struct {
+	MarkerLine      Line
+	ContentLine     Line
+	ListIndentCols  int
+	ItemContentCols int
+}
+
 type UnorderedListRule struct{}
 
 func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
-	line, ok := c.Peek()
+	// must consume at least one line to apply
+	result, ok, err := r.tryConsumeFirstItem(c)
+	if err != nil {
+		return nil, false, err
+	}
 	if !ok {
 		return nil, false, nil
 	}
-	if line.IsBlankLine(c.Source) {
-		return nil, false, nil
-	}
 
-	// count the leading indentation
-	// reject line if indent is greater than 3 visual columns,
-	// or if the indentation is less than the cursor baseline
-	relIndentCols, indentBytes, ok := c.RelBlockIndent(line)
-	if !ok || relIndentCols > MaxValidIndentation {
-		return nil, false, nil
-	}
+	listItems := make([]ir.ListItem, 0, 4)
 
-	// calculate the list indentation (visual columns)
-	listIndentCols, _ := c.AbsBlockIndent(line)
-
-	s := c.Source.Slice(line.Span)
-	pos := indentBytes
-	col := listIndentCols
-
-	// validate the first marker character
-	if pos >= len(s) {
-		return nil, false, nil
-	}
-	switch s[pos] {
-	case '-', '*', '+':
-	// ok
-	default:
-		return nil, false, nil
-	}
-
-	// consume the marker
-	pos++
-	col++
-
-	// validate the delimiter (at least one space or tab)
-	if pos >= len(s) || (s[pos] != ' ' && s[pos] != '\t') {
-		return nil, false, nil
-	}
-
-	// NOTE: committed to building the list at this point
-
-	lineSpans := []source.ByteSpan{}
-	listItems := []ir.ListItem{}
-
-	// NOTE: outer loop
-	// parse one list item at a time (sibling)
-buildList:
+	// attempt to collect item body lines, append item,
+	// and then check for sibling items or break
 	for {
-		// consume the next line
-		markerLine, _ := c.Next()
-		itemLines := []Line{}
-
-		lineSpans = append(lineSpans, markerLine.Span)
-
-		// consume the delimiter run
-		for pos < len(s) {
-			b := s[pos]
-			if b == ' ' {
-				col++
-				pos++
-				continue
-			}
-			if b == '\t' {
-				col += tabWidth - (col % tabWidth)
-				pos++
-				continue
-			}
-			break
-		}
-
-		itemContentCols := col
-		lineContentByte := pos
-
-		contentStart := markerLine.Span.Start + source.BytePos(lineContentByte)
-
-		line := Line{
-			Span: source.ByteSpan{
-				Start: contentStart,
-				End:   markerLine.Span.End,
-			},
-		}
-
-		itemLines = append(itemLines, line)
-
-		blankRun := false
-		var blankMark int
-		var blankSpanMark int
-		var blankItemLineMark int
-
-		// NOTE: inner loop
-		// collect the current item's body lines (continuation)
-		for {
-			nextLine, ok := c.Peek()
-			// if EOF, stop collecting, proceed to finalization
-			if !ok {
-				break
-			}
-
-			// if blank line, tenatively consume
-			if nextLine.IsBlankLine(c.Source) {
-				// if starting blank run, mark checkpoints in case of rollback
-				if !blankRun {
-					blankRun = true
-					blankMark = c.Mark()
-					blankSpanMark = len(lineSpans)
-					blankItemLineMark = len(itemLines)
-				}
-
-				// consume blank line
-				line, _ = c.Next()
-				lineSpans = append(lineSpans, line.Span)
-				itemLines = append(itemLines, line)
-
-				continue
-			}
-
-			// absolute indentation for the next line
-			absIndentCols, _ := c.AbsBlockIndent(nextLine)
-
-			// non-blank and meets the content baseline
-			if absIndentCols >= itemContentCols {
-				// reset blank run flag
-				blankRun = false
-
-				// consume next line
-				line, _ := c.Next()
-				lineSpans = append(lineSpans, line.Span)
-				itemLines = append(itemLines, line)
-
-				continue
-			}
-
-			// non-blank but does not meet the content baseline
-			// stop collecting, roll back any trailing blanks
-			if blankRun {
-				// reset blank run flag
-				blankRun = false
-
-				// roll back cursor position, spans and items
-				c.Reset(blankMark)
-				lineSpans = lineSpans[:blankSpanMark]
-				itemLines = itemLines[:blankItemLineMark]
-			}
-
-			break
-		}
-
-		// recursively parse children
-		children, err := buildBlocks(c.Source, c.Rules, itemLines, itemContentCols)
+		lines, spans, err := r.consumeListItemBodyLines(c, result)
 		if err != nil {
 			return nil, false, err
 		}
 
-		// finalize the list item
-		var itemSpan source.ByteSpan
-		if len(itemLines) > 0 {
-			itemSpan.Start = markerLine.Span.Start
-			itemSpan.End = itemLines[len(itemLines)-1].Span.End
+		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// defensive panic
+		if len(spans) == 0 {
+			panic("unordered list invariant violated: consumed marker line but produced no item spans")
+		}
+
+		itemSpan := source.ByteSpan{
+			Start: result.MarkerLine.Span.Start,
+			End:   spans[len(spans)-1].End,
 		}
 
 		item := ir.ListItem{
@@ -293,69 +171,25 @@ buildList:
 			Children: children,
 		}
 
-		// update listItems
 		listItems = append(listItems, item)
 
-		// peek for sibling item
-		nextLine, ok := c.Peek()
+		result, ok, err = r.tryConsumeSiblingItem(c, result.ListIndentCols)
+		if err != nil {
+			return nil, false, err
+		}
 		if !ok {
 			break
 		}
-		if nextLine.IsBlankLine(c.Source) {
-			break
-			// possible to allow blank lines between items later
-		}
-
-		// calculate the next line indentation (visual columns)
-		absIndentCols, indentBytes := c.AbsBlockIndent(nextLine)
-
-		// dedent, list ends
-		if absIndentCols < listIndentCols {
-			break
-		}
-
-		// not a sibling item, list ends
-		if absIndentCols != listIndentCols {
-			break
-		}
-
-		// the following is repeated from first-line validation
-		// extract to helper
-		//
-		// potential sibling item
-		// validate marker & delimiter as before
-		// if valid, continue; if not, list ends
-		s = c.Source.Slice(nextLine.Span)
-		pos = indentBytes
-		col = listIndentCols
-
-		// validate the first marker character
-		if pos >= len(s) {
-			break
-		}
-		switch s[pos] {
-		case '-', '*', '+':
-		//ok
-		default:
-			break buildList
-		}
-
-		// consume the marker
-		pos++
-		col++
-
-		// validate the delimiter (at least one space or tab)
-		if pos >= len(s) || (s[pos] != ' ' && s[pos] != '\t') {
-			break buildList
-		}
-
-		// valid sibling, continue loop
 	}
 
-	var listSpan source.ByteSpan
-	if len(lineSpans) > 0 {
-		listSpan.Start = lineSpans[0].Start
-		listSpan.End = lineSpans[len(lineSpans)-1].End
+	// defensive panic
+	if len(listItems) == 0 {
+		panic("unordered list invariant violated: matched first item but produced no items")
+	}
+
+	listSpan := source.ByteSpan{
+		Start: listItems[0].Span.Start,
+		End:   listItems[len(listItems)-1].Span.End,
 	}
 
 	applied := ir.UnorderedList{
@@ -364,6 +198,191 @@ buildList:
 	}
 
 	return applied, true, nil
+}
+
+func (r UnorderedListRule) tryConsumeFirstItem(c *Cursor) (MarkerLineResult, bool, error) {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return MarkerLineResult{}, false, nil
+	}
+
+	// measure the leading indentation
+	// reject line if indent is greater than 3 visual columns,
+	// or if less than the cursor baseline
+	relIndentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || relIndentCols > MaxValidIndentation {
+		return MarkerLineResult{}, false, nil
+	}
+
+	// calculate the list indentation (visual columns)
+	listIndentCols, _ := c.AbsBlockIndent(line)
+
+	return r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
+}
+
+func (r UnorderedListRule) tryConsumeSiblingItem(c *Cursor, listIndentCols int) (MarkerLineResult, bool, error) {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return MarkerLineResult{}, false, nil
+	}
+
+	// measure the line indentation (visual columns)
+	// reject if less than listIndentCols (dedent),
+	// or if greater than listIndentCols (not a sibling item)
+	absIndentCols, indentBytes := c.AbsBlockIndent(line)
+	if absIndentCols != listIndentCols {
+		return MarkerLineResult{}, false, nil
+	}
+
+	return r.tryParseMarkerLine(c, line, listIndentCols, indentBytes)
+}
+
+func (r UnorderedListRule) consumeListItemBodyLines(c *Cursor, start MarkerLineResult) ([]Line, []source.ByteSpan, error) {
+
+	itemSpans := []source.ByteSpan{start.MarkerLine.Span}
+	itemLines := []Line{start.ContentLine}
+
+	blankRun := struct {
+		active     bool
+		cursorMark int
+		spanMark   int
+		lineMark   int
+	}{
+		active: false,
+	}
+
+	for {
+		// peek next line, reject if EOF
+		nextLine, ok := c.Peek()
+		if !ok {
+			break
+		}
+
+		// if blank line, tentatively consume
+		if nextLine.IsBlankLine(c.Source) {
+			// if starting a blank run, mark checkpoints in case of rollback
+			if !blankRun.active {
+				blankRun.active = true
+				blankRun.cursorMark = c.Mark()
+				blankRun.spanMark = len(itemSpans)
+				blankRun.lineMark = len(itemLines)
+			}
+
+			// consume blank line
+			line := c.MustNext()
+			itemSpans = append(itemSpans, line.Span)
+			itemLines = append(itemLines, line)
+
+			continue
+		}
+
+		// absolute indentation for the next line
+		absIndentCols, _ := c.AbsBlockIndent(nextLine)
+
+		// non-blank and meets the content baseline
+		if absIndentCols >= start.ItemContentCols {
+			// reset blank run flag
+			blankRun.active = false
+
+			// consume the next line
+			line := c.MustNext()
+			itemSpans = append(itemSpans, line.Span)
+			itemLines = append(itemLines, line)
+
+			continue
+		}
+
+		// non-blank but does not meet the content baseline
+		// stop collecting, roll back any trailing blanks
+		if blankRun.active {
+			// reset blank run flag
+			blankRun.active = false
+
+			// roll back cursor position, spans and items
+			c.Reset(blankRun.cursorMark)
+			itemSpans = itemSpans[:blankRun.spanMark]
+			itemLines = itemLines[:blankRun.lineMark]
+		}
+
+		break
+	}
+
+	return itemLines, itemSpans, nil
+}
+
+func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCols, indentBytes int) (MarkerLineResult, bool, error) {
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+	col := listIndentCols
+
+	// validate the first marker character
+	if pos >= len(s) {
+		return MarkerLineResult{}, false, nil
+	}
+	switch s[pos] {
+	case '-', '*', '+':
+	// ok, continue
+	default:
+		return MarkerLineResult{}, false, nil
+	}
+
+	// consume the marker
+	pos++
+	col++
+
+	// validate the delimiter (at least one space or tab)
+	if pos >= len(s) {
+		return MarkerLineResult{}, false, nil
+	}
+	switch s[pos] {
+	case ' ', '\t':
+	// ok, continue
+	default:
+		return MarkerLineResult{}, false, nil
+	}
+
+	// consume the next line
+	markerLine := c.MustNext()
+
+	// consume the delimiter run
+	for pos < len(s) {
+		b := s[pos]
+		if b == ' ' {
+			col++
+			pos++
+			continue
+		}
+		if b == '\t' {
+			col += tabWidth - (col % tabWidth)
+			pos++
+			continue
+		}
+		break
+	}
+
+	// derive content column and byte starting positions
+	itemContentCols := col
+	contentOffsetBytes := pos
+
+	contentStart := markerLine.Span.Start + source.BytePos(contentOffsetBytes)
+
+	contentLine := Line{
+		Span: source.ByteSpan{
+			Start: contentStart,
+			End:   markerLine.Span.End,
+		},
+	}
+
+	result := MarkerLineResult{
+		MarkerLine:      markerLine,
+		ContentLine:     contentLine,
+		ListIndentCols:  listIndentCols,
+		ItemContentCols: itemContentCols,
+	}
+
+	return result, true, nil
 }
 
 type HeaderRule struct{}
