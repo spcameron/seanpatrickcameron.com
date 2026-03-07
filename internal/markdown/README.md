@@ -171,105 +171,41 @@ Multiple consecutive `>` markers indicate nested block quotes. Each nesting laye
 
 Block quotes are rendered as `<blockquote>...</blockquote>` in HTML.
 
-#### Unordered Lists (`-`, `*`, `+`)
+#### Lists
 
-An unordered list is a container block composed of one or more list items. Each item begins with a list marker followed by a delimiter and item content. List items may contain any other block element supported by the compiler.
+Lists are container blocks composed of one or more list items. Each item begins with a marker followed by a delimiter and item content. Lists may contain any other block elements supported by the compiler.
 
-A line is recognized as the beginning of an unordered list item if and only if the following is true:
+A list begins when a line satisfies either the unordered list marker rules or the ordered list marker rules described below.
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Character**: After indentation, the line begins with one of the marker characters `-`, `*`, or `+`.
-- **Delimiter**: The marker must be followed by at least one delimiter character, a space or a tab.
-- **Content Start**: After the marker and delimiter run, the remainder of the line forms the first content line of the list item.
+- **Indentation**: The line beginning a list item must start with 0-3 columns of indentation. The list indentation column is defined as the visual column where the marker begins. The item content baseline is the visual column immediately after the marker and delimiter run.
+- **Item Body Continuation**: After a marker line is consumed, additional lines may belong to the same list item. A subsequent line is treated as a continuation of the current item if the line is not blank and the line's indentation is greater than or equal to the item content baseline column. Continuation lines are included in the list item body and parsed recursively as block content.
+- **Blank Lines**: Blank lines inside list items are permitted. Blank lines are tentatively consumed. If the following non-blank line does not satisfy the continuation rule, the blank lines are discarded and parsing resumes outside the list item. Retained blank lines determine whether the list is tight or loose.
+- **Item Termination**: A list item ends when a subsequent non-blank line has indentation less than the item content baseline or begins a sibling list item at the same list indentation level.
+- **Sibling Items**: After completing an item, the parser attempts to recognize another list item. A sibling item begins when the next line has indentation equal to the list indentation column and satisfies a valid list marker rule.
+- **List Termination**: The list ends when the next line has indentation less than the list indentation column or does not form a valid sibling list item.
+- **Structure**: Each list item is parsed as a separate block scope. The marker and delimiter are removed and the item body is parsed recursively using the item content baseline as the indentation baseline.
+- **Tight vs. Loose Lists**: Lists may be tight or loose depending on whether retained blank lines appear between block elements inside items. Tight lists do not render `<p>` tags around list item text content, while loose lists do.
 
-The list indentation column is defined as the visual column of the marker character. The item content baseline is the visual column immediately after the delimiter run.
+#### Unordered List Markers (`-`, `*`, `+`)
 
-##### Item Body Continuation
+A line is recognized as the beginning of an unordered list item if:
 
-After a marker line is consumed, additional lines may belong to the same list item.
+- after indentation, the line begins with one of the marker characters `-`, `*`, or `+`
+- the marker is followed by at least one space or tab delimiter.
 
-A subsequent line is treated as a continuation of the current item if the line is not blank and the line's indentation is greater than or equal to the item content baseline column.
+#### Ordered List Markers (`1.`, `1)`)
 
-Continuation lines are included in the list item body. When a continuation line is incorporated into the item body, its indentation up to the item content baseline is removed before recursive block parsing. Any indentation beyond the baseline is preserved as content.
+A line is recognized as the beginning of an ordered list item if:
 
-Continuation lines are parsed recursively as block content using the item content baseline as the indentation baseline.
+- after indentation, the line begins with a run of one or more digits (`0-9`)
+- the digits are followed by either `.` or `)`
+- the punctuation is followed by at least one space or tab delimiter
 
-##### Blank Lines Within Items
+The numeric value does not need to be sequential. The punctuation must remain consistent within a single ordered list. If the first marker value is not `1`, the resulting `<ol>` element is rendered with a `start` attribute.
 
-Blank lines may appear within the body of a list item.
+#### List Nesting
 
-Blank lines are tentatively consumed. If the next non-blank line satisfies the continuation rule (indentation >= item content baseline), the blank lines remain part of the item body.
-
-If the following non-blank line does not satisfy the continuation rule, the blank lines are discarded and parsing resumes outside the list item.
-
-##### Blank Lines Between Items
-
-Blank lines are permitted between sibling list items.
-
-After completing an item, the parser may encounter one or more blank lines before the next item marker. These blank lines are tentatively consumed while attempting to recognize a sibling item.
-
-If a valid sibling item follows, the blank lines are considered part of the list structure. If no sibling item follows, the parser rolls back and the blank lines remain outside the list.
-
-##### Item Termination
-
-A list item ends when a subsequent non-blank line has indentation less than the item content baseline or begins a sibling list item at the same list indentation level.
-
-##### Sibling Items
-
-After completing an item, the parser attempts to recognize another list item.
-
-A sibling item is recognized if:
-
-- After optional blank lines, the next line's indentation is exactly equal to the list indentation column, and
-- The line satisfies the list marker and delimiter rules.
-
-If these conditions are met, a new list item begins.
-
-##### List Termination
-
-The unordered list ends when the next line has indentation less than the list indentation column or does not form a valid sibling list item.
-
-If blank lines are encountered that are not followed by a valid sibling marker, they are not considered part of the list.
-
-##### Tight and Loose Lists
-
-During parsing, each unordered list is classified as either *tight* or *loose*.
-
-A list becomes loose if either of the following conditions occurs:
-
-- Blank lines appear between sibling list items, or
-- Blank lines appear within a list item body and are retained as part of that item.
-
-If neither condition occurs, the list is classified as tight.
-
-This classification is determined during IR construction and stored on the `UnorderedList` node.
-
-##### Structure
-
-Each list item is parsed as a separate block scope. The marker and delimiter are removed and the item body is parsed recursively using the item content baseline as the indentation baseline.
-
-The `ListItem` span begins at the marker line and ends at the last physical line belonging to the item body. The `UnorderedList` span covers the full extent of its items.
-
-##### Rendering
-
-Unordered lists are rendered as:
-
-```
-<ul>
-    <li>...</li>
-    <li>...</li>
-</ul>
-```
-
-Rendering behavior depends on whether the list is tight or loose. Paragraph blocks inside list items do not produce `<p>` elements. Instead, their inline content is rendered directly inside the `<li>` element.
-
-##### List Nesting
-
-Lists may be nested by increasing indentation relative to the parent item's content baseline.
-
-If a continuation line within a list item begins with indentation greater than or equal to the item content baseline and itself forms a valid list marker, a nested list is recognized.
-
-Nested lists are parsed recursively using the same indentation rules, allowing arbitrarily deep list hierarchies.
+Lists may be nested within other lists or container blocks. A nested list begins when a line inside a list item satisfies a list marker rule and its indentation is greater than or equal to the current item content baseline. Ordered and unordered lists may nest within each other without restriction.
 
 ### Inline Elements
 
