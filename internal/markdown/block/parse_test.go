@@ -1179,6 +1179,263 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "ol: single item, single line, dot delimiter",
+			input: "1. a",
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: single item, single line, paren delimiter",
+			input: "1) a",
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: rejects missing delimiter after punctuation",
+			input: "1.a",
+			want: tk.IRDoc(
+				tk.IRPara("1.a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: rejects missing digits",
+			input: ".a",
+			want: tk.IRDoc(
+				tk.IRPara(".a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: two sibling items",
+			input: "1. a\n2. b",
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: numbering need not be sequential",
+			input: "1. a\n7. b\n42. c",
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+					tk.IRListItem(
+						tk.IRPara("c"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: continuation line indented past content baseline",
+			input: strings.Join([]string{
+				"1. a",
+				"       b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a", "    b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: line below content baseline does not continue item",
+			input: strings.Join([]string{
+				"1. a",
+				" b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara(" b"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: nested ordered list",
+			input: strings.Join([]string{
+				"1. a",
+				"   1. a",
+				"2. b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IROrderedList(
+							true,
+							1,
+							tk.IRListItem(
+								tk.IRPara("a"),
+							),
+						),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: ordered item contains nested unordered list",
+			input: strings.Join([]string{
+				"1. a",
+				"   - a",
+				"2. b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRUnorderedList(
+							true,
+							tk.IRListItem(
+								tk.IRPara("a"),
+							),
+						),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: unordered item contains nested ordered list",
+			input: strings.Join([]string{
+				"- a",
+				"  1. a",
+				"- b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IROrderedList(
+							true,
+							1,
+							tk.IRListItem(
+								tk.IRPara("a"),
+							),
+						),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: loose list via blank line between items",
+			input: strings.Join([]string{
+				"1. a",
+				"",
+				"2. b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					false,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: trailing blank not followed by sibling rolls back",
+			input: strings.Join([]string{
+				"1. a",
+				"",
+				"x",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRPara("x"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: loose list via blank line inside item",
+			input: strings.Join([]string{
+				"1. a",
+				"",
+				"   x",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					false,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRPara("x"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

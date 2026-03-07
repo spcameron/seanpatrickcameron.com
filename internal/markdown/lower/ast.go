@@ -36,6 +36,8 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 		return buildHeader(src, v)
 	case ir.ThematicBreak:
 		return buildThematicBreak(v)
+	case ir.OrderedList:
+		return buildOrderedList(src, v)
 	case ir.UnorderedList:
 		return buildUnorderedList(src, v)
 	case ir.ListItem:
@@ -111,6 +113,33 @@ func buildUnorderedList(src *source.Source, ul ir.UnorderedList) (ast.Block, err
 		Span:  ul.Span,
 		Items: astItems,
 		Tight: ul.Tight,
+	}
+
+	return block, nil
+}
+
+func buildOrderedList(src *source.Source, ol ir.OrderedList) (ast.Block, error) {
+	astItems := make([]ast.ListItem, 0, len(ol.Items))
+
+	for _, olItem := range ol.Items {
+		astBlock, err := buildBlock(src, olItem)
+		if err != nil {
+			return nil, err
+		}
+
+		astItem, ok := astBlock.(ast.ListItem)
+		if !ok {
+			panic("ast build requires list item type assertion to pass")
+		}
+
+		astItems = append(astItems, astItem)
+	}
+
+	block := ast.OrderedList{
+		Span:  ol.Span,
+		Items: astItems,
+		Tight: ol.Tight,
+		Start: ol.Start,
 	}
 
 	return block, nil

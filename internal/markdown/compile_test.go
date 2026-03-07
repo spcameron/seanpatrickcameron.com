@@ -82,13 +82,13 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "block quote, plain text",
+			name:    "block quote: plain text",
 			md:      "> quote",
 			html:    "<blockquote><p>quote</p></blockquote>",
 			wantErr: nil,
 		},
 		{
-			name: "block quote, multiple lines",
+			name: "block quote: multiple lines",
 			md: strings.Join([]string{
 				"> a",
 				"> b",
@@ -97,7 +97,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "block quote, separated by blank line",
+			name: "block quote: separated by blank line",
 			md: strings.Join([]string{
 				"> a",
 				">",
@@ -107,7 +107,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "block quote, nested layers",
+			name: "block quote: nested layers",
 			md: strings.Join([]string{
 				"> a",
 				">> nested",
@@ -117,19 +117,19 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "block quote, header text",
+			name:    "block quote: header text",
 			md:      "> # h",
 			html:    "<blockquote><h1>h</h1></blockquote>",
 			wantErr: nil,
 		},
 		{
-			name:    "block quote, thematic break",
+			name:    "block quote: thematic break",
 			md:      "> ---",
 			html:    "<blockquote><hr></blockquote>",
 			wantErr: nil,
 		},
 		{
-			name: "setext, level 1",
+			name: "setext: level 1",
 			md: strings.Join([]string{
 				"h",
 				"===",
@@ -138,7 +138,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "setext, level 2",
+			name: "setext: level 2",
 			md: strings.Join([]string{
 				"h",
 				"---",
@@ -147,7 +147,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, two items",
+			name: "ul: two items",
 			md: strings.Join([]string{
 				"- a",
 				"- b",
@@ -156,7 +156,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, nested list",
+			name: "ul: nested list",
 			md: strings.Join([]string{
 				"- a",
 				"  - b",
@@ -166,7 +166,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, loose list via blank line between items",
+			name: "ul: loose list via blank line between items",
 			md: strings.Join([]string{
 				"- a",
 				"",
@@ -176,7 +176,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, trailing blank line after last item rolls back",
+			name: "ul: trailing blank line after last item rolls back",
 			md: strings.Join([]string{
 				"- a",
 				"",
@@ -186,7 +186,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, loose list via blank line inside an item",
+			name: "ul: loose list via blank line inside an item",
 			md: strings.Join([]string{
 				"- a",
 				"",
@@ -196,7 +196,7 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, nested list does not force looseness",
+			name: "ul: nested list does not force looseness",
 			md: strings.Join([]string{
 				"- a",
 				"  - b",
@@ -205,12 +205,50 @@ func TestCompile(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "ul, dedent ends list, next line becomes paragraph",
+			name: "ul: dedent ends list, next line becomes paragraph",
 			md: strings.Join([]string{
 				"- a",
 				"x",
 			}, "\n"),
 			html:    "<ul><li>a</li></ul><p>x</p>",
+			wantErr: nil,
+		},
+		{
+			name: "ol: tight list unwraps paragraphs",
+			md: strings.Join([]string{
+				"1. a",
+				"2. b",
+			}, "\n"),
+			html:    "<ol><li>a</li><li>b</li></ol>",
+			wantErr: nil,
+		},
+		{
+			name: "ol: loose list keeps paragraph wrappers",
+			md: strings.Join([]string{
+				"1. a",
+				"",
+				"2. b",
+			}, "\n"),
+			html:    "<ol><li><p>a</p></li><li><p>b</p></li></ol>",
+			wantErr: nil,
+		},
+		{
+			name: "ol: tight nested list unwraps leading paragraph",
+			md: strings.Join([]string{
+				"1. a",
+				"   1. b",
+				"2. c",
+			}, "\n"),
+			html:    "<ol><li>a<ol><li>b</li></ol></li><li>c</li></ol>",
+			wantErr: nil,
+		},
+		{
+			name: "ol: start attribute emitted when first item is not 1",
+			md: strings.Join([]string{
+				"3. a",
+				"4. b",
+			}, "\n"),
+			html:    `<ol start="3"><li>a</li><li>b</li></ol>`,
 			wantErr: nil,
 		},
 	}
