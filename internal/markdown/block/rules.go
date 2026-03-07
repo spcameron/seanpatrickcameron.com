@@ -770,6 +770,7 @@ func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCo
 type HeaderRule struct{}
 
 func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	// peek next line, reject if EOF or blank
 	line, ok := c.Peek()
 	if !ok || line.IsBlankLine(c.Source) {
 		return nil, false, nil
@@ -780,6 +781,7 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		return nil, false, nil
 	}
 
+	// consume next line
 	line = c.MustNext()
 
 	applied := ir.Header{
@@ -918,15 +920,37 @@ type IndentedCodeBlockRule struct{}
 func (IndentedCodeBlockRule) isParagraphTransparent() {}
 
 func (r IndentedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	lineSpans, ok, err := r.consumeIndentedCodeBlock(c)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	blockSpan := source.ByteSpan{
+		Start: lineSpans[0].Start,
+		End:   lineSpans[len(lineSpans)-1].End,
+	}
+
+	applied := ir.IndentedCodeBlock{
+		Span:  blockSpan,
+		Lines: lineSpans,
+	}
+
+	return applied, true, nil
+
+}
+
+func (r IndentedCodeBlockRule) consumeIndentedCodeBlock(c *Cursor) ([]source.ByteSpan, bool, error) {
 	// peek next line, reject if EOF or blank
 	line, ok := c.Peek()
 	if !ok || line.IsBlankLine(c.Source) {
 		return nil, false, nil
 	}
 
-	// count the leading indentation, reject if less than 4 visual columns
-	indentCols, _, ok := c.RelBlockIndent(line)
-	if !ok || indentCols < MinValidCodeBlockIndentation {
+	// validate the leading indentation
+	if !r.tryParseIndentedCodeBlockLine(c, line) {
 		return nil, false, nil
 	}
 
@@ -943,7 +967,7 @@ func (r IndentedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	for {
-		// peek next
+		// peek next line, break if EOF
 		nextLine, ok := c.Peek()
 		if !ok {
 			break
@@ -965,11 +989,8 @@ func (r IndentedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			continue
 		}
 
-		// relative indentation for the next line
-		indentCols, _, ok := c.RelBlockIndent(nextLine)
-
 		// non-blank and meets the indentation baseline
-		if ok && indentCols >= MinValidCodeBlockIndentation {
+		if r.tryParseIndentedCodeBlockLine(c, nextLine) {
 			// reset blank run flag
 			blankRun.active = false
 
@@ -994,21 +1015,22 @@ func (r IndentedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
 		break
 	}
 
+	// defensive panic
 	if len(lineSpans) == 0 {
 		panic("indented code block invariant violated: matched first item but produced no payload")
 	}
 
-	blockSpan := source.ByteSpan{
-		Start: lineSpans[0].Start,
-		End:   lineSpans[len(lineSpans)-1].End,
+	return lineSpans, true, nil
+}
+
+func (IndentedCodeBlockRule) tryParseIndentedCodeBlockLine(c *Cursor, line Line) bool {
+	// count the leading indentation, reject if less than 4 visual columns
+	indentCols, _, ok := c.RelBlockIndent(line)
+	if !ok || indentCols < MinValidCodeBlockIndentation {
+		return false
 	}
 
-	applied := ir.IndentedCodeBlock{
-		Span:  blockSpan,
-		Lines: lineSpans,
-	}
-
-	return applied, true, nil
+	return true
 }
 
 type ParagraphTransparentRuleMarker interface {
@@ -1062,11 +1084,9 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 }
 
 func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, error) {
+	// peek next line, reject if EOF or blank line
 	line, ok := c.Peek()
-	if !ok {
-		return nil, false, nil
-	}
-	if line.IsBlankLine(c.Source) {
+	if !ok || line.IsBlankLine(c.Source) {
 		return nil, false, nil
 	}
 

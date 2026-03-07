@@ -1445,6 +1445,86 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name: "indented code block: multiple lines",
+			input: strings.Join([]string{
+				`	func(main) {`,
+				`		fmt.Println("hello")`,
+				`	}`,
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					`	func(main) {`,
+					`		fmt.Println("hello")`,
+					`	}`,
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: indentation is preserved",
+			input: strings.Join([]string{
+				"		code",
+				"	block",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"		code",
+					"	block",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: blank lines are allowed",
+			input: strings.Join([]string{
+				"	code",
+				"",
+				"",
+				"	block",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	code",
+					"",
+					"",
+					"	block",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: terminates on non-blank line indented less than 4 visual columns",
+			input: strings.Join([]string{
+				"	line 1",
+				"	line 2",
+				"end",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	line 1",
+					"	line 2",
+				),
+				tk.IRPara("end"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: excludes trailing blank lines",
+			input: strings.Join([]string{
+				"	line 1",
+				"",
+				"",
+				"end",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	line 1",
+				),
+				tk.IRPara("end"),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
