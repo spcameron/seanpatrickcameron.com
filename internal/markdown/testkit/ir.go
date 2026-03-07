@@ -34,6 +34,15 @@ func IRThematicBreak() ir.ThematicBreak {
 	}
 }
 
+func IROrderedList(tight bool, start int, items ...ir.ListItem) ir.OrderedList {
+	return ir.OrderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+		Start: start,
+	}
+}
+
 func IRUnorderedList(tight bool, items ...ir.ListItem) ir.UnorderedList {
 	return ir.UnorderedList{
 		Span:  source.ByteSpan{},
@@ -86,6 +95,21 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
 		case ir.UnorderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ir.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ir.Block{}
+				}
+				item.Children = NormalizeIRBLocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+		case ir.OrderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
 				b.Items = []ir.ListItem{}

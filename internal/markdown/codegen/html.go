@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
@@ -33,6 +34,8 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 		return renderHeader(src, v)
 	case ast.ThematicBreak:
 		return renderThematicBreak()
+	case ast.OrderedList:
+		return renderOrderedList(src, v)
 	case ast.UnorderedList:
 		return renderUnorderedList(src, v)
 	case ast.Paragraph:
@@ -106,6 +109,30 @@ func renderThematicBreak() (html.Node, error) {
 	node := html.VoidElement{
 		Tag:  "hr",
 		Attr: html.Attributes{},
+	}
+
+	return node, nil
+}
+
+func renderOrderedList(src *source.Source, ol ast.OrderedList) (html.Node, error) {
+	attr := html.Attributes{}
+	if ol.Start != 1 {
+		attr["start"] = strconv.Itoa(ol.Start)
+	}
+
+	node := html.Element{
+		Tag:      "ol",
+		Attr:     attr,
+		Children: make([]html.Node, 0, len(ol.Items)),
+	}
+
+	for _, olItem := range ol.Items {
+		liNode, err := renderListItem(src, olItem, ol.Tight)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Children = appendChild(node.Children, liNode)
 	}
 
 	return node, nil

@@ -74,6 +74,7 @@ func defaultRules() []BuildRule {
 		BlockQuoteRule{},
 		HeaderRule{},
 		ThematicBreakRule{},
+		OrderedListRule{},
 		UnorderedListRule{},
 		ParagraphRule{},
 	}
