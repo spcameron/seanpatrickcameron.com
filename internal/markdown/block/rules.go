@@ -7,9 +7,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-// TODO: condense ok and line empty checks on initial peeks
-
 const MaxValidIndentation = 3
+const MinValidCodeBlockIndentation = MaxValidIndentation + 1
 
 type BuildRule interface {
 	Apply(c *Cursor) (ir.Block, bool, error)
@@ -914,13 +913,111 @@ func (ThematicBreakRule) tryParseThematicBreakLine(c *Cursor, line Line) bool {
 	return markerCount >= 3
 }
 
-type ParagraphRuleMarker interface {
-	isParagraphRule()
+type IndentedCodeBlockRule struct{}
+
+func (IndentedCodeBlockRule) isParagraphTransparent() {}
+
+func (r IndentedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading indentation, reject if less than 4 visual columns
+	indentCols, _, ok := c.RelBlockIndent(line)
+	if !ok || indentCols < MinValidCodeBlockIndentation {
+		return nil, false, nil
+	}
+
+	// consume first line and initialize payload
+	line = c.MustNext()
+	lineSpans := []source.ByteSpan{line.Span}
+
+	blankRun := struct {
+		active     bool
+		cursorMark int
+		lineMark   int
+	}{
+		active: false,
+	}
+
+	for {
+		// peek next
+		nextLine, ok := c.Peek()
+		if !ok {
+			break
+		}
+
+		// if blank line, tentatively consume
+		if nextLine.IsBlankLine(c.Source) {
+			// if starting a blank run, mark checkpoints in case of rollback
+			if !blankRun.active {
+				blankRun.active = true
+				blankRun.cursorMark = c.Mark()
+				blankRun.lineMark = len(lineSpans)
+			}
+
+			// consume blank line
+			line := c.MustNext()
+			lineSpans = append(lineSpans, line.Span)
+
+			continue
+		}
+
+		// relative indentation for the next line
+		indentCols, _, ok := c.RelBlockIndent(nextLine)
+
+		// non-blank and meets the indentation baseline
+		if ok && indentCols >= MinValidCodeBlockIndentation {
+			// reset blank run flag
+			blankRun.active = false
+
+			// consume the next line
+			line := c.MustNext()
+			lineSpans = append(lineSpans, line.Span)
+
+			continue
+		}
+
+		// non-blank but does not meet the indentation requirement
+		// stop collecting, roll back any trailing blanks
+		if blankRun.active {
+			// reset blank run flag
+			blankRun.active = false
+
+			// roll back cursor position & spans
+			c.Reset(blankRun.cursorMark)
+			lineSpans = lineSpans[:blankRun.lineMark]
+		}
+
+		break
+	}
+
+	if len(lineSpans) == 0 {
+		panic("indented code block invariant violated: matched first item but produced no payload")
+	}
+
+	blockSpan := source.ByteSpan{
+		Start: lineSpans[0].Start,
+		End:   lineSpans[len(lineSpans)-1].End,
+	}
+
+	applied := ir.IndentedCodeBlock{
+		Span:  blockSpan,
+		Lines: lineSpans,
+	}
+
+	return applied, true, nil
+}
+
+type ParagraphTransparentRuleMarker interface {
+	isParagraphTransparent()
 }
 
 type ParagraphRule struct{}
 
-func (ParagraphRule) isParagraphRule() {}
+func (ParagraphRule) isParagraphTransparent() {}
 
 func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	spans, ok, err := r.consumeParagraphRun(c)
@@ -992,7 +1089,7 @@ func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, 
 			break
 		}
 
-		startsBlock, err := c.StartsNonParagraphBlock()
+		startsBlock, err := c.StartsParagraphInterruptingBlock()
 		if err != nil {
 			return nil, false, err
 		}

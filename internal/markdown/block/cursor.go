@@ -115,10 +115,10 @@ func (c *Cursor) TryApply(rule BuildRule) (ir.Block, bool, error) {
 	return applied, true, nil
 }
 
-func (c *Cursor) StartsNonParagraphBlock() (bool, error) {
+func (c *Cursor) StartsParagraphInterruptingBlock() (bool, error) {
 	m := c.Mark()
 	for _, rule := range c.Rules {
-		if _, ok := rule.(ParagraphRuleMarker); ok {
+		if _, ok := rule.(ParagraphTransparentRuleMarker); ok {
 			continue
 		}
 

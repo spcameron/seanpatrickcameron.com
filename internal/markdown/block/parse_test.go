@@ -195,13 +195,13 @@ func TestBuild(t *testing.T) {
 		{
 			name:    "empty input",
 			input:   "",
-			want:    ir.Document{},
+			want:    tk.IRDoc(),
 			wantErr: nil,
 		},
 		{
 			name:    "only blank lines",
 			input:   " \n\t",
-			want:    ir.Document{},
+			want:    tk.IRDoc(),
 			wantErr: nil,
 		},
 		{
@@ -373,7 +373,7 @@ func TestBuild(t *testing.T) {
 			name:  "header rejected, too many leading spaces",
 			input: "    header",
 			want: tk.IRDoc(
-				tk.IRPara("    header"),
+				tk.IRIndentedCodeBlock("    header"),
 			),
 			wantErr: nil,
 		},
@@ -469,7 +469,7 @@ func TestBuild(t *testing.T) {
 			name:  "thematic break rejected, too many leading spaces",
 			input: "    ---",
 			want: tk.IRDoc(
-				tk.IRPara("    ---"),
+				tk.IRIndentedCodeBlock("    ---"),
 			),
 			wantErr: nil,
 		},
@@ -477,7 +477,7 @@ func TestBuild(t *testing.T) {
 			name:  "thematic break rejected, tabs in leading whitespace",
 			input: "\t---",
 			want: tk.IRDoc(
-				tk.IRPara("\t---"),
+				tk.IRIndentedCodeBlock("\t---"),
 			),
 			wantErr: nil,
 		},
@@ -553,7 +553,7 @@ func TestBuild(t *testing.T) {
 			name:  "block quote rejected, too many leading spaces",
 			input: "    > text",
 			want: tk.IRDoc(
-				tk.IRPara("    > text"),
+				tk.IRIndentedCodeBlock("    > text"),
 			),
 			wantErr: nil,
 		},
@@ -946,11 +946,10 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			// NOTE: will become code block later
 			name:  "ul: rejects 4+ indentation at scope",
 			input: "    - a",
 			want: tk.IRDoc(
-				tk.IRPara("    - a"),
+				tk.IRIndentedCodeBlock("    - a"),
 			),
 			wantErr: nil,
 		},
@@ -1432,6 +1431,16 @@ func TestBuild(t *testing.T) {
 						tk.IRPara("a"),
 						tk.IRPara("x"),
 					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: single line",
+			input: `	fmt.Println("hello")`,
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					`	fmt.Println("hello")`,
 				),
 			),
 			wantErr: nil,

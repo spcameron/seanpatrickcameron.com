@@ -57,6 +57,35 @@ func IRListItem(children ...ir.Block) ir.ListItem {
 		Children: children,
 	}
 }
+
+func IRIndentedCodeBlock(input ...string) ir.IndentedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.IndentedCodeBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
+func IRFencedCodeBlock(fence ir.CodeFence, input ...string) ir.FencedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.FencedCodeBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+		Fence: fence,
+	}
+}
+
+func IRCodeFence(indent int) ir.CodeFence {
+	return ir.CodeFence{
+		OpenIndentCols: indent,
+		OpenFenceSpan:  source.ByteSpan{},
+		CloseFenceSpan: source.ByteSpan{},
+		InfoStringSpan: source.ByteSpan{},
+	}
+}
+
 func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
@@ -130,6 +159,15 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Children = []ir.Block{}
 			}
 			b.Children = NormalizeIRBLocks(b.Children)
+			blocks[i] = b
+		case ir.IndentedCodeBlock:
+			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
 			blocks[i] = b
 		case ir.Paragraph:
 			b.Span = source.ByteSpan{}
