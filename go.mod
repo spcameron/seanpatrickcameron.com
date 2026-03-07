@@ -1,6 +1,6 @@
 module github.com/spcameron/seanpatrickcameron.com
 
-go 1.25.7
+go 1.26.1
 
 require (
 	github.com/a-h/templ v0.3.977
