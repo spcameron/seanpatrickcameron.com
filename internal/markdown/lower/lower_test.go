@@ -16,13 +16,13 @@ func TestLowerDocument(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		astDoc  ast.Document
+		want    ast.Document
 		wantErr error
 	}{
 		{
 			name:  "paragraph with normal text",
 			input: "paragraph",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTPara(tk.ASTText()),
 			),
 			wantErr: nil,
@@ -30,7 +30,7 @@ func TestLowerDocument(t *testing.T) {
 		{
 			name:  "header with normal text",
 			input: "# header",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTHeader(1, tk.ASTText()),
 			),
 			wantErr: nil,
@@ -38,7 +38,7 @@ func TestLowerDocument(t *testing.T) {
 		{
 			name:  "header and paragraph",
 			input: "# header\n\nparagraph",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTHeader(1, tk.ASTText()),
 				tk.ASTPara(tk.ASTText()),
 			),
@@ -47,15 +47,15 @@ func TestLowerDocument(t *testing.T) {
 		{
 			name:  "thematic break",
 			input: "---",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTThematicBreak(),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, plain text",
+			name:  "block quote: plain text",
 			input: "> quote",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTBlockQuote(
 					tk.ASTPara(tk.ASTText()),
 				),
@@ -63,9 +63,9 @@ func TestLowerDocument(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ul, two items",
+			name:  "ul: two items",
 			input: "- a\n- b",
-			astDoc: tk.ASTDoc(
+			want: tk.ASTDoc(
 				tk.ASTUnorderedList(
 					true,
 					tk.ASTListItem(
@@ -74,6 +74,43 @@ func TestLowerDocument(t *testing.T) {
 					tk.ASTListItem(
 						tk.ASTPara((tk.ASTText())),
 					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: two items",
+			input: "1. a\n2. b",
+			want: tk.ASTDoc(
+				tk.ASTOrderedList(
+					true,
+					1,
+					tk.ASTListItem(
+						tk.ASTPara(tk.ASTText()),
+					),
+					tk.ASTListItem(
+						tk.ASTPara(tk.ASTText()),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block",
+			input: "    code",
+			want: tk.ASTDoc(
+				tk.ASTIndentedCodeBlock(
+					tk.ASTText(),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block",
+			input: "```\ncode\n```",
+			want: tk.ASTDoc(
+				tk.ASTFencedCodeBlock(
+					tk.ASTText(),
 				),
 			),
 			wantErr: nil,
@@ -90,7 +127,7 @@ func TestLowerDocument(t *testing.T) {
 			got, err := lower.Document(irDoc)
 
 			got = tk.NormalizeAST(got)
-			want := tk.NormalizeAST(tc.astDoc)
+			want := tk.NormalizeAST(tc.want)
 
 			assert.Equal(t, got, want)
 			assert.ErrorIs(t, err, tc.wantErr)

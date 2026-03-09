@@ -115,7 +115,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 		case ir.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
-		case ir.UnorderedList:
+		case ir.OrderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
 				b.Items = []ir.ListItem{}
@@ -130,7 +130,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
-		case ir.OrderedList:
+		case ir.UnorderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
 				b.Items = []ir.ListItem{}

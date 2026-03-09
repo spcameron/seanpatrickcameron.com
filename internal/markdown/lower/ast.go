@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/inline"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
@@ -42,6 +43,10 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 		return buildUnorderedList(src, v)
 	case ir.ListItem:
 		return buildListItem(src, v)
+	case ir.IndentedCodeBlock:
+		return buildIndentedCodeBlock(src, v)
+	case ir.FencedCodeBlock:
+		return buildFencedCodeBlock(src, v)
 	case ir.Paragraph:
 		return buildParagraph(src, v)
 	default:
@@ -163,6 +168,104 @@ func buildListItem(src *source.Source, li ir.ListItem) (ast.Block, error) {
 	}
 
 	return block, nil
+}
+
+func buildIndentedCodeBlock(src *source.Source, cb ir.IndentedCodeBlock) (ast.Block, error) {
+	payload := normalizeCodeBlockPayload(src, cb.Lines, block.MinValidCodeBlockIndentation)
+
+	block := ast.CodeBlock{
+		Span:              cb.Span,
+		Kind:              ast.Indented,
+		LanguageTokenSpan: source.ByteSpan{},
+		Payload:           payload,
+	}
+
+	return block, nil
+}
+
+func buildFencedCodeBlock(src *source.Source, cb ir.FencedCodeBlock) (ast.Block, error) {
+	payload := normalizeCodeBlockPayload(src, cb.Lines, cb.OpenIndentCols)
+	languageString := extractLanguageString(src, cb.InfoStringSpan)
+
+	block := ast.CodeBlock{
+		Span:              cb.Span,
+		Kind:              ast.Fenced,
+		LanguageTokenSpan: languageString,
+		Payload:           payload,
+	}
+
+	return block, nil
+}
+
+func normalizeCodeBlockPayload(src *source.Source, lines []source.ByteSpan, indent int) []ast.Inline {
+	if len(lines) == 0 {
+		return []ast.Inline{}
+	}
+
+	payload := make([]ast.Inline, 0, len(lines)*2-1)
+	last := len(lines) - 1
+
+	for i, ls := range lines {
+		s := src.Slice(ls)
+		pos := 0
+		col := 0
+
+		for pos < len(s) && col < indent {
+			b := s[pos]
+			if b == ' ' {
+				pos++
+				col++
+				continue
+			}
+			if b == '\t' {
+				pos++
+				col += source.TabWidth - (col % source.TabWidth)
+				continue
+			}
+			break
+		}
+
+		trimmed := ast.Text{
+			Span: source.ByteSpan{
+				Start: ls.Start + source.BytePos(pos),
+				End:   ls.End,
+			},
+		}
+
+		payload = append(payload, trimmed)
+
+		if i < last {
+			anchor := source.ByteSpan{
+				Start: ls.End,
+				End:   ls.End,
+			}
+
+			payload = append(payload, ast.Newline{Span: anchor})
+		}
+	}
+
+	return payload
+}
+
+func extractLanguageString(src *source.Source, infoSpan source.ByteSpan) source.ByteSpan {
+	s := src.Slice(infoSpan)
+	pos := 0
+
+	for pos < len(s) {
+		b := s[pos]
+		switch b {
+		case ' ', '\t':
+			return source.ByteSpan{
+				Start: infoSpan.Start,
+				End:   infoSpan.Start + source.BytePos(pos),
+			}
+		default:
+			pos++
+			continue
+		}
+	}
+
+	return infoSpan
 }
 
 func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {

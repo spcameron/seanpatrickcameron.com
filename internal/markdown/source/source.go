@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+const (
+	TabWidth = 4
+)
+
 type Source struct {
 	Raw        string
 	LineStarts []BytePos

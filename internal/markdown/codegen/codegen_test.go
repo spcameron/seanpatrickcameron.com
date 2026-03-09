@@ -1,6 +1,7 @@
 package codegen_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
@@ -14,15 +15,15 @@ import (
 
 func TestGenerateHTML(t *testing.T) {
 	testCases := []struct {
-		name     string
-		input    string
-		htmlNode html.Node
-		wantErr  error
+		name    string
+		input   string
+		want    html.Node
+		wantErr error
 	}{
 		{
 			name:  "paragraph with normal text",
 			input: "paragraph",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"p",
 					nil,
@@ -34,7 +35,7 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "header with normal text",
 			input: "# header",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"h1",
 					nil,
@@ -46,7 +47,7 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (two spaces)",
 			input: "a  \nb",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"p",
 					nil,
@@ -60,7 +61,7 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (backslash)",
 			input: "a\\\nb",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"p",
 					nil,
@@ -74,7 +75,7 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "soft break renders as whitespace (space)",
 			input: "a\nb",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"p",
 					nil,
@@ -86,15 +87,15 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "thematic break",
 			input: "---",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.VoidNode("hr", nil),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, plain text",
+			name:  "block quote: plain text",
 			input: "> quote",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"blockquote",
 					nil,
@@ -108,9 +109,9 @@ func TestGenerateHTML(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ul, two items",
+			name:  "ul: two items",
 			input: "- a\n- b",
-			htmlNode: html.FragmentNode(
+			want: html.FragmentNode(
 				html.ElemNode(
 					"ul",
 					nil,
@@ -123,6 +124,63 @@ func TestGenerateHTML(t *testing.T) {
 						"li",
 						nil,
 						html.TextNode("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ol: two items",
+			input: "1. a\n2. b",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"ol",
+					nil,
+					html.ElemNode(
+						"li",
+						nil,
+						html.TextNode("a"),
+					),
+					html.ElemNode(
+						"li",
+						nil,
+						html.TextNode("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block",
+			input: `    fmt.Println("hello")`,
+			want: html.FragmentNode(
+				html.ElemNode(
+					"pre",
+					nil,
+					html.ElemNode(
+						"code",
+						nil,
+						html.TextNode(`fmt.Println("hello")`),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block",
+			input: strings.Join([]string{
+				"```",
+				`fmt.Println("hello")`,
+				"```",
+			}, "\n"),
+			want: html.FragmentNode(
+				html.ElemNode(
+					"pre",
+					nil,
+					html.ElemNode(
+						"code",
+						nil,
+						html.TextNode(`fmt.Println("hello")`),
 					),
 				),
 			),
@@ -142,7 +200,7 @@ func TestGenerateHTML(t *testing.T) {
 
 			got, err := codegen.HTML(astDoc)
 
-			assert.Equal(t, got, tc.htmlNode)
+			assert.Equal(t, got, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}

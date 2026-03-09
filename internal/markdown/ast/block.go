@@ -79,6 +79,38 @@ func (li ListItem) String() string {
 	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
 }
 
+type CodeBlockKind int
+
+func (k CodeBlockKind) String() string {
+	switch k {
+	case Indented:
+		return "Indented"
+	case Fenced:
+		return "Fenced"
+	default:
+		return fmt.Sprintf("Unrecognized CodeBlockKind %d", k)
+	}
+}
+
+const (
+	_ CodeBlockKind = iota
+	Indented
+	Fenced
+)
+
+type CodeBlock struct {
+	Span              source.ByteSpan
+	Kind              CodeBlockKind
+	LanguageTokenSpan source.ByteSpan
+	Payload           []Inline
+}
+
+func (CodeBlock) isBlock() {}
+
+func (cb CodeBlock) String() string {
+	return fmt.Sprintf("[%sCodeBlock] (Lines = %d)", cb.Kind, len(cb.Payload))
+}
+
 type Paragraph struct {
 	Span    source.ByteSpan
 	Inlines []Inline

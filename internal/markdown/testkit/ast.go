@@ -34,6 +34,15 @@ func ASTThematicBreak() ast.ThematicBreak {
 	}
 }
 
+func ASTOrderedList(tight bool, start int, items ...ast.ListItem) ast.OrderedList {
+	return ast.OrderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+		Start: start,
+	}
+}
+
 func ASTUnorderedList(tight bool, items ...ast.ListItem) ast.UnorderedList {
 	return ast.UnorderedList{
 		Span:  source.ByteSpan{},
@@ -46,6 +55,24 @@ func ASTListItem(children ...ast.Block) ast.ListItem {
 	return ast.ListItem{
 		Span:     source.ByteSpan{},
 		Children: children,
+	}
+}
+
+func ASTIndentedCodeBlock(inlines ...ast.Inline) ast.CodeBlock {
+	return ast.CodeBlock{
+		Span:              source.ByteSpan{},
+		Kind:              ast.Indented,
+		LanguageTokenSpan: source.ByteSpan{},
+		Payload:           inlines,
+	}
+}
+
+func ASTFencedCodeBlock(inlines ...ast.Inline) ast.CodeBlock {
+	return ast.CodeBlock{
+		Span:              source.ByteSpan{},
+		Kind:              ast.Fenced,
+		LanguageTokenSpan: source.ByteSpan{},
+		Payload:           inlines,
 	}
 }
 
@@ -101,6 +128,21 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 		case ast.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
+		case ast.OrderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ast.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ast.Block{}
+				}
+				item.Children = NormalizeASTBlocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
 		case ast.UnorderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
@@ -122,6 +164,11 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 				b.Children = []ast.Block{}
 			}
 			b.Children = NormalizeASTBlocks(b.Children)
+			blocks[i] = b
+		case ast.CodeBlock:
+			b.Span = source.ByteSpan{}
+			b.LanguageTokenSpan = source.ByteSpan{}
+			b.Payload = NormalizeASTInlines(b.Payload)
 			blocks[i] = b
 		case ast.Paragraph:
 			b.Span = source.ByteSpan{}
@@ -146,6 +193,9 @@ func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
 		case ast.SoftBreak:
+			v.Span = source.ByteSpan{}
+			out = append(out, v)
+		case ast.Newline:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
 		default:

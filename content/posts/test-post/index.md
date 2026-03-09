@@ -44,3 +44,40 @@ _ _ _
     - This is a nested list
     - With a second list item
 - This is the third list item
+
+1. This
+2. Is
+3. An
+    - Interrupting
+    - With an
+    - Unordered list
+4. Ordered
+5. List
+
+```go
+fmt.Println("This is a backtick-fenced code block").
+```
+
+~~~go
+fmt.Println("This is a tilde-fenced code block.")
+~~~
+
+```
+x := 1
+y := 2
+
+if x == 1 {
+    fmt.Println("This code block that preserves internal indentation.")
+}
+```
+
+```html
+<p>This code block contains HTML.</p>
+<div>The HTML is still rendered literally.</div>
+```
+
+    This is an indented code block
+    
+    containing a blank line.
+
+This is a normal paragraph line.

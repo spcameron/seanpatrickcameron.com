@@ -8,4 +8,5 @@ var (
 	_ Inline = Text{}
 	_ Inline = HardBreak{}
 	_ Inline = SoftBreak{}
+	_ Inline = Newline{}
 )

@@ -410,7 +410,7 @@ func (r OrderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCols
 			continue
 		}
 		if b == '\t' {
-			col += tabWidth - (col % tabWidth)
+			col += source.TabWidth - (col % source.TabWidth)
 			pos++
 			continue
 		}
@@ -709,7 +709,7 @@ func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCo
 			continue
 		}
 		if b == '\t' {
-			col += tabWidth - (col % tabWidth)
+			col += source.TabWidth - (col % source.TabWidth)
 			pos++
 			continue
 		}
