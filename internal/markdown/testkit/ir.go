@@ -67,22 +67,14 @@ func IRIndentedCodeBlock(input ...string) ir.IndentedCodeBlock {
 	}
 }
 
-func IRFencedCodeBlock(fence ir.CodeFence, input ...string) ir.FencedCodeBlock {
+func IRFencedCodeBlock(indent int, input ...string) ir.FencedCodeBlock {
 	lines := make([]source.ByteSpan, len(input))
 
 	return ir.FencedCodeBlock{
-		Span:  source.ByteSpan{},
-		Lines: lines,
-		Fence: fence,
-	}
-}
-
-func IRCodeFence(indent int) ir.CodeFence {
-	return ir.CodeFence{
+		Span:           source.ByteSpan{},
 		OpenIndentCols: indent,
-		OpenFenceSpan:  source.ByteSpan{},
-		CloseFenceSpan: source.ByteSpan{},
 		InfoStringSpan: source.ByteSpan{},
+		Lines:          lines,
 	}
 }
 
@@ -162,6 +154,16 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			blocks[i] = b
 		case ir.IndentedCodeBlock:
 			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+		case ir.FencedCodeBlock:
+			b.Span = source.ByteSpan{}
+			b.InfoStringSpan = source.ByteSpan{}
 			if b.Lines == nil {
 				b.Lines = []source.ByteSpan{}
 			}

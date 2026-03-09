@@ -1525,6 +1525,340 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name: "fenced code block: backtick, single line",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: tilde, single line",
+			input: strings.Join([]string{
+				"~~~",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: multiple lines",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"code 2",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: no payload lines",
+			input: strings.Join([]string{
+				"```",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects only two backticks",
+			input: strings.Join([]string{
+				"``",
+				"code",
+				"``",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("``", "code", "``"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects only two tildes",
+			input: strings.Join([]string{
+				"~~",
+				"code",
+				"~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("~~", "code", "~~"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects mismatched closing marker",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"~~~",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts closing run longer than opening",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"`````",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects closing run shorter than opening",
+			input: strings.Join([]string{
+				"`````",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: single word info string",
+			input: strings.Join([]string{
+				"```go",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: multiple word info string",
+			input: strings.Join([]string{
+				"```go linenos",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: delimiter before info string",
+			input: strings.Join([]string{
+				"```     go",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: backtick marker rejects backtick in info string",
+			input: strings.Join([]string{
+				"```go`bad",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("```go`bad", "code"),
+				tk.IRFencedCodeBlock(0),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: tilde marker accepts backtick in info string",
+			input: strings.Join([]string{
+				"~~~go~ok",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts up to 3 indented spaces",
+			input: strings.Join([]string{
+				"   ```",
+				"code",
+				"   ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					3,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects more than 3 indented spaces",
+			input: strings.Join([]string{
+				"    ```",
+				"code",
+				"    ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"    ```",
+				),
+				tk.IRPara(
+					"code",
+					"    ```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: closing fence accepts up to 3 indented spaces",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"   ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: closing fence rejects more than 3 indented spaces",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"    ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"    ```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: payload preserves blank lines",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"",
+				"code 2",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: runs to EOF when no closer",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"code 2",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts closer with trailing whitespace",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```   ",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects closer with trailing characters (non-whitespace)",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```bad",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"```bad",
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

@@ -10,6 +10,10 @@ import (
 const MaxValidIndentation = 3
 const MinValidCodeBlockIndentation = MaxValidIndentation + 1
 
+type ParagraphTransparentRuleMarker interface {
+	isParagraphTransparent()
+}
+
 type BuildRule interface {
 	Apply(c *Cursor) (ir.Block, bool, error)
 }
@@ -1033,8 +1037,177 @@ func (IndentedCodeBlockRule) tryParseIndentedCodeBlockLine(c *Cursor, line Line)
 	return true
 }
 
-type ParagraphTransparentRuleMarker interface {
-	isParagraphTransparent()
+type FencedCodeBlockRule struct{}
+
+func (r FencedCodeBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
+		return nil, false, nil
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+
+	if pos >= len(s) {
+		return nil, false, nil
+	}
+
+	// validate the first marker character
+	var marker byte
+	switch s[pos] {
+	case '`', '~':
+		marker = s[pos]
+	default:
+		return nil, false, nil
+	}
+
+	// count the marker run, stopping at first non-marker (including whitespace)
+	markerCount := 0
+	for pos < len(s) {
+		b := s[pos]
+		if b == marker {
+			pos++
+			markerCount++
+			continue
+		}
+
+		break
+	}
+
+	// reject if less than three consecutive marker characters in the marker run
+	if markerCount < 3 {
+		return nil, false, nil
+	}
+
+	// consume any delimiter whitespace
+	for pos < len(s) {
+		b := s[pos]
+		if b == ' ' || b == '\t' {
+			pos++
+			continue
+		}
+
+		break
+	}
+
+	// the remainder of the line is the info string
+	infoString := s[pos:]
+
+	// if marker is backtick, reject if info string contains any other backticks
+	if marker == '`' {
+		infoPos := 0
+		for infoPos < len(infoString) {
+			b := infoString[infoPos]
+			if b == marker {
+				return nil, false, nil
+			}
+			infoPos++
+		}
+	}
+
+	infoStringSpan := source.ByteSpan{
+		Start: line.Span.Start + source.BytePos(pos),
+		End:   line.Span.End,
+	}
+
+	// NOTE: opening fence validated, committed to building fenced code block now
+
+	line = c.MustNext()
+	blockSpanStart := line.Span.Start
+	blockSpanEnd := line.Span.End
+
+	// consume all lines until closing fence or EOF
+	lineSpans := []source.ByteSpan{}
+	for {
+		// peek at next line, break if EOF
+		line, ok := c.Peek()
+		if !ok {
+			break
+		}
+
+		// if line is closing fence, record span and break
+		if r.tryParseClosingFenceLine(c, marker, markerCount) {
+			line = c.MustNext()
+			blockSpanEnd = line.Span.End
+
+			break
+		}
+
+		// otherwise, consume the line
+		line = c.MustNext()
+		blockSpanEnd = line.Span.End
+		lineSpans = append(lineSpans, line.Span)
+	}
+
+	applied := ir.FencedCodeBlock{
+		Span: source.ByteSpan{
+			Start: blockSpanStart,
+			End:   blockSpanEnd,
+		},
+		OpenIndentCols: indentCols,
+		InfoStringSpan: infoStringSpan,
+		Lines:          lineSpans,
+	}
+
+	return applied, true, nil
+}
+
+func (FencedCodeBlockRule) tryParseClosingFenceLine(c *Cursor, marker byte, markerCount int) bool {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return false
+	}
+
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
+		return false
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+
+	if pos >= len(s) {
+		return false
+	}
+
+	// validate the first marker character
+	if s[pos] != marker {
+		return false
+	}
+
+	// consume the marker run
+	currentCount := 0
+	for pos < len(s) && s[pos] == marker {
+		pos++
+		currentCount++
+	}
+
+	// reject line if current run is shorter than opening run
+	if currentCount < markerCount {
+		return false
+	}
+
+	// consume trailing whitespace and reject if any other character is seen
+	for pos < len(s) {
+		b := s[pos]
+		switch b {
+		case ' ', '\t':
+			pos++
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 type ParagraphRule struct{}

@@ -91,16 +91,13 @@ func (icb IndentedCodeBlock) String() string {
 }
 
 type CodeFence struct {
-	OpenIndentCols int
-	OpenFenceSpan  source.ByteSpan
-	CloseFenceSpan source.ByteSpan
-	InfoStringSpan source.ByteSpan
 }
 
 type FencedCodeBlock struct {
-	Span  source.ByteSpan
-	Lines []source.ByteSpan
-	Fence CodeFence
+	Span           source.ByteSpan
+	OpenIndentCols int
+	InfoStringSpan source.ByteSpan
+	Lines          []source.ByteSpan
 }
 
 func (FencedCodeBlock) isBlock() {}
