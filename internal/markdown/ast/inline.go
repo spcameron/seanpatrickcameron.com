@@ -23,3 +23,9 @@ type SoftBreak struct {
 }
 
 func (SoftBreak) isInline() {}
+
+type Newline struct {
+	Span source.ByteSpan
+}
+
+func (Newline) isInline() {}

@@ -76,6 +76,8 @@ func defaultRules() []BuildRule {
 		ThematicBreakRule{},
 		OrderedListRule{},
 		UnorderedListRule{},
+		FencedCodeBlockRule{},
+		IndentedCodeBlockRule{},
 		ParagraphRule{},
 	}
 }

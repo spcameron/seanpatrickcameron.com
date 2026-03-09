@@ -57,6 +57,27 @@ func IRListItem(children ...ir.Block) ir.ListItem {
 		Children: children,
 	}
 }
+
+func IRIndentedCodeBlock(input ...string) ir.IndentedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.IndentedCodeBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
+func IRFencedCodeBlock(indent int, input ...string) ir.FencedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.FencedCodeBlock{
+		Span:           source.ByteSpan{},
+		OpenIndentCols: indent,
+		InfoStringSpan: source.ByteSpan{},
+		Lines:          lines,
+	}
+}
+
 func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
@@ -94,7 +115,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 		case ir.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
-		case ir.UnorderedList:
+		case ir.OrderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
 				b.Items = []ir.ListItem{}
@@ -109,7 +130,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
-		case ir.OrderedList:
+		case ir.UnorderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
 				b.Items = []ir.ListItem{}
@@ -130,6 +151,25 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Children = []ir.Block{}
 			}
 			b.Children = NormalizeIRBLocks(b.Children)
+			blocks[i] = b
+		case ir.IndentedCodeBlock:
+			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+		case ir.FencedCodeBlock:
+			b.Span = source.ByteSpan{}
+			b.InfoStringSpan = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
 			blocks[i] = b
 		case ir.Paragraph:
 			b.Span = source.ByteSpan{}

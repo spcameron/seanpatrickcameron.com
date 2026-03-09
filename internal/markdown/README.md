@@ -207,6 +207,94 @@ The numeric value does not need to be sequential. The punctuation must remain co
 
 Lists may be nested within other lists or container blocks. A nested list begins when a line inside a list item satisfies a list marker rule and its indentation is greater than or equal to the current item content baseline. Ordered and unordered lists may nest within each other without restriction.
 
+#### Code Blocks
+
+Code blocks represent literal content and are not subject to inline parsing. All Markdown syntax inside a code block is treated as plain text.
+
+Two forms of code blocks are supported: indented code blocks and fenced code blocks. Both forms are lowered into a unified `CodeBlock` AST node and rendered as `<pre><code>...</code></pre>` in HTML.
+
+#### Indented Code Blocks
+
+An indented code block is a leaf block representing literal code content introduced by indentation.
+
+A line is recognized as part of an indented code block if and only if the following is true:
+
+- **Indentation**: The line begins with at least 4 columns of indentation.
+- **Leading Whitespace**: Only spaces and tabs may contribute to indentation. Indentation is measure in visual columns according to the indentation model described above.
+
+An indented code block consists of a maximal contiguous sequence of such lines, with the following rules:
+
+- **Blank Lines**: Blank lines may appear inside the block. Blank lines are tentatively consumed and retained only if followed by another indented code block line.
+- **Termination**: The block ends when a non-blank line is encountered that has fewer than 4 columns of indentation.
+- **Content Preservation**: The original line content is preserved except for the indentation normalization described below.
+
+During lowering, the leading indentation of each payload line is normalized as follows:
+
+- Up to 4 visual columns of leading whitespace are removed from each line.
+- Only spaces and tabs are consumed during this process.
+- Stripping stops if the next character is not whitespace, even if fewer than 4 columns have been removed.
+- Any additional indentation beyond the first 4 columns is preserved as literal code indentation.
+
+Line boundaries are preserved exactly. Each line of code block content is separated by a literal newline character (`\n`) in the resulting payload.
+
+The `IndentedCodeBlock` IR node stores:
+
+- The span covering the entire block
+- The spans of each payload line
+
+Lowering converts these spans into normalized inline payload content.
+
+#### Fenced Code Blocks ("```", `~~~`)
+
+A fenced code block is a leaf block introduced by a run of fence markers.
+
+A line is recognized as the opening fence of a fenced code block if and only if the following is true:
+
+- **Indentation**: The line begins with 0-3 columns of indentation.
+- **Fence Marker**: The first non-indent character is either ``` or `~`.
+- **Marker Run**: The marker is repeated at least three times without interruption.
+- **Delimiter Whitespace**: Optional spaces or tabs may follow the marker run.
+- **Info String**: The remainder of the line is treated as an optional info string.
+
+The closing fence must satisfy the following rules:
+
+- **Indentation**: The line begins with 0-3 columns of indentation.
+- **Marker Type**: The marker character must match the opening fence marker.
+- **Marker Run**: The closing run must contain at least as many markers as the opening fence (but may contain more than the opening).
+- **Line Purity**: Aside from optional trailing whitespace, the closing line must contain only the marker run.
+
+A fenced code block consists of all lines between the opening and closing fence. If no closing fence is encountered, the block extends to the end of the document.
+
+The optional info string may follow the opening fence after delimiter whitespace. The first whitespace-delimited token of the info string is extracted as the language token. Only this token is preserved during lowering and is used to generate a language class in the rendered HTML.
+
+Payload lines are normalized relative to the indentation of the opening fence:
+
+- Up to the opening fence indentation column count may be removed from each payload line.
+- Only spaces and tabs are consumed during this stripping process.
+- Stripping stops when a non-whitespace character is encountered.
+- Additional indentation beyond this amount is preserved as literal content.
+
+Line boundaries are preserved exactly and represented by literal newline characters in the payload.
+
+The `FencedCodeBlock` IR node stores:
+
+- The span covering the entire block
+- The spans of each payload line
+- The indentation column of the opening fence
+- The span of the info string
+
+Lowering extracts the language token and normalizes the payload indentation.
+
+#### Rendering Code Blocks
+
+Both indented and fenced code blocks are lowered into a unified `CodeBlock` AST node containing:
+
+- The block span
+- The normalized payload content
+- An optional language token
+
+The code block payload is rendered as literal text, with line boundaries preserved. Markdown syntax within code blocks is not interpreted as inline elements.
+
 ### Inline Elements
 
 #### Paragraphs

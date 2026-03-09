@@ -6,10 +6,6 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-const (
-	tabWidth = 4
-)
-
 func Scan(src *source.Source) ([]Line, error) {
 	input := src.Raw
 	scanner := NewScanner(input)
@@ -69,7 +65,7 @@ outer:
 			col++
 			pos++
 		case '\t':
-			col += tabWidth - (col % tabWidth)
+			col += source.TabWidth - (col % source.TabWidth)
 			pos++
 		default:
 			break outer
@@ -95,7 +91,7 @@ func (l Line) TrimIndentToCols(src *source.Source, baselineCols int) Line {
 			col++
 			pos++
 		case '\t':
-			col += tabWidth - (col % tabWidth)
+			col += source.TabWidth - (col % source.TabWidth)
 			pos++
 		default:
 			return l

@@ -38,6 +38,8 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 		return renderOrderedList(src, v)
 	case ast.UnorderedList:
 		return renderUnorderedList(src, v)
+	case ast.CodeBlock:
+		return renderCodeBlock(src, v)
 	case ast.Paragraph:
 		return renderParagraph(src, v)
 	default:
@@ -196,6 +198,33 @@ func renderListItem(src *source.Source, li ast.ListItem, tight bool) (html.Node,
 	return node, nil
 }
 
+func renderCodeBlock(src *source.Source, cd ast.CodeBlock) (html.Node, error) {
+	attr := html.Attributes{}
+
+	languageString := src.Slice(cd.LanguageTokenSpan)
+	if languageString != "" {
+		attr["class"] = fmt.Sprintf("language-%s", languageString)
+	}
+	payload, err := renderInlines(src, cd.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	node := html.Element{
+		Tag:  "pre",
+		Attr: html.Attributes{},
+		Children: []html.Node{
+			html.Element{
+				Tag:      "code",
+				Attr:     attr,
+				Children: payload,
+			},
+		},
+	}
+
+	return node, nil
+}
+
 func renderParagraph(src *source.Source, p ast.Paragraph) (html.Node, error) {
 	children, err := renderInlines(src, p.Inlines)
 	if err != nil {
@@ -231,9 +260,11 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	case ast.Text:
 		return renderText(src, v)
 	case ast.SoftBreak:
-		return renderSoftBreak(v)
+		return renderSoftBreak()
 	case ast.HardBreak:
-		return renderHardBreak(v)
+		return renderHardBreak()
+	case ast.Newline:
+		return renderNewline()
 	default:
 		return nil, fmt.Errorf("unrecognized inline type: %T", inl)
 	}
@@ -247,7 +278,7 @@ func renderText(src *source.Source, t ast.Text) (html.Node, error) {
 	return node, nil
 }
 
-func renderSoftBreak(_ ast.SoftBreak) (html.Node, error) {
+func renderSoftBreak() (html.Node, error) {
 	node := html.Text{
 		Value: " ",
 	}
@@ -255,10 +286,18 @@ func renderSoftBreak(_ ast.SoftBreak) (html.Node, error) {
 	return node, nil
 }
 
-func renderHardBreak(_ ast.HardBreak) (html.Node, error) {
+func renderHardBreak() (html.Node, error) {
 	node := html.VoidElement{
 		Tag:  "br",
 		Attr: html.Attributes{},
+	}
+
+	return node, nil
+}
+
+func renderNewline() (html.Node, error) {
+	node := html.Text{
+		Value: "\n",
 	}
 
 	return node, nil

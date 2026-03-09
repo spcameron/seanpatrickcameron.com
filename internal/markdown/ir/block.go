@@ -79,6 +79,33 @@ func (li ListItem) String() string {
 	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
 }
 
+type IndentedCodeBlock struct {
+	Span  source.ByteSpan
+	Lines []source.ByteSpan
+}
+
+func (IndentedCodeBlock) isBlock() {}
+
+func (icb IndentedCodeBlock) String() string {
+	return fmt.Sprintf("[IndentedCodeBlock] (Lines = %d)", len(icb.Lines))
+}
+
+type CodeFence struct {
+}
+
+type FencedCodeBlock struct {
+	Span           source.ByteSpan
+	OpenIndentCols int
+	InfoStringSpan source.ByteSpan
+	Lines          []source.ByteSpan
+}
+
+func (FencedCodeBlock) isBlock() {}
+
+func (fcb FencedCodeBlock) String() string {
+	return fmt.Sprintf("[FencedCodeBlock] (Lines = %d)", len(fcb.Lines))
+}
+
 type Paragraph struct {
 	Span  source.ByteSpan
 	Lines []source.ByteSpan

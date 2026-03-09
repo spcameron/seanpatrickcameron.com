@@ -195,13 +195,13 @@ func TestBuild(t *testing.T) {
 		{
 			name:    "empty input",
 			input:   "",
-			want:    ir.Document{},
+			want:    tk.IRDoc(),
 			wantErr: nil,
 		},
 		{
 			name:    "only blank lines",
 			input:   " \n\t",
-			want:    ir.Document{},
+			want:    tk.IRDoc(),
 			wantErr: nil,
 		},
 		{
@@ -373,7 +373,7 @@ func TestBuild(t *testing.T) {
 			name:  "header rejected, too many leading spaces",
 			input: "    header",
 			want: tk.IRDoc(
-				tk.IRPara("    header"),
+				tk.IRIndentedCodeBlock("    header"),
 			),
 			wantErr: nil,
 		},
@@ -469,7 +469,7 @@ func TestBuild(t *testing.T) {
 			name:  "thematic break rejected, too many leading spaces",
 			input: "    ---",
 			want: tk.IRDoc(
-				tk.IRPara("    ---"),
+				tk.IRIndentedCodeBlock("    ---"),
 			),
 			wantErr: nil,
 		},
@@ -477,7 +477,7 @@ func TestBuild(t *testing.T) {
 			name:  "thematic break rejected, tabs in leading whitespace",
 			input: "\t---",
 			want: tk.IRDoc(
-				tk.IRPara("\t---"),
+				tk.IRIndentedCodeBlock("\t---"),
 			),
 			wantErr: nil,
 		},
@@ -553,7 +553,7 @@ func TestBuild(t *testing.T) {
 			name:  "block quote rejected, too many leading spaces",
 			input: "    > text",
 			want: tk.IRDoc(
-				tk.IRPara("    > text"),
+				tk.IRIndentedCodeBlock("    > text"),
 			),
 			wantErr: nil,
 		},
@@ -946,11 +946,10 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			// NOTE: will become code block later
 			name:  "ul: rejects 4+ indentation at scope",
 			input: "    - a",
 			want: tk.IRDoc(
-				tk.IRPara("    - a"),
+				tk.IRIndentedCodeBlock("    - a"),
 			),
 			wantErr: nil,
 		},
@@ -1432,6 +1431,430 @@ func TestBuild(t *testing.T) {
 						tk.IRPara("a"),
 						tk.IRPara("x"),
 					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: single line",
+			input: `	fmt.Println("hello")`,
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					`	fmt.Println("hello")`,
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: multiple lines",
+			input: strings.Join([]string{
+				`	func(main) {`,
+				`		fmt.Println("hello")`,
+				`	}`,
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					`	func(main) {`,
+					`		fmt.Println("hello")`,
+					`	}`,
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: indentation is preserved",
+			input: strings.Join([]string{
+				"		code",
+				"	block",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"		code",
+					"	block",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: blank lines are allowed",
+			input: strings.Join([]string{
+				"	code",
+				"",
+				"",
+				"	block",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	code",
+					"",
+					"",
+					"	block",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: terminates on non-blank line indented less than 4 visual columns",
+			input: strings.Join([]string{
+				"	line 1",
+				"	line 2",
+				"end",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	line 1",
+					"	line 2",
+				),
+				tk.IRPara("end"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: excludes trailing blank lines",
+			input: strings.Join([]string{
+				"	line 1",
+				"",
+				"",
+				"end",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"	line 1",
+				),
+				tk.IRPara("end"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: backtick, single line",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: tilde, single line",
+			input: strings.Join([]string{
+				"~~~",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: multiple lines",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"code 2",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: no payload lines",
+			input: strings.Join([]string{
+				"```",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects only two backticks",
+			input: strings.Join([]string{
+				"``",
+				"code",
+				"``",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("``", "code", "``"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects only two tildes",
+			input: strings.Join([]string{
+				"~~",
+				"code",
+				"~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("~~", "code", "~~"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects mismatched closing marker",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"~~~",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts closing run longer than opening",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"`````",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects closing run shorter than opening",
+			input: strings.Join([]string{
+				"`````",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: single word info string",
+			input: strings.Join([]string{
+				"```go",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: multiple word info string",
+			input: strings.Join([]string{
+				"```go linenos",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: delimiter before info string",
+			input: strings.Join([]string{
+				"```     go",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: backtick marker rejects backtick in info string",
+			input: strings.Join([]string{
+				"```go`bad",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("```go`bad", "code"),
+				tk.IRFencedCodeBlock(0),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: tilde marker accepts backtick in info string",
+			input: strings.Join([]string{
+				"~~~go~ok",
+				"code",
+				"~~~",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts up to 3 indented spaces",
+			input: strings.Join([]string{
+				"   ```",
+				"code",
+				"   ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					3,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects more than 3 indented spaces",
+			input: strings.Join([]string{
+				"    ```",
+				"code",
+				"    ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock(
+					"    ```",
+				),
+				tk.IRPara(
+					"code",
+					"    ```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: closing fence accepts up to 3 indented spaces",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"   ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: closing fence rejects more than 3 indented spaces",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"    ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"    ```",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: payload preserves blank lines",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"",
+				"code 2",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: runs to EOF when no closer",
+			input: strings.Join([]string{
+				"```",
+				"code 1",
+				"code 2",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code 1",
+					"code 2",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: accepts closer with trailing whitespace",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```   ",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "fenced code block: rejects closer with trailing characters (non-whitespace)",
+			input: strings.Join([]string{
+				"```",
+				"code",
+				"```bad",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+					"```bad",
 				),
 			),
 			wantErr: nil,
