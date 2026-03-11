@@ -1867,6 +1867,379 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name: "html block: comment, multiple lines",
+			input: strings.Join([]string{
+				"<!--",
+				"comment",
+				"-->",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!--", "comment", "-->"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment, blank lines permitted",
+			input: strings.Join([]string{
+				"<!--",
+				"line 1",
+				"",
+				"line 3",
+				"-->",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!--", "line 1", "", "line 3", "-->"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment, consumes to EOF when unterminated",
+			input: strings.Join([]string{
+				"<!--",
+				"line 1",
+				"line 2",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!--", "line 1", "line 2"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment, whole terminating line absorbed",
+			input: strings.Join([]string{
+				"<!--",
+				"hello --> trailing",
+				"next",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!--", "hello --> trailing"),
+				tk.IRPara("next"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: comment, accepts leading spaces",
+			input: "   <!-- comment -->",
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("   <!-- comment -->"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: comment, rejects 4+ leading spaces",
+			input: "    <!-- not comment -->",
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock("    <!-- not comment -->"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: rejects opener with wrong spacing",
+			input: "< !-- not comment -->",
+			want: tk.IRDoc(
+				tk.IRPara("< !-- not comment -->"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: processing instructions",
+			input: `<?xml version="1.0"?>`,
+			want: tk.IRDoc(
+				tk.IRHTMLBlock(`<?xml version="1.0"`),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: declarations",
+			input: "<!DOCTYPE html>",
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!DOCTYPE html>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block, cdata",
+			input: "<![CDATA[hello]]>",
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<![CDATA[hello]]>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, simple opening tag",
+			input: strings.Join([]string{
+				"<div>",
+				"hello",
+				"</div>",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "hello", "</div>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, opening tag with attributes",
+			input: strings.Join([]string{
+				`<div class="note">`,
+				"hello",
+				"</div>",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock(`<div class="note">`, "hello", "</div>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, uppercase tag name normalized",
+			input: strings.Join([]string{
+				"<DIV>",
+				"hello",
+				"</DIV>",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "hello", "</div>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, mixed case tag name normalized",
+			input: strings.Join([]string{
+				`<Section class="callout">`,
+				"hello",
+				"</Section>",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock(`<section class="callout">`, "hello", "</section"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, closing tag line as opener",
+			input: strings.Join([]string{
+				"</div>",
+				"tail",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("</div>", "tail"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, self closing tag",
+			input: strings.Join([]string{
+				"<hr />",
+				"tail",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<hr />", "tail"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, self closing without space",
+			input: strings.Join([]string{
+				"<hr/>",
+				"tail",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<hr/>", "tail"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, terminates before first blank line",
+			input: strings.Join([]string{
+				"<div>",
+				"hello",
+				"",
+				"world",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "hello"),
+				tk.IRPara("world"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, single opening line followed by blank line",
+			input: strings.Join([]string{
+				"<div>",
+				"",
+				"world",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>"),
+				tk.IRPara("world"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, consumes through non blank lines",
+			input: strings.Join([]string{
+				"<div>",
+				"line 1",
+				"line 2",
+				"line 3",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "line 1", "line 2", "line 3"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, closing tag does not itself terminate",
+			input: strings.Join([]string{
+				"<div>",
+				"line 1",
+				"</div>",
+				"line 2",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "line 1", "</div>", "line 2"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, blank line after closing tag controls termination",
+			input: strings.Join([]string{
+				"<div>",
+				"hello",
+				"</div>",
+				"",
+				"tail",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "hello", "</div>"),
+				tk.IRPara("tail"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, rejects inline span tag",
+			input: strings.Join([]string{
+				"<span>",
+				"hello",
+				"</span",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("<span>", "hello", "</span>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, rejects custom element",
+			input: strings.Join([]string{
+				"<custom-element>",
+				"hello",
+				"</custom-element",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("<custom-element>", "hello", "</custom-element>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, rejects missing name tag",
+			input: "<>",
+			want: tk.IRDoc(
+				tk.IRPara("<>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, rejects closing slash with no name",
+			input: "</>",
+			want: tk.IRDoc(
+				tk.IRPara("</>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, reject numeric tag start",
+			input: "<1div>",
+			want: tk.IRDoc(
+				tk.IRPara("<1div>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, rejects space after opener",
+			input: "< div>",
+			want: tk.IRDoc(
+				tk.IRPara("< div>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, rejects incomplete opener tag",
+			input: strings.Join([]string{
+				"<div",
+				"hello",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("<div", "hello"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, rejects self closing garbage",
+			input: "<hr/garbage>",
+			want: tk.IRDoc(
+				tk.IRPara("<hr/garbage>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag, rejects invalid character after tag name",
+			input: "<div-foo>",
+			want: tk.IRDoc(
+				tk.IRPara("<div-foo>"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, rejects punctuation pseudo alpha",
+			input: strings.Join([]string{
+				"<`div>",
+				"hello",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("<`div>", "hello"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: interrupts paragraph consumption",
+			input: strings.Join([]string{
+				"line 1",
+				"<!--",
+				"line 2",
+				"-->",
+				"line 3",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("line 1"),
+				tk.IRHTMLBlock("<!--", "line 2", "-->"),
+				tk.IRPara("line 3"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag, interrupts paragraph consumption",
+			input: strings.Join([]string{
+				"line 1",
+				"<div>",
+				"line 2",
+				"</div>",
+				"line 3",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("line 1"),
+				tk.IRHTMLBlock("<div>", "line 2", "</div>", "line 3"),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
