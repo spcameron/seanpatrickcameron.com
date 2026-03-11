@@ -78,6 +78,15 @@ func IRFencedCodeBlock(indent int, input ...string) ir.FencedCodeBlock {
 	}
 }
 
+func IRHTMLBlock(input ...string) ir.HTMLBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.HTMLBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
 func IRPara(input ...string) ir.Paragraph {
 	lines := make([]source.ByteSpan, len(input))
 
@@ -164,6 +173,15 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 		case ir.FencedCodeBlock:
 			b.Span = source.ByteSpan{}
 			b.InfoStringSpan = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+		case ir.HTMLBlock:
+			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
 				b.Lines = []source.ByteSpan{}
 			}

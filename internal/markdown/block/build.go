@@ -78,6 +78,7 @@ func defaultRules() []BuildRule {
 		UnorderedListRule{},
 		FencedCodeBlockRule{},
 		IndentedCodeBlockRule{},
+		HTMLBlockRule{},
 		ParagraphRule{},
 	}
 }

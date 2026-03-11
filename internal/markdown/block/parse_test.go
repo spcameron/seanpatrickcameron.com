@@ -1859,6 +1859,14 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "html block: comment",
+			input: "<!-- comment -->",
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<!-- comment -->"),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
