@@ -90,9 +90,6 @@ func (icb IndentedCodeBlock) String() string {
 	return fmt.Sprintf("[IndentedCodeBlock] (Lines = %d)", len(icb.Lines))
 }
 
-type CodeFence struct {
-}
-
 type FencedCodeBlock struct {
 	Span           source.ByteSpan
 	OpenIndentCols int
@@ -104,6 +101,17 @@ func (FencedCodeBlock) isBlock() {}
 
 func (fcb FencedCodeBlock) String() string {
 	return fmt.Sprintf("[FencedCodeBlock] (Lines = %d)", len(fcb.Lines))
+}
+
+type HTMLBlock struct {
+	Span  source.ByteSpan
+	Lines []source.ByteSpan
+}
+
+func (HTMLBlock) isBlock() {}
+
+func (hb HTMLBlock) String() string {
+	return fmt.Sprintf("[HTMLBlock] (Lines = %d)", len(hb.Lines))
 }
 
 type Paragraph struct {

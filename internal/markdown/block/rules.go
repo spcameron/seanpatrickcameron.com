@@ -1201,12 +1201,205 @@ func (FencedCodeBlockRule) tryParseClosingFenceLine(c *Cursor, marker byte, mark
 	return true
 }
 
+type HTMLBlockRule struct{}
+
+func (r HTMLBlockRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	terminator, ok := r.tryParseHTMLBlockLine(c)
+	if !ok {
+		return nil, false, nil
+	}
+
+	lineSpans := r.consumeHTMLBLock(c, terminator)
+
+	// defensive panic
+	if len(lineSpans) == 0 {
+		panic("html block invariant violated: matched opening prefix but produced no payload")
+	}
+
+	blockSpan := source.ByteSpan{
+		Start: lineSpans[0].Start,
+		End:   lineSpans[len(lineSpans)-1].End,
+	}
+
+	applied := ir.HTMLBlock{
+		Span:  blockSpan,
+		Lines: lineSpans,
+	}
+
+	return applied, true, nil
+}
+
+func (r HTMLBlockRule) tryParseHTMLBlockLine(c *Cursor) (string, bool) {
+	// peek first line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return "", false
+	}
+
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
+		return "", false
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+
+	// validate the first marker character
+	if pos >= len(s) || s[pos] != '<' {
+		return "", false
+	}
+
+	rest := s[pos:]
+	var terminator string
+
+	// validate the prefix and determine the terminator
+	switch {
+	case strings.HasPrefix(rest, "<!--"):
+		terminator = "-->"
+	case strings.HasPrefix(rest, "<![CDATA["):
+		terminator = "]]>"
+	case strings.HasPrefix(rest, "<?"):
+		terminator = "?>"
+	case strings.HasPrefix(rest, "<!"):
+		terminator = ">"
+	default:
+		// try named tag, and if that fails, reject the line
+		if !r.tryParseNamedTagLine(rest) {
+			return "", false
+		}
+	}
+
+	return terminator, true
+}
+
+func (HTMLBlockRule) tryParseNamedTagLine(s string) bool {
+	pos := 0
+
+	// reject an empty string
+	if pos >= len(s) {
+		return false
+	}
+
+	// validate and consume < opener
+	if s[pos] != '<' {
+		return false
+	}
+	pos++
+
+	// validate and consume an optional /
+	if pos >= len(s) {
+		return false
+	}
+	if s[pos] == '/' {
+		pos++
+	}
+
+	// validate tag name starts with alpha character
+	if pos >= len(s) || !isAlpha(s[pos]) {
+		return false
+	}
+
+	// mark start of tag name
+	start := pos
+
+	// consume valid tag name characters (alphanumeric)
+	for pos < len(s) && (isAlpha(s[pos]) || isDigit(s[pos])) {
+		pos++
+	}
+
+	// normalize and record tag name
+	name := strings.ToLower(s[start:pos])
+
+	// reject if the tag name is not whitelisted
+	if !validateTagName(name) {
+		return false
+	}
+
+	// validate following byte forms plausible tag head
+	if pos >= len(s) {
+		return false
+	}
+
+	switch s[pos] {
+	case '>':
+		return true
+	case '/':
+		pos++
+
+		// consume any whitespace
+		for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+			pos++
+		}
+
+		// reject if the next non-whitespace character is not a closer
+		if pos >= len(s) || s[pos] != '>' {
+			return false
+		}
+
+		return true
+	case ' ', '\t':
+		for pos < len(s) {
+			if s[pos] == '>' {
+				return true
+			}
+			pos++
+		}
+		return false
+	default:
+		// any other character is ineligible in a tag head
+		return false
+	}
+}
+
+func (HTMLBlockRule) consumeHTMLBLock(c *Cursor, terminator string) []source.ByteSpan {
+	lineSpans := make([]source.ByteSpan, 0, 4)
+
+	// consume maximal HTML block
+	for {
+		line := c.MustNext()
+		lineSpans = append(lineSpans, line.Span)
+
+		s := c.Source.Slice(line.Span)
+
+		if terminator != "" && strings.Contains(s, terminator) {
+			break
+		}
+
+		// peek next line, break if EOF
+		nextLine, ok := c.Peek()
+		if !ok {
+			break
+		}
+
+		// if terminator is "" (from named-tag case), break on blank lines
+		if terminator == "" && nextLine.IsBlankLine(c.Source) {
+			break
+		}
+	}
+
+	return lineSpans
+}
+
+func isAlpha(b byte) bool {
+	return 'A' <= b && b <= 'Z' || 'a' <= b && b <= 'z'
+}
+
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
+}
+
+func validateTagName(name string) bool {
+	_, ok := htmlBlockTags[name]
+	return ok
+}
+
 type ParagraphRule struct{}
 
 func (ParagraphRule) isParagraphTransparent() {}
 
 func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
-	spans, ok, err := r.consumeParagraphRun(c)
+	lineSpans, ok, err := r.consumeParagraphRun(c)
 	if err != nil {
 		return nil, false, err
 	}
@@ -1215,8 +1408,8 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	contentSpan := source.ByteSpan{
-		Start: spans[0].Start,
-		End:   spans[len(spans)-1].End,
+		Start: lineSpans[0].Start,
+		End:   lineSpans[len(lineSpans)-1].End,
 	}
 
 	if line, ok := c.Peek(); ok {
@@ -1225,7 +1418,7 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			underline := c.MustNext()
 
 			headerSpan := source.ByteSpan{
-				Start: spans[0].Start,
+				Start: lineSpans[0].Start,
 				End:   underline.Span.End,
 			}
 
@@ -1240,8 +1433,8 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	applied := ir.Paragraph{
-		Lines: spans,
 		Span:  contentSpan,
+		Lines: lineSpans,
 	}
 
 	return applied, true, nil
@@ -1254,12 +1447,9 @@ func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, 
 		return nil, false, nil
 	}
 
-	var spans []source.ByteSpan
-
 	// consume the first line
 	line = c.MustNext()
-
-	spans = append(spans, line.Span)
+	lineSpans := []source.ByteSpan{line.Span}
 
 	// consume continuation lines
 	for {
@@ -1283,17 +1473,16 @@ func (r ParagraphRule) consumeParagraphRun(c *Cursor) ([]source.ByteSpan, bool, 
 
 		line = c.MustNext()
 
-		spans = append(spans, line.Span)
+		lineSpans = append(lineSpans, line.Span)
 	}
 
-	return spans, true, nil
+	return lineSpans, true, nil
 
 }
 
 func (ParagraphRule) tryParseSetextHeadingLine(c *Cursor, line Line) (int, bool) {
-	src := c.Source
-
-	if line.IsBlankLine(src) {
+	// reject blank line
+	if line.IsBlankLine(c.Source) {
 		return 0, false
 	}
 
@@ -1303,7 +1492,7 @@ func (ParagraphRule) tryParseSetextHeadingLine(c *Cursor, line Line) (int, bool)
 		return 0, false
 	}
 
-	s := src.Slice(line.Span)
+	s := c.Source.Slice(line.Span)
 	pos := indentBytes
 
 	if pos >= len(s) {

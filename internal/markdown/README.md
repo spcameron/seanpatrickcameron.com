@@ -295,6 +295,52 @@ Both indented and fenced code blocks are lowered into a unified `CodeBlock` AST 
 
 The code block payload is rendered as literal text, with line boundaries preserved. Markdown syntax within code blocks is not interpreted as inline elements.
 
+#### HTML Blocks
+
+An HTML block is a raw passthrough block. Its contents are preserved exactly and are not interpreted as markdown.
+
+HTML blocks allow authors to embed raw HTML within Markdown documents when Markdown syntax alone is insufficient. When a supported HTML opener appears at the beginning of a line, the compiler suspends Markdown parsing and treats the block as literal HTML until the appropriate termination condition is met.
+
+HTML blocks may interrupt paragraphs.
+
+A line begins an HTML block if and only if the following conditions are met:
+
+- **Indentation**: The line begins with 0-3 columns of indentation.
+- **Position**: The HTML opener begins at the first non-indent byte of the line.
+- **Supported Opener**: The line matches one of the supported HTML block opener forms described below.
+
+If none of supported forms match, the line is not treated as an HTML block and normal Markdown parsing continues.
+
+HTML block contents are preserved exactly as written in the source. Within an HTML block, inline parsing does not occur, Markdown constructs are not interpreted, whitespace is not normalized, and HTML is not escaped. During HTML generation, HTML blocks are emitted as raw HTML nodes so that embedded markup is rendered verbatim.
+
+#### Delimiter-Terminated HTML Blocks
+
+Some HTML block forms are terminated by a specific closing delimiter. These blocks continue until a line containing the matching delimiter is encountered.
+
+- **HTML Comment**: Opener `<!--`, Terminator `-->`.
+- **Processing Instruction**: Opener `<?`, Terminator `?>`.
+- **Declaration**: Opener `<!`, Terminator `>`.
+- **CDATA Section**: Opener `<![CDATA[`, Terminator `]]>`.
+
+The closing delimiter may appear on the same line as the opener or any later line. Blank lines are permitted inside the block. If the closing delimiter is nver encountered, the block continues through end of file. The entire line containing the closing delimiter is included in the block.
+
+#### Named Block Tag HTML Blocks
+
+A line begins a named-tag HTML block if it starts with an HTML opening or closing tag whose name belongs to the supported block-level tag set.
+
+The tag name must being with an ASCII letter, contain only ACII letters or digits, and mtch one of the supported block tag names.
+
+Supported tag names:
+
+```html
+address article aside blockquote body details dialog div dl fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr html main menu nav ol p pre section table tbody td tfoot th thead tr ul
+```
+
+Inline HTML tags such as `<span>` or `<em>` are not recognized as HTML block openers.
+
+Named-tag HTML blocks continue through subsequent non-blank lines and terminate immediately before the first blank line or at end of file. Matching closing tags do not terminate the block.
+
+
 ### Inline Elements
 
 #### Paragraphs
