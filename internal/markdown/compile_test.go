@@ -482,6 +482,122 @@ func TestCompile(t *testing.T) {
 			want:    "<p>before</p><pre><code class=\"language-go\">x := 1</code></pre><p>after</p>",
 			wantErr: nil,
 		},
+		{
+			name:    "html block: comment",
+			md:      "<!-- comment -->",
+			want:    "<!-- comment -->",
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment, multi-line",
+			md: strings.Join([]string{
+				"<!--",
+				"comment",
+				"-->",
+			}, "\n"),
+			want:    "<!--\ncomment\n-->",
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment, no terminator",
+			md: strings.Join([]string{
+				"<!--",
+				"hello",
+				"world",
+			}, "\n"),
+			want:    "<!--\nhello\nworld",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: processing instruction",
+			md:      `<?xml version="1.0"?>`,
+			want:    `<?xml version="1.0"?>`,
+			wantErr: nil,
+		},
+		{
+			name:    "html block: declaration",
+			md:      "<!DOCTYPE html>",
+			want:    "<!DOCTYPE html>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: cdata, multi-line",
+			md: strings.Join([]string{
+				"<![CDATA[",
+				"a < b",
+				"]]>",
+			}, "\n"),
+			want:    "<![CDATA[\na < b\n]]>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag block",
+			md: strings.Join([]string{
+				"<div>",
+				"hello",
+				"</div>",
+			}, "\n"),
+			want:    "<div>\nhello\n</div>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag with class",
+			md: strings.Join([]string{
+				`<section class="note">`,
+				"<p>hello</p>",
+				"</section>",
+			}, "\n"),
+			want:    "<section class=\"note\">\n<p>hello</p>\n</section>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag terminates at blank line",
+			md: strings.Join([]string{
+				"<div>",
+				"hello",
+				"</div>",
+				"",
+				"world",
+			}, "\n"),
+			want:    "<div>\nhello\n</div><p>world</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: html interrupts paragraph",
+			md: strings.Join([]string{
+				"alpha",
+				"<div>",
+				"beta",
+				"</div>",
+				"omega",
+			}, "\n"),
+			want:    "<p>alpha</p><div>\nbeta\n</div>\nomega",
+			wantErr: nil,
+		},
+		{
+			name: "html block: html interrupts paragraph but terminates at new line",
+			md: strings.Join([]string{
+				"alpha",
+				"<div>",
+				"beta",
+				"</div>",
+				"",
+				"omega",
+			}, "\n"),
+			want:    "<p>alpha</p><div>\nbeta\n</div><p>omega</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: markdown looking text is preserved literally",
+			md: strings.Join([]string{
+				"<div>",
+				"# not a heading",
+				"* not a list",
+				"</div>",
+			}, "\n"),
+			want:    "<div>\n# not a heading\n* not a list\n</div>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

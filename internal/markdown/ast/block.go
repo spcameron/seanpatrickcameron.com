@@ -111,6 +111,17 @@ func (cb CodeBlock) String() string {
 	return fmt.Sprintf("[%sCodeBlock] (Lines = %d)", cb.Kind, len(cb.Payload))
 }
 
+type HTMLBlock struct {
+	Span    source.ByteSpan
+	Payload []Inline
+}
+
+func (HTMLBlock) isBlock() {}
+
+func (hb HTMLBlock) String() string {
+	return fmt.Sprintf("[HTMLBlock] (Lines = %d)", len(hb.Payload))
+}
+
 type Paragraph struct {
 	Span    source.ByteSpan
 	Inlines []Inline

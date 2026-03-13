@@ -115,6 +115,16 @@ func TestLowerDocument(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "html block",
+			input: "<!-- comment -->",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText(),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

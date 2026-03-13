@@ -76,6 +76,13 @@ func ASTFencedCodeBlock(inlines ...ast.Inline) ast.CodeBlock {
 	}
 }
 
+func ASTHTMLBlock(inlines ...ast.Inline) ast.HTMLBlock {
+	return ast.HTMLBlock{
+		Span:    source.ByteSpan{},
+		Payload: inlines,
+	}
+}
+
 func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 	return ast.Paragraph{
 		Span:    source.ByteSpan{},
@@ -97,6 +104,12 @@ func ASTTextAt(start, end int) ast.Text {
 
 	return ast.Text{
 		Span: span,
+	}
+}
+
+func ASTRawText() ast.RawText {
+	return ast.RawText{
+		Span: source.ByteSpan{},
 	}
 }
 
@@ -170,6 +183,10 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 			b.LanguageTokenSpan = source.ByteSpan{}
 			b.Payload = NormalizeASTInlines(b.Payload)
 			blocks[i] = b
+		case ast.HTMLBlock:
+			b.Span = source.ByteSpan{}
+			b.Payload = NormalizeASTInlines(b.Payload)
+			blocks[i] = b
 		case ast.Paragraph:
 			b.Span = source.ByteSpan{}
 			b.Inlines = NormalizeASTInlines(b.Inlines)
@@ -187,6 +204,9 @@ func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 	for i := range inl {
 		switch v := inl[i].(type) {
 		case ast.Text:
+			v.Span = source.ByteSpan{}
+			out = append(out, v)
+		case ast.RawText:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
 		case ast.HardBreak:

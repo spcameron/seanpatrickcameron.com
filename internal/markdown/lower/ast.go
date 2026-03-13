@@ -47,6 +47,8 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 		return buildIndentedCodeBlock(src, v)
 	case ir.FencedCodeBlock:
 		return buildFencedCodeBlock(src, v)
+	case ir.HTMLBlock:
+		return buildHTMLBlock(v)
 	case ir.Paragraph:
 		return buildParagraph(src, v)
 	default:
@@ -266,6 +268,31 @@ func extractLanguageString(src *source.Source, infoSpan source.ByteSpan) source.
 	}
 
 	return infoSpan
+}
+
+func buildHTMLBlock(hb ir.HTMLBlock) (ast.Block, error) {
+	payload := make([]ast.Inline, 0, len(hb.Lines)*2-1)
+	last := len(hb.Lines) - 1
+
+	for i, ls := range hb.Lines {
+		payload = append(payload, ast.RawText{Span: ls})
+
+		if i < last {
+			anchor := source.ByteSpan{
+				Start: ls.End,
+				End:   ls.End,
+			}
+
+			payload = append(payload, ast.Newline{Span: anchor})
+		}
+	}
+
+	block := ast.HTMLBlock{
+		Span:    hb.Span,
+		Payload: payload,
+	}
+
+	return block, nil
 }
 
 func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {

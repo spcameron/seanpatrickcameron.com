@@ -186,6 +186,16 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "html block",
+			input: "<!-- comment -->",
+			want: html.FragmentNode(
+				html.FragmentNode(
+					html.RawNode("<!-- comment -->"),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

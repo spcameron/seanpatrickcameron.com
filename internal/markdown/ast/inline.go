@@ -12,6 +12,12 @@ type Text struct {
 
 func (Text) isInline() {}
 
+type RawText struct {
+	Span source.ByteSpan
+}
+
+func (RawText) isInline() {}
+
 type HardBreak struct {
 	Span source.ByteSpan
 }

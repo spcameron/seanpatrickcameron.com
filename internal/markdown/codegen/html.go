@@ -40,6 +40,8 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 		return renderUnorderedList(src, v)
 	case ast.CodeBlock:
 		return renderCodeBlock(src, v)
+	case ast.HTMLBlock:
+		return renderHTMLBlock(src, v)
 	case ast.Paragraph:
 		return renderParagraph(src, v)
 	default:
@@ -225,6 +227,19 @@ func renderCodeBlock(src *source.Source, cd ast.CodeBlock) (html.Node, error) {
 	return node, nil
 }
 
+func renderHTMLBlock(src *source.Source, hb ast.HTMLBlock) (html.Node, error) {
+	children, err := renderInlines(src, hb.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	node := html.Fragment{
+		Children: children,
+	}
+
+	return node, nil
+}
+
 func renderParagraph(src *source.Source, p ast.Paragraph) (html.Node, error) {
 	children, err := renderInlines(src, p.Inlines)
 	if err != nil {
@@ -259,6 +274,8 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	switch v := inl.(type) {
 	case ast.Text:
 		return renderText(src, v)
+	case ast.RawText:
+		return renderRawText(src, v)
 	case ast.SoftBreak:
 		return renderSoftBreak()
 	case ast.HardBreak:
@@ -273,6 +290,14 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 func renderText(src *source.Source, t ast.Text) (html.Node, error) {
 	node := html.Text{
 		Value: src.Slice(t.Span),
+	}
+
+	return node, nil
+}
+
+func renderRawText(src *source.Source, rt ast.RawText) (html.Node, error) {
+	node := html.Raw{
+		Value: src.Slice(rt.Span),
 	}
 
 	return node, nil
