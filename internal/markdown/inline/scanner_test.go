@@ -350,12 +350,12 @@ func TestScan(t *testing.T) {
 }
 
 func summarizeEvents(src *source.Source, events []Event) []EventSummary {
-	es := make([]EventSummary, 0, len(events))
+	summary := make([]EventSummary, 0, len(events))
 
 	for _, e := range events {
 		s := src.Slice(e.Span)
 
-		es = append(es, EventSummary{
+		summary = append(summary, EventSummary{
 			Kind:      e.Kind,
 			Lexeme:    s,
 			Delimiter: e.Delimiter,
@@ -363,5 +363,5 @@ func summarizeEvents(src *source.Source, events []Event) []EventSummary {
 		})
 	}
 
-	return es
+	return summary
 }

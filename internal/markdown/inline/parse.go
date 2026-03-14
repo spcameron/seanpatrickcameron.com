@@ -11,7 +11,7 @@ func Parse(src *source.Source, span source.ByteSpan) ([]ast.Inline, error) {
 		return nil, err
 	}
 
-	out, err := Build(src, events)
+	out, err := Build(src, span, events)
 	if err != nil {
 		return nil, err
 	}
