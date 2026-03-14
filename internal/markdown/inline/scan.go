@@ -1,6 +1,8 @@
 package inline
 
 import (
+	"fmt"
+
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
@@ -9,8 +11,37 @@ type EventKind int
 const (
 	_ EventKind = iota
 	EventText
+	EventDelimiterRun
 	EventIllegalNewline
 )
+
+func (ek EventKind) String() string {
+	switch ek {
+	case EventText:
+		return "Event - Text"
+	case EventDelimiterRun:
+		return "Event - Delimiter Run"
+	case EventIllegalNewline:
+		return "Event - Illegal Newline"
+	default:
+		return fmt.Sprintf("Unrecognized EventKind %d", ek)
+	}
+}
+
+type Event struct {
+	Kind      EventKind
+	Span      source.ByteSpan
+	Delimiter byte
+	RunLength int
+}
+
+func (e Event) String() string {
+	if e.Kind == EventDelimiterRun {
+		return fmt.Sprintf("[%s] - Delimiter (%s), Length (%d)", e.Kind, string(e.Delimiter), e.RunLength)
+	}
+
+	return fmt.Sprintf("[%s]", e.Kind)
+}
 
 func Scan(src *source.Source, span source.ByteSpan) ([]Event, error) {
 	input := src.Slice(span)
@@ -27,11 +58,6 @@ func Scan(src *source.Source, span source.ByteSpan) ([]Event, error) {
 	}
 
 	return events, nil
-}
-
-type Event struct {
-	Kind EventKind
-	Span source.ByteSpan
 }
 
 type Scanner struct {
@@ -62,6 +88,25 @@ func (s *Scanner) Next() (Event, bool) {
 
 	// special token dispatch
 	switch b {
+	case '*':
+		for s.Position < len(s.Input) && s.Input[s.Position] == '*' {
+			s.Position++
+		}
+
+		end := s.Position
+		length := end - start
+
+		span := source.ByteSpan{
+			Start: s.Base + source.BytePos(start),
+			End:   s.Base + source.BytePos(end),
+		}
+
+		return Event{
+			Kind:      EventDelimiterRun,
+			Span:      span,
+			Delimiter: '*',
+			RunLength: length,
+		}, true
 	case '\n':
 		s.Position++
 		end := s.Position
@@ -80,7 +125,7 @@ func (s *Scanner) Next() (Event, bool) {
 	// otherwise, scan maximum text run until next special token
 	end := s.Position
 	for end < len(s.Input) {
-		if s.Input[end] == '\n' {
+		if terminatesText(s.Input[end]) {
 			break
 		}
 
@@ -102,4 +147,13 @@ func (s *Scanner) Next() (Event, bool) {
 		Kind: EventText,
 		Span: span,
 	}, true
+}
+
+func terminatesText(b byte) bool {
+	switch b {
+	case '\n', '*':
+		return true
+	default:
+		return false
+	}
 }
