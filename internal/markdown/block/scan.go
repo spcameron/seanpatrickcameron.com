@@ -64,9 +64,11 @@ outer:
 		case ' ':
 			col++
 			pos++
+
 		case '\t':
 			col += source.TabWidth - (col % source.TabWidth)
 			pos++
+
 		default:
 			break outer
 		}
@@ -90,9 +92,11 @@ func (l Line) TrimIndentToCols(src *source.Source, baselineCols int) Line {
 		case ' ':
 			col++
 			pos++
+
 		case '\t':
 			col += source.TabWidth - (col % source.TabWidth)
 			pos++
+
 		default:
 			return l
 		}

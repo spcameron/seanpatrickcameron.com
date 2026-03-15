@@ -383,6 +383,7 @@ func (r OrderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCols
 		delim = s[pos]
 		pos++
 		col++
+
 	default:
 		return OLMarkerLineResult{}, false
 	}
@@ -394,6 +395,7 @@ func (r OrderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCols
 	switch s[pos] {
 	case ' ', '\t':
 	// ok, continue
+
 	default:
 		return OLMarkerLineResult{}, false
 	}
@@ -678,6 +680,7 @@ func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCo
 	switch s[pos] {
 	case '-', '*', '+':
 	// ok, continue
+
 	default:
 		return ULMarkerLineResult{}, false
 	}
@@ -693,6 +696,7 @@ func (r UnorderedListRule) tryParseMarkerLine(c *Cursor, line Line, listIndentCo
 	switch s[pos] {
 	case ' ', '\t':
 	// ok, continue
+
 	default:
 		return ULMarkerLineResult{}, false
 	}
@@ -860,6 +864,7 @@ func (ThematicBreakRule) tryParseThematicBreakLine(c *Cursor) bool {
 	switch s[pos] {
 	case '-', '*', '_':
 		marker = s[pos]
+
 	default:
 		return false
 	}
@@ -872,6 +877,7 @@ func (ThematicBreakRule) tryParseThematicBreakLine(c *Cursor) bool {
 		case ' ', '\t':
 			pos++
 			continue
+
 		default:
 			if b != marker {
 				return false
@@ -1052,6 +1058,7 @@ func (FencedCodeBlockRule) tryParseOpeningFenceLine(c *Cursor) (FCBMarkerLineRes
 	switch s[pos] {
 	case '`', '~':
 		marker = s[pos]
+
 	default:
 		return FCBMarkerLineResult{}, false
 	}
@@ -1193,6 +1200,7 @@ func (FencedCodeBlockRule) tryParseClosingFenceLine(c *Cursor, marker byte, mark
 		switch b {
 		case ' ', '\t':
 			pos++
+
 		default:
 			return false
 		}
@@ -1257,12 +1265,16 @@ func (r HTMLBlockRule) tryParseHTMLBlockLine(c *Cursor) (string, bool) {
 	switch {
 	case strings.HasPrefix(rest, "<!--"):
 		terminator = "-->"
+
 	case strings.HasPrefix(rest, "<![CDATA["):
 		terminator = "]]>"
+
 	case strings.HasPrefix(rest, "<?"):
 		terminator = "?>"
+
 	case strings.HasPrefix(rest, "<!"):
 		terminator = ">"
+
 	default:
 		// try named tag, and if that fails, reject the line
 		if !r.tryParseNamedTagLine(rest) {
@@ -1324,6 +1336,7 @@ func (HTMLBlockRule) tryParseNamedTagLine(s string) bool {
 	switch s[pos] {
 	case '>':
 		return true
+
 	case '/':
 		pos++
 
@@ -1338,6 +1351,7 @@ func (HTMLBlockRule) tryParseNamedTagLine(s string) bool {
 		}
 
 		return true
+
 	case ' ', '\t':
 		for pos < len(s) {
 			if s[pos] == '>' {
@@ -1346,6 +1360,7 @@ func (HTMLBlockRule) tryParseNamedTagLine(s string) bool {
 			pos++
 		}
 		return false
+
 	default:
 		// any other character is ineligible in a tag head
 		return false
@@ -1505,9 +1520,11 @@ func (ParagraphRule) tryParseSetextHeadingLine(c *Cursor, line Line) (int, bool)
 	case '=':
 		marker = s[pos]
 		level = 1
+
 	case '-':
 		marker = s[pos]
 		level = 2
+
 	default:
 		return 0, false
 	}
@@ -1531,6 +1548,7 @@ func (ParagraphRule) tryParseSetextHeadingLine(c *Cursor, line Line) (int, bool)
 		case ' ', '\t':
 			pos++
 			continue
+
 		default:
 			return 0, false
 		}

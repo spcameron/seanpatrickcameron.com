@@ -73,39 +73,10 @@ func (c *Cursor) Gather() error {
 
 		switch ev.Kind {
 		case EventText:
-			item := &TextItem{
-				Span: ev.Span,
-			}
-
-			c.WorkingItems = append(c.WorkingItems, item)
+			c.gatherText(ev)
 
 		case EventDelimiterRun:
-			item := &DelimiterItem{
-				Span:      ev.Span,
-				Delimiter: ev.Delimiter,
-			}
-
-			c.WorkingItems = append(c.WorkingItems, item)
-			idx := len(c.WorkingItems) - 1
-
-			before, beforeOK := c.runeBefore(ev.Span)
-			after, afterOK := c.runeAfter(ev.Span)
-
-			canOpen := leftFlanking(before, beforeOK, after, afterOK)
-			canClose := rightFlanking(before, beforeOK, after, afterOK)
-
-			record := &DelimiterRecord{
-				OriginalSpan: ev.Span,
-				LiveSpan:     ev.Span,
-				Delimiter:    ev.Delimiter,
-				OriginalRun:  ev.RunLength,
-				RemainingRun: ev.RunLength,
-				CanOpen:      canOpen,
-				CanClose:     canClose,
-				ItemIndex:    idx,
-			}
-
-			c.DelimiterRecords = append(c.DelimiterRecords, record)
+			c.gatherDelimiter(ev)
 
 		case EventIllegalNewline:
 			panic("illegal newline encountered during inline gather")
@@ -128,11 +99,7 @@ func (c *Cursor) Resolve() error {
 				break
 			}
 
-			use := 1
-			if c.DelimiterRecords[openerIdx].RemainingRun >= 2 &&
-				c.DelimiterRecords[closerIdx].RemainingRun >= 2 {
-				use = 2
-			}
+			use := c.delimiterUse(openerIdx, closerIdx)
 
 			c.resolvePair(openerIdx, closerIdx, use)
 		}
@@ -145,39 +112,61 @@ func (c *Cursor) Finalize() ([]ast.Inline, error) {
 	inlines := make([]ast.Inline, 0, len(c.WorkingItems))
 
 	for i, item := range c.WorkingItems {
-		switch v := item.(type) {
-		case *TextItem:
-			inlines = append(inlines, ast.Text{
-				Span: v.Span,
-			})
-
-		case *DelimiterItem:
-			recIdx, ok := c.delimiterRecordForItem(i)
-			if !ok {
-				return []ast.Inline{}, fmt.Errorf("no matching delimiter record found for working item at index %d", i)
-			}
-
-			rec := c.DelimiterRecords[recIdx]
-			if rec.RemainingRun == 0 {
-				continue
-			}
-
-			inlines = append(inlines, ast.Text{
-				Span: rec.LiveSpan,
-			})
-
-		case *NodeItem:
-			inlines = append(inlines, v.Node)
-
-		case *ConsumedItem:
-			continue
-
-		default:
-			return []ast.Inline{}, fmt.Errorf("unknown working item type %T", item)
+		inl, ok, err := c.finalizeItem(i, item)
+		if err != nil {
+			return []ast.Inline{}, err
 		}
+		if !ok {
+			continue
+		}
+
+		inlines = append(inlines, inl)
 	}
 
 	return inlines, nil
+}
+
+func (c *Cursor) gatherText(ev Event) {
+	item := &TextItem{
+		Span: ev.Span,
+	}
+
+	c.WorkingItems = append(c.WorkingItems, item)
+}
+
+func (c *Cursor) gatherDelimiter(ev Event) {
+	item := &DelimiterItem{
+		Span:      ev.Span,
+		Delimiter: ev.Delimiter,
+	}
+
+	c.WorkingItems = append(c.WorkingItems, item)
+	idx := len(c.WorkingItems) - 1
+
+	canOpen, canClose := c.delimiterEligibility(ev.Span)
+
+	record := &DelimiterRecord{
+		OriginalSpan: ev.Span,
+		LiveSpan:     ev.Span,
+		Delimiter:    ev.Delimiter,
+		OriginalRun:  ev.RunLength,
+		RemainingRun: ev.RunLength,
+		CanOpen:      canOpen,
+		CanClose:     canClose,
+		ItemIndex:    idx,
+	}
+
+	c.DelimiterRecords = append(c.DelimiterRecords, record)
+}
+
+func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose bool) {
+	before, beforeOK := c.runeBefore(span)
+	after, afterOK := c.runeAfter(span)
+
+	canOpen = leftFlanking(before, beforeOK, after, afterOK)
+	canClose = rightFlanking(before, beforeOK, after, afterOK)
+
+	return canOpen, canClose
 }
 
 func (c *Cursor) findOpenerForCloser(closerIdx int) (int, bool) {
@@ -193,6 +182,16 @@ func (c *Cursor) findOpenerForCloser(closerIdx int) (int, bool) {
 	}
 
 	return -1, false
+}
+
+func (c *Cursor) delimiterUse(openerIdx, closerIdx int) int {
+	use := 1
+	if c.DelimiterRecords[openerIdx].RemainingRun >= 2 &&
+		c.DelimiterRecords[closerIdx].RemainingRun >= 2 {
+		use = 2
+	}
+
+	return use
 }
 
 func (c *Cursor) resolvePair(openerIdx, closerIdx, use int) {
@@ -328,6 +327,39 @@ func (c *Cursor) buildChildren(start, end int) ([]ast.Inline, source.ByteSpan) {
 	}
 
 	return children, span
+}
+
+func (c *Cursor) finalizeItem(i int, item WorkingItem) (ast.Inline, bool, error) {
+	switch v := item.(type) {
+	case *TextItem:
+		return ast.Text{
+			Span: v.Span,
+		}, true, nil
+
+	case *DelimiterItem:
+		recIdx, ok := c.delimiterRecordForItem(i)
+		if !ok {
+			return nil, false, fmt.Errorf("no matching delimiter record found for working item at index %d", i)
+		}
+
+		rec := c.DelimiterRecords[recIdx]
+		if rec.RemainingRun == 0 {
+			return nil, false, nil
+		}
+
+		return ast.Text{
+			Span: rec.LiveSpan,
+		}, true, nil
+
+	case *NodeItem:
+		return v.Node, true, nil
+
+	case *ConsumedItem:
+		return nil, false, nil
+
+	default:
+		return nil, false, fmt.Errorf("unknown working item type %T", item)
+	}
 }
 
 func (c *Cursor) delimiterRecordForItem(index int) (int, bool) {
