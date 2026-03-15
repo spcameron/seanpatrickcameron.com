@@ -36,6 +36,14 @@ func TestLowerDocument(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:  "header with emphasis",
+			input: "# *header*",
+			want: tk.ASTDoc(
+				tk.ASTHeader(1, tk.ASTEm(tk.ASTText())),
+			),
+			wantErr: nil,
+		},
+		{
 			name:  "header and paragraph",
 			input: "# header\n\nparagraph",
 			want: tk.ASTDoc(
@@ -99,9 +107,7 @@ func TestLowerDocument(t *testing.T) {
 			name:  "indented code block",
 			input: "    code",
 			want: tk.ASTDoc(
-				tk.ASTIndentedCodeBlock(
-					tk.ASTText(),
-				),
+				tk.ASTIndentedCodeBlock(tk.ASTText()),
 			),
 			wantErr: nil,
 		},
@@ -109,9 +115,7 @@ func TestLowerDocument(t *testing.T) {
 			name:  "fenced code block",
 			input: "```\ncode\n```",
 			want: tk.ASTDoc(
-				tk.ASTFencedCodeBlock(
-					tk.ASTText(),
-				),
+				tk.ASTFencedCodeBlock(tk.ASTText()),
 			),
 			wantErr: nil,
 		},
@@ -119,9 +123,23 @@ func TestLowerDocument(t *testing.T) {
 			name:  "html block",
 			input: "<!-- comment -->",
 			want: tk.ASTDoc(
-				tk.ASTHTMLBlock(
-					tk.ASTRawText(),
-				),
+				tk.ASTHTMLBlock(tk.ASTRawText()),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis",
+			input: "*abc*",
+			want: tk.ASTDoc(
+				tk.ASTPara(tk.ASTEm(tk.ASTText())),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "strong",
+			input: "**abc**",
+			want: tk.ASTDoc(
+				tk.ASTPara(tk.ASTStrong(tk.ASTText())),
 			),
 			wantErr: nil,
 		},

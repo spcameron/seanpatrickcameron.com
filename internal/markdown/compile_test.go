@@ -598,6 +598,24 @@ func TestCompile(t *testing.T) {
 			want:    "<div>\n# not a heading\n* not a list\n</div>",
 			wantErr: nil,
 		},
+		{
+			name:    "emphasis",
+			md:      "*abc*",
+			want:    "<p><em>abc</em></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "strong",
+			md:      "**abc**",
+			want:    "<p><strong>abc</strong></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis and strong",
+			md:      "***abc***",
+			want:    "<p><em><strong>abc</strong></em></p>",
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

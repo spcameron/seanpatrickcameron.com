@@ -30,17 +30,28 @@ This guarantees a single source of truth for content, stable byte-coordinate sem
     - Block Scan: outputs `[]Line` (spans)
     - Block Build: outputs `ir.Document` (block IR)
 - Lowering
-    - ir.Document becomes ast.Document
+    - `ir.Document` becomes `ast.Document`
     - Performs inline parsing per content span
 - Inline Parse (invoked during lowering)
-    - Inline Scan: outputs `[]Event` (spans)
-    - Inline Build: outputs `[]ast.Inline`
+    - Inline Scan: outputs `[]Event` (span-based lexical tokens)
+    - Gather: builds working items and delimiter records
+    - Resolve: pairs compatible delimiters and constructs inline nodes
+    - Finalize: emits `[]ast.Inline`
 - Code Generation
-    - ast.Document becomes html.Node tree
+    - `ast.Document` becomes `html.Node` tree
 - HTML Emission
     - Serializes `html.Tree` to string output or io.Writer
     - `html.Write` writes to a provided io.Writer
     - `html.Render` returns a serialized string directly
+
+### Inline Parsing Model
+
+Inline parsing follows a staged pipeline designed to separate lexical recognition from delimiter resolution.
+
+- **Inline Scan**: The scanner walks a content span and emits a sequence of inline events. Events represent either literal text or delimiter runs (such as `*` sequences). Each event carries a `ByteSpan` into the original source.
+- **Gather**: Gather converts events into a working stream while recording delimiter metadata. The gather phase performs no semantic interpretation beyond delimiter eligibility classification.
+- **Resolve**: Resolve walks the delimiter stack and pairs compatible delimiter runs. This phase constructs nesting inline nodes such as `Em` and `Strong`.
+- **Finalize**: Finalize walks the working item stream and materializes the final `ast.Inline` nodes. The result is the finalized inline AST for the parsed span.
 
 ### Representation Boundaries
 
@@ -77,6 +88,14 @@ The compiler distinguishes between **code generation** (AST -> `html.Node` tree)
 ### 5. Scanner Discipline
 
 Scanners are mechanical, meaning they do *not* interpret structure or create semantic nodes. Their only responsibility is to segment input into span-referenced units. All interpretation occurs in build or lowering rules.
+
+### 6. Delimiter Resolution Model
+
+Inline emphasis and strong emphasis are implemented using a delimiter stack model similar to the one described in the CommonMark specification.
+
+Delimiter runs are first gathered into a working stream along with metadata describing their eligibility to open or close emphasis. A subsequent resolution phase pairs compatible delimiters and constructs inline nodes while preserving index stability within the working stream.
+
+This approach separates delimiter recognition from pairing logic and enables nested constructs to be resolved without modifying earlier parse stages.
 
 ## Markdown Rules (CommonMark-ish)
 
@@ -358,6 +377,26 @@ Lowering inserts break semantics:
 Breaks are represented explicitly in the AST.
 
 A paragraph is rendered as `<p></p>`, and a break is rendered as `<br>` in HTML.
+
+#### Emphasis (`*`) and Strong Emphasis (`**`)
+
+Emphasis and strong emphasis are inline constructs used to mark text with semantic stress. Emphasis corresponds to `<em>` in HTML and strong emphasis corresponds to `<strong>`.
+
+These constructs are formed using runs of asterisk (`*`) delimiter characters surrounding inline content.
+
+A delimiter run is defined as a maximal sequence of consecutive `*` characters appearing within a paragraph or other inline content.
+
+Delimiter runs participate in emphasis parsing according to the following rules:
+
+- **Delimiter Runs**: A delimiter run consists of one or more consecutive `*` characters. The run length determines how many delimiter characters are available for pairing.
+- **Eligibility**: A delimiter run may open emphasis, close emphasis, or both depending on the surrounding characters. Eligibility is determined by inspecting the characters immediately before and after the run.
+- **Left-Flanking Runs**: A delimiter run is considered left-flanking (eligible to open emphasis) if the character immediately following the run is not whitespace and either the following character is not punctuation, or the preceding character is whitespace or punctuation.
+- **Right-Flanking Runs**: A delimiter run is considered right-flanking (eligible to close emphasis) if the character immediately preceding the run is not whitespace and either the preceding character is not punctuation, or the following character is whitespace or punctuation.
+- **Pairing**: When a delimiter run that can close emphasis is encountered, the parser searches backward for the nearest earlier delimiter run that can open emphasis and has remaining delimiter characters available.
+- **Consumption**: When a pair is resolved, delimiter characters are consumed from both runs. If both runs contain at least two delimiter characters, two characters are consumed from each run to produce a strong emphasis node. Otherwise, one delimiter character is consumed from each run to produce an emphasis node.
+- **Nested Constructs**: Because delimiter runs may contain multiple characters nested emphasis may be produced by resolving multiple pairs from the same runs.
+
+Delimiter characters that cannot participate in a valid pairing are emitted as literial text.
 
 ## Diagnostics
 

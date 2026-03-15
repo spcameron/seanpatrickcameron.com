@@ -196,6 +196,38 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "emphasis",
+			input: "*abc*",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"em",
+						nil,
+						html.TextNode("abc"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "strong",
+			input: "**abc**",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"strong",
+						nil,
+						html.TextNode("abc"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

@@ -5,6 +5,8 @@ var (
 )
 
 var (
+	_ Inline = Em{}
+	_ Inline = Strong{}
 	_ Inline = Text{}
 	_ Inline = RawText{}
 	_ Inline = HardBreak{}

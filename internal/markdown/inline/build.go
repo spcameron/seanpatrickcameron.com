@@ -2,7 +2,6 @@ package inline
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
@@ -14,45 +13,23 @@ var (
 	ErrNoRuleMatched         = errors.New("no inline rule could be applied")
 )
 
-func Build(src *source.Source, events []Event) ([]ast.Inline, error) {
-	inl := []ast.Inline{}
+func Build(src *source.Source, span source.ByteSpan, events []Event) ([]ast.Inline, error) {
+	c := NewCursor(src, span, events)
 
-	rules := defaultRules()
-
-	c := NewCursor(src, rules, events)
-
-	for {
-		if c.EOF() {
-			break
-		}
-
-		matched := false
-
-		for _, rule := range c.Rules {
-			applied, ok, err := c.TryApply(rule)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				continue
-			}
-
-			matched = true
-			inl = append(inl, applied)
-			break
-		}
-
-		if !matched {
-			return nil, fmt.Errorf("%w: (index %d)", ErrNoRuleMatched, c.Index)
-		}
+	err := c.Gather()
+	if err != nil {
+		return []ast.Inline{}, err
 	}
 
-	return inl, nil
-}
-
-func defaultRules() []InlineRule {
-	return []InlineRule{
-		IllegalEventRule{},
-		TextRule{},
+	err = c.Resolve()
+	if err != nil {
+		return []ast.Inline{}, err
 	}
+
+	inlines, err := c.Finalize()
+	if err != nil {
+		return []ast.Inline{}, err
+	}
+
+	return inlines, nil
 }
