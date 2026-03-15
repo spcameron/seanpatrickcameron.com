@@ -33,24 +33,34 @@ func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
 	switch v := block.(type) {
 	case ir.BlockQuote:
 		return buildBlockQuote(src, v)
+
 	case ir.Header:
 		return buildHeader(src, v)
+
 	case ir.ThematicBreak:
 		return buildThematicBreak(v)
+
 	case ir.OrderedList:
 		return buildOrderedList(src, v)
+
 	case ir.UnorderedList:
 		return buildUnorderedList(src, v)
+
 	case ir.ListItem:
 		return buildListItem(src, v)
+
 	case ir.IndentedCodeBlock:
 		return buildIndentedCodeBlock(src, v)
+
 	case ir.FencedCodeBlock:
 		return buildFencedCodeBlock(src, v)
+
 	case ir.HTMLBlock:
 		return buildHTMLBlock(v)
+
 	case ir.Paragraph:
 		return buildParagraph(src, v)
+
 	default:
 		return nil, fmt.Errorf("unrecognized block type: %T", block)
 	}
