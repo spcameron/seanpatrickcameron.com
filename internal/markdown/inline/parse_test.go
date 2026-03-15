@@ -6,6 +6,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
 func TestParse(t *testing.T) {
@@ -16,13 +18,13 @@ func TestParse(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "empty events yields empty inlines",
+			name:    "empty input",
 			input:   "",
 			want:    []ast.Inline{},
 			wantErr: nil,
 		},
 		{
-			name:  "single rune yields one ast.Text",
+			name:  "single rune",
 			input: "a",
 			want: []ast.Inline{
 				tk.ASTText(),
@@ -30,15 +32,15 @@ func TestParse(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "plain sentence yields one ast.Text",
-			input: "this is a test",
+			name:  "plain text",
+			input: "hello world",
 			want: []ast.Inline{
 				tk.ASTText(),
 			},
 			wantErr: nil,
 		},
 		{
-			name:  "unicode characters yields one ast.Text",
+			name:  "unicode characters",
 			input: "café 🎵 — 漢字",
 			want: []ast.Inline{
 				tk.ASTText(),
@@ -46,9 +48,83 @@ func TestParse(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "whitespace only yields one ast.Text",
+			name:  "whitespace only",
 			input: " \t ",
 			want: []ast.Inline{
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "unmatched opener",
+			input: "*abc",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "unmatched closer",
+			input: "abc*",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "literal delimiter in spaced context",
+			input: "foo * bar",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTText(),
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple emphasis",
+			input: "*abc*",
+			want: []ast.Inline{
+				tk.ASTEm(tk.ASTText()),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple strong",
+			input: "**abc**",
+			want: []ast.Inline{
+				tk.ASTStrong(tk.ASTText()),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis with surrounding text",
+			input: "a *b* c",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTEm(tk.ASTText()),
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "strong with surrounding text",
+			input: "a **b** c",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTStrong(tk.ASTText()),
+				tk.ASTText(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "opener and closer without resolution",
+			input: "a*b",
+			want: []ast.Inline{
+				tk.ASTText(),
+				tk.ASTText(),
 				tk.ASTText(),
 			},
 			wantErr: nil,
@@ -57,19 +133,19 @@ func TestParse(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// src := source.NewSource(tc.input)
-			// span := source.ByteSpan{
-			// 	Start: 0,
-			// 	End:   src.EOF(),
-			// }
-			//
-			// got, err := Parse(src, span)
-			//
-			// got = tk.NormalizeASTInlines(got)
-			// want := tk.NormalizeASTInlines(tc.want)
-			//
-			// assert.Equal(t, got, want)
-			// assert.ErrorIs(t, err, tc.wantErr)
+			src := source.NewSource(tc.input)
+			span := source.ByteSpan{
+				Start: 0,
+				End:   src.EOF(),
+			}
+
+			got, err := Parse(src, span)
+
+			got = tk.NormalizeASTInlines(got)
+			want := tk.NormalizeASTInlines(tc.want)
+
+			assert.Equal(t, got, want)
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
 
@@ -118,23 +194,23 @@ func TestParse(t *testing.T) {
 
 	for _, tc := range spanCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// src := source.NewSource(tc.input)
-			//
-			// span := source.ByteSpan{
-			// 	Start: 0,
-			// 	End:   src.EOF(),
-			// }
-			// if tc.span != nil {
-			// 	span = *tc.span
-			// }
-			//
-			// events, err := Scan(src, span)
-			// require.NoError(t, err)
-			//
-			// got, err := Build(src, events)
-			//
-			// assert.Equal(t, got, tc.want)
-			// assert.ErrorIs(t, err, tc.wantErr)
+			src := source.NewSource(tc.input)
+
+			span := source.ByteSpan{
+				Start: 0,
+				End:   src.EOF(),
+			}
+			if tc.span != nil {
+				span = *tc.span
+			}
+
+			events, err := Scan(src, span)
+			require.NoError(t, err)
+
+			got, err := Build(src, span, events)
+
+			assert.Equal(t, got, tc.want)
+			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
 }

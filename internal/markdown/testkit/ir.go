@@ -117,13 +117,16 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			}
 			b.Children = NormalizeIRBLocks(b.Children)
 			blocks[i] = b
+
 		case ir.Header:
 			b.Span = source.ByteSpan{}
 			b.ContentSpan = source.ByteSpan{}
 			blocks[i] = b
+
 		case ir.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
+
 		case ir.OrderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
@@ -139,6 +142,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
+
 		case ir.UnorderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
@@ -154,6 +158,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
+
 		case ir.ListItem:
 			b.Span = source.ByteSpan{}
 			if b.Children == nil {
@@ -161,6 +166,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			}
 			b.Children = NormalizeIRBLocks(b.Children)
 			blocks[i] = b
+
 		case ir.IndentedCodeBlock:
 			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
@@ -170,6 +176,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Lines[j] = source.ByteSpan{}
 			}
 			blocks[i] = b
+
 		case ir.FencedCodeBlock:
 			b.Span = source.ByteSpan{}
 			b.InfoStringSpan = source.ByteSpan{}
@@ -180,6 +187,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Lines[j] = source.ByteSpan{}
 			}
 			blocks[i] = b
+
 		case ir.HTMLBlock:
 			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
@@ -189,6 +197,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Lines[j] = source.ByteSpan{}
 			}
 			blocks[i] = b
+
 		case ir.Paragraph:
 			b.Span = source.ByteSpan{}
 			if b.Lines == nil {
@@ -198,6 +207,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				b.Lines[j] = source.ByteSpan{}
 			}
 			blocks[i] = b
+
 		default:
 			panic(fmt.Sprintf("unhandled block type %T", b))
 		}

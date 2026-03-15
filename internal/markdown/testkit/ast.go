@@ -7,16 +7,18 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// block level nodes
+
 func ASTDoc(blocks ...ast.Block) ast.Document {
 	return ast.Document{
 		Blocks: blocks,
 	}
 }
 
-func ASTBlockQuote(children ...ast.Block) ast.BlockQuote {
+func ASTBlockQuote(blocks ...ast.Block) ast.BlockQuote {
 	return ast.BlockQuote{
 		Span:     source.ByteSpan{},
-		Children: children,
+		Children: blocks,
 	}
 }
 
@@ -51,10 +53,10 @@ func ASTUnorderedList(tight bool, items ...ast.ListItem) ast.UnorderedList {
 	}
 }
 
-func ASTListItem(children ...ast.Block) ast.ListItem {
+func ASTListItem(blocks ...ast.Block) ast.ListItem {
 	return ast.ListItem{
 		Span:     source.ByteSpan{},
-		Children: children,
+		Children: blocks,
 	}
 }
 
@@ -90,6 +92,22 @@ func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 	}
 }
 
+// inline level nodes
+
+func ASTEm(inlines ...ast.Inline) ast.Em {
+	return ast.Em{
+		Span:     source.ByteSpan{},
+		Children: inlines,
+	}
+}
+
+func ASTStrong(inlines ...ast.Inline) ast.Strong {
+	return ast.Strong{
+		Span:     source.ByteSpan{},
+		Children: inlines,
+	}
+}
+
 func ASTText() ast.Text {
 	return ast.Text{
 		Span: source.ByteSpan{},
@@ -97,10 +115,7 @@ func ASTText() ast.Text {
 }
 
 func ASTTextAt(start, end int) ast.Text {
-	span := source.ByteSpan{
-		Start: source.BytePos(start),
-		End:   source.BytePos(end),
-	}
+	span := Span(start, end)
 
 	return ast.Text{
 		Span: span,
@@ -134,13 +149,16 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 			}
 			b.Children = NormalizeASTBlocks(b.Children)
 			blocks[i] = b
+
 		case ast.Header:
 			b.Span = source.ByteSpan{}
 			b.Inlines = NormalizeASTInlines(b.Inlines)
 			blocks[i] = b
+
 		case ast.ThematicBreak:
 			b.Span = source.ByteSpan{}
 			blocks[i] = b
+
 		case ast.OrderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
@@ -156,6 +174,7 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
+
 		case ast.UnorderedList:
 			b.Span = source.ByteSpan{}
 			if b.Items == nil {
@@ -171,6 +190,7 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 				b.Items[j] = item
 			}
 			blocks[i] = b
+
 		case ast.ListItem:
 			b.Span = source.ByteSpan{}
 			if b.Children == nil {
@@ -178,19 +198,23 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 			}
 			b.Children = NormalizeASTBlocks(b.Children)
 			blocks[i] = b
+
 		case ast.CodeBlock:
 			b.Span = source.ByteSpan{}
 			b.LanguageTokenSpan = source.ByteSpan{}
 			b.Payload = NormalizeASTInlines(b.Payload)
 			blocks[i] = b
+
 		case ast.HTMLBlock:
 			b.Span = source.ByteSpan{}
 			b.Payload = NormalizeASTInlines(b.Payload)
 			blocks[i] = b
+
 		case ast.Paragraph:
 			b.Span = source.ByteSpan{}
 			b.Inlines = NormalizeASTInlines(b.Inlines)
 			blocks[i] = b
+
 		default:
 			panic(fmt.Sprintf("unhandled block type %T", b))
 		}
@@ -203,21 +227,36 @@ func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 	out := make([]ast.Inline, 0, len(inl))
 	for i := range inl {
 		switch v := inl[i].(type) {
+		case ast.Em:
+			v.Span = source.ByteSpan{}
+			v.Children = NormalizeASTInlines(v.Children)
+			out = append(out, v)
+
+		case ast.Strong:
+			v.Span = source.ByteSpan{}
+			v.Children = NormalizeASTInlines(v.Children)
+			out = append(out, v)
+
 		case ast.Text:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
+
 		case ast.RawText:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
+
 		case ast.HardBreak:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
+
 		case ast.SoftBreak:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
+
 		case ast.Newline:
 			v.Span = source.ByteSpan{}
 			out = append(out, v)
+
 		default:
 			panic(fmt.Sprintf("unhandled inline type %T", v))
 		}

@@ -6,6 +6,20 @@ type Inline interface {
 	isInline()
 }
 
+type Em struct {
+	Span     source.ByteSpan
+	Children []Inline
+}
+
+func (Em) isInline() {}
+
+type Strong struct {
+	Span     source.ByteSpan
+	Children []Inline
+}
+
+func (Strong) isInline() {}
+
 type Text struct {
 	Span source.ByteSpan
 }

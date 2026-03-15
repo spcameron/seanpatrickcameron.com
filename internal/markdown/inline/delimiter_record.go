@@ -3,7 +3,8 @@ package inline
 import "github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 
 type DelimiterRecord struct {
-	Span         source.ByteSpan
+	OriginalSpan source.ByteSpan
+	LiveSpan     source.ByteSpan
 	Delimiter    byte
 	OriginalRun  int
 	RemainingRun int

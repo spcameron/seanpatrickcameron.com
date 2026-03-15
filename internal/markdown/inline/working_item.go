@@ -23,7 +23,12 @@ type DelimiterItem struct {
 func (*DelimiterItem) isWorkingItem() {}
 
 type NodeItem struct {
+	Span source.ByteSpan
 	Node ast.Inline
 }
 
 func (*NodeItem) isWorkingItem() {}
+
+type ConsumedItem struct{}
+
+func (*ConsumedItem) isWorkingItem() {}

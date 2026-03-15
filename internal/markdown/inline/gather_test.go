@@ -8,38 +8,17 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
-type GatherSummary struct {
-	WorkingItems []WorkingItemSummary
-	Delimiters   []DelimiterSummary
-}
-
-type WorkingItemSummary struct {
-	Kind      string
-	Lexeme    string
-	Delimiter byte
-}
-
-type DelimiterSummary struct {
-	Lexeme       string
-	Delimiter    byte
-	OriginalRun  int
-	RemainingRun int
-	CanOpen      bool
-	CanClose     bool
-	ItemIndex    int
-}
-
 func TestGather(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		want    GatherSummary
+		want    CursorSummary
 		wantErr error
 	}{
 		{
 			name:  "empty input",
 			input: "",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{},
 				Delimiters:   []DelimiterSummary{},
 			},
@@ -48,7 +27,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "plain text",
 			input: "abc",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:   "text",
@@ -62,7 +41,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "opener only",
 			input: "*abc",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:      "delimiter",
@@ -91,7 +70,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "closer only",
 			input: "abc*",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:   "text",
@@ -120,7 +99,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "opener and closer",
 			input: "a*b",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:   "text",
@@ -153,7 +132,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "neither opener nor closer",
 			input: "a * b",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:   "text",
@@ -186,7 +165,7 @@ func TestGather(t *testing.T) {
 		{
 			name:  "triple star delimiter",
 			input: "***abc***",
-			want: GatherSummary{
+			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{
 					{
 						Kind:      "delimiter",
@@ -243,72 +222,10 @@ func TestGather(t *testing.T) {
 
 			err = cursor.Gather()
 
-			summary := summarizeGather(cursor)
+			summary := summarizeCursor(cursor)
 
 			assert.Equal(t, summary, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
-}
-
-func summarizeWorkingItems(src *source.Source, items []WorkingItem) []WorkingItemSummary {
-	summary := make([]WorkingItemSummary, 0, len(items))
-
-	for _, item := range items {
-		switch v := item.(type) {
-		case *TextItem:
-			s := src.Slice(v.Span)
-
-			summary = append(summary, WorkingItemSummary{
-				Kind:   "text",
-				Lexeme: s,
-			})
-
-		case *DelimiterItem:
-			s := src.Slice(v.Span)
-
-			summary = append(summary, WorkingItemSummary{
-				Kind:      "delimiter",
-				Lexeme:    s,
-				Delimiter: v.Delimiter,
-			})
-
-		case *NodeItem:
-			panic("node item encountered during gather")
-
-		default:
-			panic("unknown item type")
-		}
-	}
-
-	return summary
-}
-
-func summarizeDelimiters(src *source.Source, delims []*DelimiterRecord) []DelimiterSummary {
-	summary := make([]DelimiterSummary, 0, len(delims))
-
-	for _, delim := range delims {
-		s := src.Slice(delim.Span)
-
-		summary = append(summary, DelimiterSummary{
-			Lexeme:       s,
-			Delimiter:    delim.Delimiter,
-			OriginalRun:  delim.OriginalRun,
-			RemainingRun: delim.RemainingRun,
-			CanOpen:      delim.CanOpen,
-			CanClose:     delim.CanClose,
-			ItemIndex:    delim.ItemIndex,
-		})
-	}
-
-	return summary
-}
-
-func summarizeGather(c *Cursor) GatherSummary {
-	summary := GatherSummary{
-		WorkingItems: summarizeWorkingItems(c.Source, c.WorkingItems),
-		Delimiters:   summarizeDelimiters(c.Source, c.DelimiterRecords),
-	}
-
-	return summary
 }

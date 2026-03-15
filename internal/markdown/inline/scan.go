@@ -19,10 +19,13 @@ func (ek EventKind) String() string {
 	switch ek {
 	case EventText:
 		return "Event - Text"
+
 	case EventDelimiterRun:
 		return "Event - Delimiter Run"
+
 	case EventIllegalNewline:
 		return "Event - Illegal Newline"
+
 	default:
 		return fmt.Sprintf("Unrecognized EventKind %d", ek)
 	}
@@ -107,6 +110,7 @@ func (s *Scanner) Next() (Event, bool) {
 			Delimiter: '*',
 			RunLength: length,
 		}, true
+
 	case '\n':
 		s.Position++
 		end := s.Position
@@ -133,7 +137,6 @@ func (s *Scanner) Next() (Event, bool) {
 	}
 
 	s.Position = end
-
 	if end == start {
 		panic("inline scanner made no progress")
 	}
@@ -153,6 +156,7 @@ func terminatesText(b byte) bool {
 	switch b {
 	case '\n', '*':
 		return true
+
 	default:
 		return false
 	}
