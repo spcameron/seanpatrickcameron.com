@@ -313,6 +313,104 @@ func TestGather(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "simple inline link skeleton",
+			input: "[label](dest)",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: "[",
+						Token:  "open_bracket",
+					},
+					{
+						Kind:   "text",
+						Lexeme: "label",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "]",
+						Token:  "close_bracket",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "(",
+						Token:  "open_paren",
+					},
+					{
+						Kind:   "text",
+						Lexeme: "dest",
+					},
+					{
+						Kind:   "token",
+						Lexeme: ")",
+						Token:  "close_paren",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 2,
+						Active:    true,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with surrounding text",
+			input: "go [here](url) now",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "text",
+						Lexeme: "go ",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "[",
+						Token:  "open_bracket",
+					},
+					{
+						Kind:   "text",
+						Lexeme: "here",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "]",
+						Token:  "close_bracket",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "(",
+						Token:  "open_paren",
+					},
+					{
+						Kind:   "text",
+						Lexeme: "url",
+					},
+					{
+						Kind:   "token",
+						Lexeme: ")",
+						Token:  "close_paren",
+					},
+					{
+						Kind:   "text",
+						Lexeme: " now",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 3,
+						Active:    true,
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
