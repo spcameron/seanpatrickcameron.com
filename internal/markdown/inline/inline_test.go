@@ -11,6 +11,7 @@ import (
 type CursorSummary struct {
 	WorkingItems []WorkingItemSummary
 	Delimiters   []DelimiterSummary
+	Brackets     []BracketSummary
 }
 
 func (s CursorSummary) String() string {
@@ -26,6 +27,11 @@ func (s CursorSummary) String() string {
 		fmt.Fprintf(&b, "  [%d] %s\n", i, d.String())
 	}
 
+	b.WriteString("Brackets:\n")
+	for i, br := range s.Brackets {
+		fmt.Fprintf(&b, "  [%d] %s\n", i, br.String())
+	}
+
 	return b.String()
 }
 
@@ -33,6 +39,7 @@ type WorkingItemSummary struct {
 	Kind      string
 	Lexeme    string
 	Delimiter byte
+	Token     string
 	Node      *InlineSummary
 }
 
@@ -43,6 +50,9 @@ func (w WorkingItemSummary) String() string {
 
 	case "delimiter":
 		return fmt.Sprintf("delimiter(%q)", w.Lexeme)
+
+	case "token":
+		return fmt.Sprintf("%s(%q)", w.Token, w.Lexeme)
 
 	case "node":
 		if w.Node != nil {
@@ -110,10 +120,61 @@ func (d DelimiterSummary) String() string {
 	)
 }
 
+type BracketSummary struct {
+	Lexeme    string
+	ItemIndex int
+	Active    bool
+}
+
+func (b BracketSummary) String() string {
+	return fmt.Sprintf(
+		"%q active=%t item=%d",
+		b.Lexeme,
+		b.Active,
+		b.ItemIndex,
+	)
+}
+
+type EventSummary struct {
+	Kind      EventKind
+	Lexeme    string
+	Delimiter byte
+	RunLength int
+}
+
+func (es EventSummary) String() string {
+	switch es.Kind {
+	case EventText:
+		return fmt.Sprintf("text(%q)", es.Lexeme)
+
+	case EventDelimiterRun:
+		return fmt.Sprintf("delimiter(%q)", es.Lexeme)
+
+	case EventOpenBracket:
+		return `open_bracket("[")`
+
+	case EventCloseBracket:
+		return `close_bracket("]")`
+
+	case EventOpenParen:
+		return `open_paren("(")`
+
+	case EventCloseParen:
+		return `close_paren(")")`
+
+	case EventIllegalNewline:
+		return `illegal_newline("\n")`
+
+	default:
+		return fmt.Sprintf("unknown_event(%s, %q)", es.Kind, es.Lexeme)
+	}
+}
+
 func summarizeCursor(c *Cursor) CursorSummary {
 	summary := CursorSummary{
 		WorkingItems: summarizeWorkingItems(c.Source, c.WorkingItems),
 		Delimiters:   summarizeDelimiters(c.Source, c.DelimiterRecords),
+		Brackets:     summarizeBrackets(c.Source, c.BracketRecords),
 	}
 
 	return summary
@@ -135,6 +196,13 @@ func summarizeWorkingItems(src *source.Source, items []WorkingItem) []WorkingIte
 				Kind:      "delimiter",
 				Lexeme:    src.Slice(item.Span),
 				Delimiter: item.Delimiter,
+			})
+
+		case *TokenItem:
+			summary = append(summary, WorkingItemSummary{
+				Kind:   "token",
+				Token:  item.Kind.String(),
+				Lexeme: src.Slice(item.Span),
 			})
 
 		case *NodeItem:
@@ -230,6 +298,20 @@ func summarizeDelimiters(src *source.Source, delims []*DelimiterRecord) []Delimi
 			CanOpen:      delim.CanOpen,
 			CanClose:     delim.CanClose,
 			ItemIndex:    delim.ItemIndex,
+		})
+	}
+
+	return summary
+}
+
+func summarizeBrackets(src *source.Source, brackets []*BracketRecord) []BracketSummary {
+	summary := make([]BracketSummary, 0, len(brackets))
+
+	for _, br := range brackets {
+		summary = append(summary, BracketSummary{
+			Lexeme:    src.Slice(br.Span),
+			ItemIndex: br.ItemIndex,
+			Active:    br.Active,
 		})
 	}
 

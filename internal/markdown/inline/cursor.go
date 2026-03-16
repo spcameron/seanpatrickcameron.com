@@ -17,6 +17,7 @@ type Cursor struct {
 
 	WorkingItems     []WorkingItem
 	DelimiterRecords []*DelimiterRecord
+	BracketRecords   []*BracketRecord
 }
 
 func NewCursor(src *source.Source, span source.ByteSpan, events []Event) *Cursor {
@@ -77,6 +78,18 @@ func (c *Cursor) Gather() error {
 
 		case EventDelimiterRun:
 			c.gatherDelimiter(ev)
+
+		case EventOpenBracket:
+			c.gatherToken(ev, TokenOpenBracket)
+
+		case EventCloseBracket:
+			c.gatherCloseBracket(ev)
+
+		case EventOpenParen:
+			c.gatherToken(ev, TokenOpenParen)
+
+		case EventCloseParen:
+			c.gatherToken(ev, TokenCloseParen)
 
 		case EventIllegalNewline:
 			panic("illegal newline encountered during inline gather")
@@ -157,6 +170,29 @@ func (c *Cursor) gatherDelimiter(ev Event) {
 	}
 
 	c.DelimiterRecords = append(c.DelimiterRecords, record)
+}
+
+func (c *Cursor) gatherToken(ev Event, t TokenKind) {
+	item := &TokenItem{
+		Span: ev.Span,
+		Kind: t,
+	}
+
+	c.WorkingItems = append(c.WorkingItems, item)
+}
+
+func (c *Cursor) gatherCloseBracket(ev Event) {
+	c.gatherToken(ev, TokenCloseBracket)
+
+	idx := len(c.WorkingItems) - 1
+
+	record := &BracketRecord{
+		Span:      ev.Span,
+		ItemIndex: idx,
+		Active:    true,
+	}
+
+	c.BracketRecords = append(c.BracketRecords, record)
 }
 
 func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose bool) {

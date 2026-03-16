@@ -21,6 +21,7 @@ func TestGather(t *testing.T) {
 			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{},
 				Delimiters:   []DelimiterSummary{},
+				Brackets:     []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -35,6 +36,7 @@ func TestGather(t *testing.T) {
 					},
 				},
 				Delimiters: []DelimiterSummary{},
+				Brackets:   []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -64,6 +66,7 @@ func TestGather(t *testing.T) {
 						ItemIndex:    0,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -93,6 +96,7 @@ func TestGather(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -126,6 +130,7 @@ func TestGather(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -159,6 +164,7 @@ func TestGather(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -200,6 +206,108 @@ func TestGather(t *testing.T) {
 						CanOpen:      false,
 						CanClose:     true,
 						ItemIndex:    2,
+					},
+				},
+				Brackets: []BracketSummary{},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "open bracket only",
+			input: "[",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: "[",
+						Token:  "open_bracket",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets:   []BracketSummary{},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "close bracket only",
+			input: "]",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: "]",
+						Token:  "close_bracket",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 0,
+						Active:    true,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "open paren only",
+			input: "(",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: "(",
+						Token:  "open_paren",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets:   []BracketSummary{},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "close paren only",
+			input: ")",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: ")",
+						Token:  "close_paren",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets:   []BracketSummary{},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple bracketed label",
+			input: "[label]",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "token",
+						Lexeme: "[",
+						Token:  "open_bracket",
+					},
+					{
+						Kind:   "text",
+						Lexeme: "label",
+					},
+					{
+						Kind:   "token",
+						Lexeme: "]",
+						Token:  "close_bracket",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 2,
+						Active:    true,
 					},
 				},
 			},
