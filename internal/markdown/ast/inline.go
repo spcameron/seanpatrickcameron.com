@@ -10,6 +10,20 @@ type Inline interface {
 	isInline()
 }
 
+type Link struct {
+	Span        source.ByteSpan
+	Label       source.ByteSpan
+	Destination source.ByteSpan
+	Title       source.ByteSpan
+	Children    []Inline
+}
+
+func (Link) isInline() {}
+
+func (l Link) String() string {
+	return fmt.Sprintf("[Link] (Children = %d)", len(l.Children))
+}
+
 type Em struct {
 	Span     source.ByteSpan
 	Children []Inline

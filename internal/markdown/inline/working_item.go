@@ -39,7 +39,9 @@ type NodeItem struct {
 
 func (*NodeItem) isWorkingItem() {}
 
-type ConsumedItem struct{}
+type ConsumedItem struct {
+	Span source.ByteSpan
+}
 
 func (*ConsumedItem) isWorkingItem() {}
 

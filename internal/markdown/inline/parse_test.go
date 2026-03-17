@@ -129,6 +129,22 @@ func TestParse(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "simple link",
+			input: "[x](dest)",
+			want: []ast.Inline{
+				tk.ASTLink(tk.ASTText()),
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link with title",
+			input: `[x](dest "title")`,
+			want: []ast.Inline{
+				tk.ASTLink(tk.ASTText()),
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

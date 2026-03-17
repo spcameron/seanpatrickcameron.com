@@ -616,6 +616,18 @@ func TestCompile(t *testing.T) {
 			want:    "<p><em><strong>abc</strong></em></p>",
 			wantErr: nil,
 		},
+		{
+			name:    "link: simple",
+			md:      `[x](dest)`,
+			want:    `<p><a href="dest">x</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: with title",
+			md:      `[x](dest "title")`,
+			want:    `<p><a href="dest" title="title">x</a></p>`,
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

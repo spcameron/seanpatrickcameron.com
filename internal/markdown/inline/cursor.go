@@ -2,6 +2,7 @@ package inline
 
 import (
 	"fmt"
+	"slices"
 	"unicode"
 	"unicode/utf8"
 
@@ -28,6 +29,7 @@ func NewCursor(src *source.Source, span source.ByteSpan, events []Event) *Cursor
 		Index:            0,
 		WorkingItems:     []WorkingItem{},
 		DelimiterRecords: []*DelimiterRecord{},
+		BracketRecords:   []*BracketRecord{},
 	}
 }
 
@@ -103,19 +105,14 @@ func (c *Cursor) Gather() error {
 }
 
 func (c *Cursor) Resolve() error {
-	for closerIdx := 0; closerIdx < len(c.DelimiterRecords); closerIdx++ {
-		closerRecord := c.DelimiterRecords[closerIdx]
+	snapshot := slices.Clone(c.WorkingItems)
 
-		for closerRecord.CanClose && closerRecord.RemainingRun > 0 {
-			openerIdx, ok := c.findOpenerForCloser(closerIdx)
-			if !ok {
-				break
-			}
+	if err := c.resolveEmphasis(); err != nil {
+		return err
+	}
 
-			use := c.delimiterUse(openerIdx, closerIdx)
-
-			c.resolvePair(openerIdx, closerIdx, use)
-		}
+	if err := c.resolveInlineLinks(snapshot); err != nil {
+		return err
 	}
 
 	return nil
@@ -205,16 +202,38 @@ func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose b
 	return canOpen, canClose
 }
 
-func (c *Cursor) findOpenerForCloser(closerIdx int) (int, bool) {
+func (c *Cursor) resolveEmphasis() error {
+	for closerIdx := 0; closerIdx < len(c.DelimiterRecords); closerIdx++ {
+		closerRecord := c.DelimiterRecords[closerIdx]
+
+		for closerRecord.CanClose && closerRecord.RemainingRun > 0 {
+			openerIdx, ok := c.findOpenerForCloserDelimiter(closerIdx)
+			if !ok {
+				break
+			}
+
+			use := c.delimiterUse(openerIdx, closerIdx)
+			didReduce, err := c.resolveDelimiterPair(openerIdx, closerIdx, use)
+			if err != nil {
+				return err
+			}
+			if !didReduce {
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Cursor) findOpenerForCloserDelimiter(closerIdx int) (int, bool) {
 	closer := c.DelimiterRecords[closerIdx]
 
-	openerIdx := closerIdx - 1
-	for openerIdx >= 0 {
+	for openerIdx := closerIdx - 1; openerIdx >= 0; openerIdx-- {
 		d := c.DelimiterRecords[openerIdx]
 		if d.Delimiter == closer.Delimiter && d.CanOpen && d.RemainingRun > 0 {
 			return openerIdx, true
 		}
-		openerIdx--
 	}
 
 	return -1, false
@@ -230,7 +249,7 @@ func (c *Cursor) delimiterUse(openerIdx, closerIdx int) int {
 	return use
 }
 
-func (c *Cursor) resolvePair(openerIdx, closerIdx, use int) {
+func (c *Cursor) resolveDelimiterPair(openerIdx, closerIdx, use int) (bool, error) {
 	// retrieve the delimiter records
 	openerRecord := c.DelimiterRecords[openerIdx]
 	closerRecord := c.DelimiterRecords[closerIdx]
@@ -248,9 +267,9 @@ func (c *Cursor) resolvePair(openerIdx, closerIdx, use int) {
 	// build the children ast inline nodes and their cumulative span
 	children, childSpan := c.buildChildren(openItemIdx+1, closeItemIdx)
 
-	// reject empty children
+	// if no content between delimiters, do not reduce
 	if len(children) == 0 {
-		panic("resolvePair: cannot resolve pair with no child content")
+		return false, nil
 	}
 
 	// build the inline node with the content-only span
@@ -292,18 +311,294 @@ func (c *Cursor) resolvePair(openerIdx, closerIdx, use int) {
 
 	// any other interior slots absorbed by the node are marked consumed
 	for i := anchor + 1; i < closeItemIdx; i++ {
-		c.WorkingItems[i] = &ConsumedItem{}
+		err := c.consumeWorkingItemAt(i)
+		if err != nil {
+			return true, err
+		}
 	}
 
 	// if either delimiter run has been fully exhausted, it is also consumed
 	// otherwise it remains a live DelimiterItem with a narrower LiveSpan
 	if openerRecord.RemainingRun == 0 {
-		c.WorkingItems[openItemIdx] = &ConsumedItem{}
+		err := c.consumeWorkingItemAt(openItemIdx)
+		if err != nil {
+			return true, err
+		}
 	}
 
 	if closerRecord.RemainingRun == 0 {
-		c.WorkingItems[closeItemIdx] = &ConsumedItem{}
+		err := c.consumeWorkingItemAt(closeItemIdx)
+		if err != nil {
+			return true, err
+		}
 	}
+
+	return true, nil
+}
+
+func (c *Cursor) resolveInlineLinks(snapshot []WorkingItem) error {
+	for closerIdx := 0; closerIdx < len(c.BracketRecords); closerIdx++ {
+		// extract the next bracket record and ensure it's active
+		rec := c.BracketRecords[closerIdx]
+		if !rec.Active {
+			continue
+		}
+		closeBracketIdx := rec.ItemIndex
+
+		// extract the corresponding working closeBracketItem record from the snapshot
+		closeBracketItem := snapshot[closeBracketIdx]
+
+		// verify the close item is a closing bracket token
+		closeToken, ok := closeBracketItem.(*TokenItem)
+		if !ok || closeToken.Kind != TokenCloseBracket {
+			continue
+		}
+
+		// attempt to parse a valid tail from the next live item
+		tail, ok, err := c.tryParseInlineLinkTail(snapshot, closeBracketIdx)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+
+		// search backward for nearest live TokenOpenBracket
+		openBracketIdx, ok := c.findOpenerForCloserBracket(snapshot, closeBracketIdx)
+		if !ok {
+			continue
+		}
+
+		// extract the corresponding working openBracketItem record from the snapshot
+		openBracketItem := snapshot[openBracketIdx]
+
+		// verify the open item is an opening bracket token
+		openToken, ok := openBracketItem.(*TokenItem)
+		if !ok || openToken.Kind != TokenOpenBracket {
+			continue
+		}
+
+		// build label children, disregard the childspan
+		children, _ := c.buildChildren(openBracketIdx+1, closeBracketIdx)
+
+		// construct the full link span, tip-to-tail
+		fullSpan := source.ByteSpan{
+			Start: openToken.Span.Start,
+			End:   tail.FullSpan.End,
+		}
+
+		// construct the label span directly from the opener and closer token spans
+		labelSpan := source.ByteSpan{
+			Start: openToken.Span.End,
+			End:   closeToken.Span.Start,
+		}
+
+		// construct link node
+		node := ast.Link{
+			Span:        fullSpan,
+			Label:       labelSpan,
+			Destination: tail.DestinationSpan,
+			Title:       tail.TitleSpan,
+			Children:    children,
+		}
+
+		// anchor node at openItemIdx
+		anchor := openBracketIdx
+		c.WorkingItems[anchor] = &NodeItem{
+			Span: node.Span,
+			Node: node,
+		}
+
+		// mark all absorbed items through tail close as consumed
+		for i := anchor + 1; i <= tail.CloseParenItemIndex; i++ {
+			err := c.consumeWorkingItemAt(i)
+			if err != nil {
+				return err
+			}
+		}
+
+		// deactivate affected bracket records inside consumed region
+		for i := range c.BracketRecords {
+			rec := c.BracketRecords[i]
+			if rec.ItemIndex >= openBracketIdx && rec.ItemIndex <= tail.CloseParenItemIndex {
+				rec.Active = false
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Cursor) tryParseInlineLinkTail(snapshot []WorkingItem, closeItemIdx int) (InlineLinkTail, bool, error) {
+	// initialize empty full span early, update Start and End when validated
+	fullSpan := source.ByteSpan{}
+	contentSpan := source.ByteSpan{}
+
+	// verify that there exists an item past the closeItemIdx provided
+	openParenIdx := closeItemIdx + 1
+	if openParenIdx == len(snapshot) {
+		return InlineLinkTail{}, false, nil
+	}
+
+	// verify that the next item is an open paren token
+	openParenItem, ok := snapshot[openParenIdx].(*TokenItem)
+	if !ok {
+		return InlineLinkTail{}, false, nil
+	}
+	if openParenItem.Kind != TokenOpenParen {
+		return InlineLinkTail{}, false, nil
+	}
+
+	fullSpan.Start = openParenItem.Span.Start
+	contentSpan.Start = openParenItem.Span.End
+
+	closeParenIdx := openParenIdx + 1
+	for closeParenIdx < len(snapshot) {
+		// inspect the next item, and break on the first close paren token encountered
+		// NOTE: this behavior changes after V1
+		closeParenItem, ok := snapshot[closeParenIdx].(*TokenItem)
+		if ok && closeParenItem.Kind == TokenCloseParen {
+			fullSpan.End = closeParenItem.Span.End
+			contentSpan.End = closeParenItem.Span.Start
+			break
+		}
+		closeParenIdx++
+	}
+
+	// if no close paren token encountered, report failure
+	if closeParenIdx == len(snapshot) {
+		return InlineLinkTail{}, false, nil
+	}
+
+	// parse the tail span for the destination and optional title
+	s := c.Source.Slice(contentSpan)
+	pos := 0
+
+	// consume optional leading whitespace
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// if no valid destination, report failure
+	if pos == len(s) {
+		return InlineLinkTail{}, false, nil
+	}
+
+	// mark the start of the destination span
+	destinationSpan := source.ByteSpan{
+		Start: contentSpan.Start + source.BytePos(pos),
+	}
+
+	// reject a destination that begins with a quote
+	if s[pos] == '\'' || s[pos] == '"' {
+		return InlineLinkTail{}, false, nil
+	}
+
+	// traverse the tail span and break on the first white space
+	// reject paren characters inside destinations
+	// NOTE: this behavior changes after V1
+destLoop:
+	for pos < len(s) {
+		b := s[pos]
+		switch b {
+		case ' ', '\t':
+			break destLoop
+		case '(', ')', '\'', '"':
+			return InlineLinkTail{}, false, nil
+		default:
+			pos++
+		}
+	}
+
+	// record the end of the destination span
+	destinationSpan.End = contentSpan.Start + source.BytePos(pos)
+
+	// at this point, we have a legal destination prefix, so construct what we have
+	tail := InlineLinkTail{
+		OpenParenItemIndex:  openParenIdx,
+		CloseParenItemIndex: closeParenIdx,
+		FullSpan:            fullSpan,
+		DestinationSpan:     destinationSpan,
+	}
+
+	// if at the end of content span, there is no title and the tail is valid
+	if pos == len(s) {
+		return tail, true, nil
+	}
+
+	// any remaining content must begin with whitespace separating destination from title
+	if s[pos] != ' ' && s[pos] != '\t' {
+		return InlineLinkTail{}, false, nil
+	}
+
+	// consume trailing whitespace after destination
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// if only trailing whitespace remains, the tail is valid with no title
+	if pos == len(s) {
+		return tail, true, nil
+	}
+
+	// remaining content must begin a quote title
+	if s[pos] != '\'' && s[pos] != '"' {
+		return InlineLinkTail{}, false, nil
+	}
+
+	quoteMarker := s[pos]
+	quoteStart := pos
+	pos++
+
+	// traverse the string searching for a matching quote
+	for pos < len(s) && s[pos] != quoteMarker {
+		pos++
+	}
+
+	// if at end of content span, no matching closing quote was found
+	if pos == len(s) {
+		return InlineLinkTail{}, false, nil
+	}
+
+	quoteEnd := pos
+	pos++
+
+	// consume trailing whitespace
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// if not at end of span, break (reject junk after title)
+	if pos != len(s) {
+		return InlineLinkTail{}, false, nil
+	}
+
+	tail.TitleSpan = source.ByteSpan{
+		Start: contentSpan.Start + source.BytePos(quoteStart+1),
+		End:   contentSpan.Start + source.BytePos(quoteEnd),
+	}
+
+	return tail, true, nil
+}
+
+func (c *Cursor) findOpenerForCloserBracket(snapshot []WorkingItem, closerIdx int) (int, bool) {
+	for openerIdx := closerIdx - 1; openerIdx >= 0; openerIdx-- {
+		snapItem := snapshot[openerIdx]
+		snapToken, ok := snapItem.(*TokenItem)
+		if ok && snapToken.Kind == TokenOpenBracket {
+			return openerIdx, true
+		}
+	}
+
+	return -1, false
+}
+
+type InlineLinkTail struct {
+	OpenParenItemIndex  int
+	CloseParenItemIndex int
+	FullSpan            source.ByteSpan
+	DestinationSpan     source.ByteSpan
+	TitleSpan           source.ByteSpan
 }
 
 func (c *Cursor) buildChildren(start, end int) ([]ast.Inline, source.ByteSpan) {
@@ -330,6 +625,12 @@ func (c *Cursor) buildChildren(start, end int) ([]ast.Inline, source.ByteSpan) {
 				}
 				children = append(children, inl)
 			}
+
+		case *TokenItem:
+			inl := ast.Text{
+				Span: v.Span,
+			}
+			children = append(children, inl)
 
 		case *NodeItem:
 			inl := v.Node
@@ -387,6 +688,11 @@ func (c *Cursor) finalizeItem(i int, item WorkingItem) (ast.Inline, bool, error)
 			Span: rec.LiveSpan,
 		}, true, nil
 
+	case *TokenItem:
+		return ast.Text{
+			Span: v.Span,
+		}, true, nil
+
 	case *NodeItem:
 		return v.Node, true, nil
 
@@ -396,6 +702,41 @@ func (c *Cursor) finalizeItem(i int, item WorkingItem) (ast.Inline, bool, error)
 	default:
 		return nil, false, fmt.Errorf("unknown working item type %T", item)
 	}
+}
+
+func (c *Cursor) consumeWorkingItemAt(idx int) error {
+	if idx < 0 || idx >= len(c.WorkingItems) {
+		return fmt.Errorf("index %d is out of bounds", idx)
+	}
+
+	consumedItem := &ConsumedItem{}
+	switch item := c.WorkingItems[idx].(type) {
+	case *TextItem:
+		consumedItem.Span = item.Span
+
+	case *NodeItem:
+		consumedItem.Span = item.Span
+
+	case *TokenItem:
+		consumedItem.Span = item.Span
+
+	case *DelimiterItem:
+		recordIdx, ok := c.delimiterRecordForItem(idx)
+		if !ok {
+			return fmt.Errorf("no matching delimiter record found for working item at index %d", idx)
+		}
+		rec := c.DelimiterRecords[recordIdx]
+		consumedItem.Span = rec.LiveSpan
+
+	case *ConsumedItem:
+		consumedItem.Span = item.Span
+
+	default:
+		return fmt.Errorf("unknown working item type %T", item)
+	}
+
+	c.WorkingItems[idx] = consumedItem
+	return nil
 }
 
 func (c *Cursor) delimiterRecordForItem(index int) (int, bool) {
@@ -500,20 +841,30 @@ func isPunctuation(r rune) bool {
 
 func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {
 	switch n := inl.(type) {
-	case ast.Text:
+	case ast.Link:
 		return n.Span, true
-	case ast.RawText:
-		return n.Span, true
-	case ast.HardBreak:
-		return n.Span, true
-	case ast.SoftBreak:
-		return n.Span, true
-	case ast.Newline:
-		return n.Span, true
+
 	case ast.Em:
 		return n.Span, true
+
 	case ast.Strong:
 		return n.Span, true
+
+	case ast.Text:
+		return n.Span, true
+
+	case ast.RawText:
+		return n.Span, true
+
+	case ast.HardBreak:
+		return n.Span, true
+
+	case ast.SoftBreak:
+		return n.Span, true
+
+	case ast.Newline:
+		return n.Span, true
+
 	default:
 		return source.ByteSpan{}, false
 	}

@@ -227,6 +227,27 @@ func summarizeWorkingItems(src *source.Source, items []WorkingItem) []WorkingIte
 
 func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
 	switch n := inl.(type) {
+	case ast.Link:
+		return &InlineSummary{
+			Kind:     "link",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
+
+	case ast.Em:
+		return &InlineSummary{
+			Kind:     "emphasis",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
+
+	case ast.Strong:
+		return &InlineSummary{
+			Kind:     "strong",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
+
 	case ast.Text:
 		return &InlineSummary{
 			Kind:   "text",
@@ -255,20 +276,6 @@ func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
 		return &InlineSummary{
 			Kind:   "newline",
 			Lexeme: src.Slice(n.Span),
-		}
-
-	case ast.Em:
-		return &InlineSummary{
-			Kind:     "emphasis",
-			Lexeme:   src.Slice(n.Span),
-			Children: summarizeInlines(src, n.Children),
-		}
-
-	case ast.Strong:
-		return &InlineSummary{
-			Kind:     "strong",
-			Lexeme:   src.Slice(n.Span),
-			Children: summarizeInlines(src, n.Children),
 		}
 
 	default:

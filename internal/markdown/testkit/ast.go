@@ -94,6 +94,16 @@ func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 
 // inline level nodes
 
+func ASTLink(inlines ...ast.Inline) ast.Link {
+	return ast.Link{
+		Span:        source.ByteSpan{},
+		Label:       source.ByteSpan{},
+		Destination: source.ByteSpan{},
+		Title:       source.ByteSpan{},
+		Children:    inlines,
+	}
+}
+
 func ASTEm(inlines ...ast.Inline) ast.Em {
 	return ast.Em{
 		Span:     source.ByteSpan{},
@@ -227,6 +237,14 @@ func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 	out := make([]ast.Inline, 0, len(inl))
 	for i := range inl {
 		switch v := inl[i].(type) {
+		case ast.Link:
+			v.Span = source.ByteSpan{}
+			v.Label = source.ByteSpan{}
+			v.Destination = source.ByteSpan{}
+			v.Title = source.ByteSpan{}
+			v.Children = NormalizeASTInlines(v.Children)
+			out = append(out, v)
+
 		case ast.Em:
 			v.Span = source.ByteSpan{}
 			v.Children = NormalizeASTInlines(v.Children)

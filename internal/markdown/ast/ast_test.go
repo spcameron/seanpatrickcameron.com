@@ -5,6 +5,7 @@ var (
 )
 
 var (
+	_ Inline = Link{}
 	_ Inline = Em{}
 	_ Inline = Strong{}
 	_ Inline = Text{}
