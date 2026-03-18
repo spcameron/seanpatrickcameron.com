@@ -18,6 +18,10 @@ This header is underlined by setext (dashes).
 
 This is a paragraph.
 
+This line has *emphasis* and **strong** text, and even ***strong emphasis***.
+
+This line has a [link to Google.](https://google.com "link to google")
+
 This is a paragraph
 with a soft break (\n).
 
@@ -81,3 +85,5 @@ if x == 1 {
     containing a blank line.
 
 This is a normal paragraph line.
+
+<!-- this is a comment that renders literally in the HTML -->
