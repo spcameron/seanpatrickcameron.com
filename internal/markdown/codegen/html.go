@@ -280,6 +280,9 @@ func renderInlines(src *source.Source, inlines []ast.Inline) ([]html.Node, error
 
 func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	switch v := inl.(type) {
+	case ast.Link:
+		return renderLink(src, v)
+
 	case ast.Em:
 		return renderEmphasis(src, v)
 
@@ -304,6 +307,29 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	default:
 		return nil, fmt.Errorf("unrecognized inline type: %T", inl)
 	}
+}
+
+func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
+	inlines, err := renderInlines(src, inl.Children)
+	if err != nil {
+		return nil, err
+	}
+
+	attr := html.Attributes{
+		"href": src.Slice(inl.Destination),
+	}
+
+	if inl.Title != (source.ByteSpan{}) {
+		attr["title"] = src.Slice(inl.Title)
+	}
+
+	node := html.Element{
+		Tag:      "a",
+		Attr:     attr,
+		Children: inlines,
+	}
+
+	return node, nil
 }
 
 func renderEmphasis(src *source.Source, inl ast.Em) (html.Node, error) {

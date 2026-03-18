@@ -1,50 +1,8 @@
 package inline
 
 import (
-	"fmt"
-
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
-
-type EventKind int
-
-const (
-	_ EventKind = iota
-	EventText
-	EventDelimiterRun
-	EventIllegalNewline
-)
-
-func (ek EventKind) String() string {
-	switch ek {
-	case EventText:
-		return "Event - Text"
-
-	case EventDelimiterRun:
-		return "Event - Delimiter Run"
-
-	case EventIllegalNewline:
-		return "Event - Illegal Newline"
-
-	default:
-		return fmt.Sprintf("Unrecognized EventKind %d", ek)
-	}
-}
-
-type Event struct {
-	Kind      EventKind
-	Span      source.ByteSpan
-	Delimiter byte
-	RunLength int
-}
-
-func (e Event) String() string {
-	if e.Kind == EventDelimiterRun {
-		return fmt.Sprintf("[%s] - Delimiter (%s), Length (%d)", e.Kind, string(e.Delimiter), e.RunLength)
-	}
-
-	return fmt.Sprintf("[%s]", e.Kind)
-}
 
 func Scan(src *source.Source, span source.ByteSpan) ([]Event, error) {
 	input := src.Slice(span)
@@ -89,8 +47,23 @@ func (s *Scanner) Next() (Event, bool) {
 	start := s.Position
 	b := s.Input[s.Position]
 
-	// special token dispatch
+	// token dispatch
 	switch b {
+	case '[':
+		return s.emitSingle(EventOpenBracket)
+
+	case ']':
+		return s.emitSingle(EventCloseBracket)
+
+	case '(':
+		return s.emitSingle(EventOpenParen)
+
+	case ')':
+		return s.emitSingle(EventCloseParen)
+
+	case '\n':
+		return s.emitSingle(EventIllegalNewline)
+
 	case '*':
 		for s.Position < len(s.Input) && s.Input[s.Position] == '*' {
 			s.Position++
@@ -111,50 +84,51 @@ func (s *Scanner) Next() (Event, bool) {
 			RunLength: length,
 		}, true
 
-	case '\n':
-		s.Position++
+	default:
+		// otherwise, scan maximum text run until next special token
 		end := s.Position
+		for end < len(s.Input) {
+			if terminatesText(s.Input[end]) {
+				break
+			}
 
-		span := source.ByteSpan{
-			Start: s.Base + source.BytePos(start),
-			End:   s.Base + source.BytePos(end),
+			end++
 		}
 
+		s.Position = end
+		if end == start {
+			panic("inline scanner made no progress")
+		}
+
+		span := s.eventSpan(start, end)
+
 		return Event{
-			Kind: EventIllegalNewline,
+			Kind: EventText,
 			Span: span,
 		}, true
 	}
+}
 
-	// otherwise, scan maximum text run until next special token
-	end := s.Position
-	for end < len(s.Input) {
-		if terminatesText(s.Input[end]) {
-			break
-		}
-
-		end++
-	}
-
-	s.Position = end
-	if end == start {
-		panic("inline scanner made no progress")
-	}
-
-	span := source.ByteSpan{
+func (s *Scanner) eventSpan(start, end int) source.ByteSpan {
+	return source.ByteSpan{
 		Start: s.Base + source.BytePos(start),
 		End:   s.Base + source.BytePos(end),
 	}
+}
+
+func (s *Scanner) emitSingle(kind EventKind) (Event, bool) {
+	start := s.Position
+	s.Position++
 
 	return Event{
-		Kind: EventText,
-		Span: span,
+		Kind: kind,
+		Span: s.eventSpan(start, s.Position),
 	}, true
 }
 
 func terminatesText(b byte) bool {
 	switch b {
-	case '\n', '*':
+	case '\n', '*', '[', ']', '(', ')':
 		return true
 
 	default:

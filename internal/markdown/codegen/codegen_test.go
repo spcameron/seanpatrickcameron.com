@@ -228,6 +228,43 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "simple link",
+			input: `[x](dest)`,
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"a",
+						html.Attributes{
+							"href": "dest",
+						},
+						html.TextNode("x"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "link with title",
+			input: `[x](dest "title")`,
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"a",
+						html.Attributes{
+							"href":  "dest",
+							"title": "title",
+						},
+						html.TextNode("x"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

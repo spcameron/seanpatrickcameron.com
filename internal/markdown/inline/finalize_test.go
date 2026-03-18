@@ -125,6 +125,38 @@ func TestFinalize(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "simple inline link",
+			input: `[x](dest)`,
+			want: []ast.Inline{
+				ast.Link{
+					Span:        tk.Span(0, 9),
+					Label:       tk.Span(1, 2),
+					Destination: tk.Span(4, 8),
+					Title:       source.ByteSpan{},
+					Children: []ast.Inline{
+						ast.Text{Span: tk.Span(1, 2)},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with title",
+			input: `[x](dest "title")`,
+			want: []ast.Inline{
+				ast.Link{
+					Span:        tk.Span(0, 17),
+					Label:       tk.Span(1, 2),
+					Destination: tk.Span(4, 8),
+					Title:       tk.Span(10, 15),
+					Children: []ast.Inline{
+						ast.Text{Span: tk.Span(1, 2)},
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

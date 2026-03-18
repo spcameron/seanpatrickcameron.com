@@ -21,6 +21,7 @@ func TestResolve(t *testing.T) {
 			want: CursorSummary{
 				WorkingItems: []WorkingItemSummary{},
 				Delimiters:   []DelimiterSummary{},
+				Brackets:     []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -70,6 +71,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    2,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -119,6 +121,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    2,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -148,6 +151,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    0,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -177,6 +181,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -210,6 +215,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -243,6 +249,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    1,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -300,6 +307,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    3,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -357,6 +365,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    3,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -412,6 +421,7 @@ func TestResolve(t *testing.T) {
 						ItemIndex:    2,
 					},
 				},
+				Brackets: []BracketSummary{},
 			},
 			wantErr: nil,
 		},
@@ -503,6 +513,228 @@ func TestResolve(t *testing.T) {
 						CanOpen:      false,
 						CanClose:     true,
 						ItemIndex:    6,
+					},
+				},
+				Brackets: []BracketSummary{},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple inline link",
+			input: `[x](dest)`,
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "node",
+						Lexeme: `[x](dest)`,
+						Node: &InlineSummary{
+							Kind:   "link",
+							Lexeme: `[x](dest)`,
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "x",
+								},
+							},
+						},
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 2,
+						Active:    false,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with title",
+			input: `[x](dest "title")`,
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "node",
+						Lexeme: `[x](dest "title")`,
+						Node: &InlineSummary{
+							Kind:   "link",
+							Lexeme: `[x](dest "title")`,
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "x",
+								},
+							},
+						},
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 2,
+						Active:    false,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with empty label",
+			input: "[](dest)",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "node",
+						Lexeme: "[](dest)",
+						Node: &InlineSummary{
+							Kind:     "link",
+							Lexeme:   "[](dest)",
+							Children: []InlineSummary{},
+						},
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+				},
+				Delimiters: []DelimiterSummary{},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 1,
+						Active:    false,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with emphasis in label",
+			input: "[a *b* c](dest)",
+			want: CursorSummary{
+				WorkingItems: []WorkingItemSummary{
+					{
+						Kind:   "node",
+						Lexeme: "[a *b* c](dest)",
+						Node: &InlineSummary{
+							Kind:   "link",
+							Lexeme: "[a *b* c](dest)",
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "a ",
+								},
+								{
+									Kind:   "emphasis",
+									Lexeme: "b",
+									Children: []InlineSummary{
+										{
+											Kind:   "text",
+											Lexeme: "b",
+										},
+									},
+								},
+								{
+									Kind:   "text",
+									Lexeme: " c",
+								},
+							},
+						},
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+					{
+						Kind: "consumed",
+					},
+				},
+				Delimiters: []DelimiterSummary{
+					{
+						Lexeme:       "*",
+						Delimiter:    '*',
+						OriginalRun:  1,
+						RemainingRun: 0,
+						CanOpen:      true,
+						CanClose:     false,
+						ItemIndex:    2,
+					},
+					{
+						Lexeme:       "*",
+						Delimiter:    '*',
+						OriginalRun:  1,
+						RemainingRun: 0,
+						CanOpen:      false,
+						CanClose:     true,
+						ItemIndex:    4,
+					},
+				},
+				Brackets: []BracketSummary{
+					{
+						Lexeme:    "]",
+						ItemIndex: 6,
+						Active:    false,
 					},
 				},
 			},

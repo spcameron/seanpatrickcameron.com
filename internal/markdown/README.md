@@ -398,6 +398,35 @@ Delimiter runs participate in emphasis parsing according to the following rules:
 
 Delimiter characters that cannot participate in a valid pairing are emitted as literial text.
 
+#### Inline Links (`[label](destination "title")`)
+
+Inline links are inline constructs that associate a span of content (the *label*) with a destination URL and an optional title. Links are rendered as `<a>` elements in HTML.
+
+A link consists of two components, a label enclosed in square brackets `[...]`, and a link tail enclosed in parentheses `(...)`.
+
+- **Label**: The label is defined as the inline content between a matching pair of `[` and `]` tokens. 
+    - The label may contain arbitrary inline content, including text and nested inline nodes.
+    - The label content is parsed using the inline pipeline and becomes the `Children` of the results `Link` AST node. 
+    - The label span excludes the surrounding bracket tokens. 
+    - If no matching opening bracket exists for a closing bracket, or if the label is not followed by a valid link tail, the brackets are treated as literal text.
+- **Link Tail**: A link tail is recognized immediately following a closing bracket if and only if the next token is an opening parenthesis `(` and a valid tail structure can be parsed.
+    - The destination begins after optional leading whitespace, must not begin with a quote character, continues until the first whitespace character, and must not contain `(` or `)` characters.
+    - If a title is present, it must be preceded by at least one space or tab.
+    - An optional title is recognized if enclosed in matching single (`'`) or double (`"`) quotes, may contain arbitrary characters except the closing quote, and must be followed only by optional trailing whitespace.
+    - The tail is terminated by the first matching `)` token, and if no parenthesis is found, the tail is invalid.
+
+If any of these conditions fail, the link tail is rejected and the entire construct is treated as literal text.
+
+Inline link resolution proceeds after delimiter-based inline constructs (such as emphasis) have been resolved.
+
+Links are rendered as HTML anchor elements:
+
+```html
+<a href="destination" title="optional title">label content</a>
+```
+
+Link recognition is intentionally conservative. Destinations do not support nested parentheses, and angle-bracketed destinations are not supported. Inline parsing is not performed within the destination or title spans; they are treated as literal text. Cross-boundary interactions between emphasis and link delimiters are not supported and may result in undefined or degraded behavior.
+
 ## Diagnostics
 
 Because all nodes carry spans into a single `Source`, the compiler can produce precise, location-aware diagnostics.

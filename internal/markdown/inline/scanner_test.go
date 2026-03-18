@@ -1,27 +1,11 @@
 package inline
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 )
-
-type EventSummary struct {
-	Kind      EventKind
-	Lexeme    string
-	Delimiter byte
-	RunLength int
-}
-
-func (es EventSummary) String() string {
-	if es.Kind == EventDelimiterRun {
-		return fmt.Sprintf("[%s] - Lexeme (%q), Delimiter (%s), Length (%d)", es.Kind, es.Lexeme, string(es.Delimiter), es.RunLength)
-	}
-
-	return fmt.Sprintf("[%s] - Lexeme (%q)", es.Kind, es.Lexeme)
-}
 
 func TestScan(t *testing.T) {
 	testCases := []struct {
@@ -326,6 +310,311 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   EventText,
 					Lexeme: "abc",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "open bracket",
+			input: "[",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "close bracket",
+			input: "]",
+			want: []EventSummary{
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "open paren",
+			input: "(",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "close paren",
+			input: ")",
+			want: []EventSummary{
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "adjacent brackets",
+			input: "[]",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "adjacent parens",
+			input: "()",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "text open bracket text",
+			input: "a[b",
+			want: []EventSummary{
+				{
+					Kind:   EventText,
+					Lexeme: "a",
+				},
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "b",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "text close bracket text",
+			input: "a]b",
+			want: []EventSummary{
+				{
+					Kind:   EventText,
+					Lexeme: "a",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "b",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "text open paren text",
+			input: "a(b",
+			want: []EventSummary{
+				{
+					Kind:   EventText,
+					Lexeme: "a",
+				},
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "b",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "text close paren text",
+			input: "a)b",
+			want: []EventSummary{
+				{
+					Kind:   EventText,
+					Lexeme: "a",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "b",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple bracketed label",
+			input: "[abc]",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "abc",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple paren group",
+			input: "(abc)",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "abc",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "simple inline link skeleton",
+			input: "[label](dest)",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "label",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "dest",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "inline link with surrounding text",
+			input: "go to [home](index)",
+			want: []EventSummary{
+				{
+					Kind:   EventText,
+					Lexeme: "go to ",
+				},
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "home",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "index",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis inside label",
+			input: "[a *b* c](url)",
+			want: []EventSummary{
+				{
+					Kind:   EventOpenBracket,
+					Lexeme: "[",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "a ",
+				},
+				{
+					Kind:      EventDelimiterRun,
+					Lexeme:    "*",
+					Delimiter: '*',
+					RunLength: 1,
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "b",
+				},
+				{
+					Kind:      EventDelimiterRun,
+					Lexeme:    "*",
+					Delimiter: '*',
+					RunLength: 1,
+				},
+				{
+					Kind:   EventText,
+					Lexeme: " c",
+				},
+				{
+					Kind:   EventCloseBracket,
+					Lexeme: "]",
+				},
+				{
+					Kind:   EventOpenParen,
+					Lexeme: "(",
+				},
+				{
+					Kind:   EventText,
+					Lexeme: "url",
+				},
+				{
+					Kind:   EventCloseParen,
+					Lexeme: ")",
 				},
 			},
 			wantErr: nil,
