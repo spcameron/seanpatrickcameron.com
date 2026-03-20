@@ -4,21 +4,21 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-func Scan(src *source.Source, span source.ByteSpan) ([]Event, error) {
+func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
 	input := src.Slice(span)
 	scanner := NewScanner(input, span.Start)
 
-	events := []Event{}
+	tokens := []Token{}
 	for {
-		event, ok := scanner.Next()
+		token, ok := scanner.Next()
 		if !ok {
 			break
 		}
 
-		events = append(events, event)
+		tokens = append(tokens, token)
 	}
 
-	return events, nil
+	return tokens, nil
 }
 
 type Scanner struct {
@@ -39,99 +39,117 @@ func (s *Scanner) EOF() bool {
 	return s.Position >= len(s.Input)
 }
 
-func (s *Scanner) Next() (Event, bool) {
+func (s *Scanner) Current() (byte, bool) {
 	if s.EOF() {
-		return Event{}, false
+		return 0, false
+	}
+
+	return s.Input[s.Position], true
+}
+
+func (s *Scanner) Peek() (byte, bool) {
+	next := s.Position + 1
+	if next >= len(s.Input) {
+		return 0, false
+	}
+
+	return s.Input[next], true
+}
+
+func (s *Scanner) Next() (Token, bool) {
+	if s.EOF() {
+		return Token{}, false
+	}
+
+	kind, ok := s.CurrentKind()
+	if ok {
+		return s.token(kind), true
 	}
 
 	start := s.Position
-	b := s.Input[s.Position]
-
-	// token dispatch
-	switch b {
-	case '[':
-		return s.emitSingle(EventOpenBracket)
-
-	case ']':
-		return s.emitSingle(EventCloseBracket)
-
-	case '(':
-		return s.emitSingle(EventOpenParen)
-
-	case ')':
-		return s.emitSingle(EventCloseParen)
-
-	case '\n':
-		return s.emitSingle(EventIllegalNewline)
-
-	case '*':
-		for s.Position < len(s.Input) && s.Input[s.Position] == '*' {
-			s.Position++
+	for !s.EOF() {
+		if _, ok := s.CurrentKind(); ok {
+			break
 		}
-
-		end := s.Position
-		length := end - start
-
-		span := source.ByteSpan{
-			Start: s.Base + source.BytePos(start),
-			End:   s.Base + source.BytePos(end),
-		}
-
-		return Event{
-			Kind:      EventDelimiterRun,
-			Span:      span,
-			Delimiter: '*',
-			RunLength: length,
-		}, true
-
-	default:
-		// otherwise, scan maximum text run until next special token
-		end := s.Position
-		for end < len(s.Input) {
-			if terminatesText(s.Input[end]) {
-				break
-			}
-
-			end++
-		}
-
-		s.Position = end
-		if end == start {
-			panic("inline scanner made no progress")
-		}
-
-		span := s.eventSpan(start, end)
-
-		return Event{
-			Kind: EventText,
-			Span: span,
-		}, true
+		s.Position++
 	}
-}
+	end := s.Position
 
-func (s *Scanner) eventSpan(start, end int) source.ByteSpan {
-	return source.ByteSpan{
-		Start: s.Base + source.BytePos(start),
-		End:   s.Base + source.BytePos(end),
+	if start == end {
+		panic("inline scanner made no progress")
 	}
-}
 
-func (s *Scanner) emitSingle(kind EventKind) (Event, bool) {
-	start := s.Position
-	s.Position++
-
-	return Event{
-		Kind: kind,
-		Span: s.eventSpan(start, s.Position),
+	return Token{
+		Span: s.span(start, end),
+		Kind: TokenText,
 	}, true
 }
 
-func terminatesText(b byte) bool {
+func (s *Scanner) CurrentKind() (TokenKind, bool) {
+	b, ok := s.Current()
+	if !ok {
+		return 0, false
+	}
+
 	switch b {
-	case '\n', '*', '[', ']', '(', ')':
-		return true
+	case '*':
+		return TokenStarDelimiter, true
+
+	case '_':
+		return TokenUnderscoreDelimiter, true
+
+	case '`':
+		return TokenBacktick, true
+
+	case '[':
+		return TokenOpenBracket, true
+
+	case ']':
+		return TokenCloseBracket, true
+
+	case '(':
+		return TokenOpenParen, true
+
+	case ')':
+		return TokenCloseParen, true
+
+	case '<':
+		return TokenOpenAngle, true
+
+	case '>':
+		return TokenCloseAngle, true
+
+	case '!':
+		if next, ok := s.Peek(); ok && next == '[' {
+			return TokenImageOpenBracket, true
+		}
+		return TokenBang, true
+
+	case '\n':
+		panic("illegal newline character encountered during inline parsing")
 
 	default:
-		return false
+		return 0, false
+	}
+
+}
+
+func (s *Scanner) token(kind TokenKind) Token {
+	start := s.Position
+	s.Position++
+	if kind == TokenImageOpenBracket {
+		s.Position++
+	}
+
+	return Token{
+		Span: s.span(start, s.Position),
+		Kind: kind,
+	}
+}
+
+func (s *Scanner) span(start, end int) source.ByteSpan {
+	return source.ByteSpan{
+		Start: s.Base + source.BytePos(start),
+		End:   s.Base + source.BytePos(end),
 	}
 }

@@ -4,9 +4,71 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
+
+type TokenSummary struct {
+	Kind   TokenKind
+	Lexeme string
+}
+
+func (ts TokenSummary) String() string {
+	switch ts.Kind {
+	case TokenText:
+		return fmt.Sprintf("text(%q)", ts.Lexeme)
+
+	case TokenStarDelimiter:
+		return fmt.Sprintf("star(%q)", ts.Lexeme)
+
+	case TokenUnderscoreDelimiter:
+		return fmt.Sprintf("underscore(%q)", ts.Lexeme)
+
+	case TokenBacktick:
+		return fmt.Sprintf("backtick(%q)", ts.Lexeme)
+
+	case TokenOpenBracket:
+		return `open_bracket("[")`
+
+	case TokenCloseBracket:
+		return `close_bracket("]")`
+
+	case TokenOpenParen:
+		return `open_paren("(")`
+
+	case TokenCloseParen:
+		return `close_paren(")")`
+
+	case TokenOpenAngle:
+		return `open_angle("<")`
+
+	case TokenCloseAngle:
+		return `close_angle(">")`
+
+	case TokenBang:
+		return `bang("!")`
+
+	case TokenImageOpenBracket:
+		return `image_open_bracket("![")`
+
+	default:
+		return fmt.Sprintf("unknown_token(%d, %q)", ts.Kind, ts.Lexeme)
+	}
+}
+
+func summarizeTokens(src *source.Source, tokens []Token) []TokenSummary {
+	summary := make([]TokenSummary, 0, len(tokens))
+
+	for _, t := range tokens {
+		s := src.Slice(t.Span)
+
+		summary = append(summary, TokenSummary{
+			Kind:   t.Kind,
+			Lexeme: s,
+		})
+	}
+
+	return summary
+}
 
 type CursorSummary struct {
 	WorkingItems []WorkingItemSummary
@@ -170,146 +232,146 @@ func (es EventSummary) String() string {
 	}
 }
 
-func summarizeCursor(c *Cursor) CursorSummary {
-	summary := CursorSummary{
-		WorkingItems: summarizeWorkingItems(c.Source, c.WorkingItems),
-		Delimiters:   summarizeDelimiters(c.Source, c.DelimiterRecords),
-		Brackets:     summarizeBrackets(c.Source, c.BracketRecords),
-	}
+// func summarizeCursor(c *Cursor) CursorSummary {
+// 	summary := CursorSummary{
+// 		WorkingItems: summarizeWorkingItems(c.Source, c.WorkingItems),
+// 		Delimiters:   summarizeDelimiters(c.Source, c.DelimiterRecords),
+// 		Brackets:     summarizeBrackets(c.Source, c.BracketRecords),
+// 	}
+//
+// 	return summary
+// }
 
-	return summary
-}
+// func summarizeWorkingItems(src *source.Source, items []WorkingItem) []WorkingItemSummary {
+// 	summary := make([]WorkingItemSummary, 0, len(items))
+//
+// 	for _, item := range items {
+// 		switch item := item.(type) {
+// 		case *TextItem:
+// 			summary = append(summary, WorkingItemSummary{
+// 				Kind:   "text",
+// 				Lexeme: src.Slice(item.Span),
+// 			})
+//
+// 		case *DelimiterItem:
+// 			summary = append(summary, WorkingItemSummary{
+// 				Kind:      "delimiter",
+// 				Lexeme:    src.Slice(item.Span),
+// 				Delimiter: item.Delimiter,
+// 			})
+//
+// 		case *TokenItem:
+// 			summary = append(summary, WorkingItemSummary{
+// 				Kind:   "token",
+// 				Token:  item.Kind.String(),
+// 				Lexeme: src.Slice(item.Span),
+// 			})
+//
+// 		case *NodeItem:
+// 			summary = append(summary, WorkingItemSummary{
+// 				Kind:   "node",
+// 				Lexeme: src.Slice(item.Span),
+// 				Node:   summarizeInline(src, item.Node),
+// 			})
+//
+// 		case *ConsumedItem:
+// 			summary = append(summary, WorkingItemSummary{
+// 				Kind: "consumed",
+// 			})
+//
+// 		default:
+// 			panic("unknown item type")
+// 		}
+// 	}
+//
+// 	return summary
+// }
 
-func summarizeWorkingItems(src *source.Source, items []WorkingItem) []WorkingItemSummary {
-	summary := make([]WorkingItemSummary, 0, len(items))
+// func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
+// 	switch n := inl.(type) {
+// 	case ast.Link:
+// 		return &InlineSummary{
+// 			Kind:     "link",
+// 			Lexeme:   src.Slice(n.Span),
+// 			Children: summarizeInlines(src, n.Children),
+// 		}
+//
+// 	case ast.Em:
+// 		return &InlineSummary{
+// 			Kind:     "emphasis",
+// 			Lexeme:   src.Slice(n.Span),
+// 			Children: summarizeInlines(src, n.Children),
+// 		}
+//
+// 	case ast.Strong:
+// 		return &InlineSummary{
+// 			Kind:     "strong",
+// 			Lexeme:   src.Slice(n.Span),
+// 			Children: summarizeInlines(src, n.Children),
+// 		}
+//
+// 	case ast.Text:
+// 		return &InlineSummary{
+// 			Kind:   "text",
+// 			Lexeme: src.Slice(n.Span),
+// 		}
+//
+// 	case ast.RawText:
+// 		return &InlineSummary{
+// 			Kind:   "raw_text",
+// 			Lexeme: src.Slice(n.Span),
+// 		}
+//
+// 	case ast.HardBreak:
+// 		return &InlineSummary{
+// 			Kind:   "hard_break",
+// 			Lexeme: src.Slice(n.Span),
+// 		}
+//
+// 	case ast.SoftBreak:
+// 		return &InlineSummary{
+// 			Kind:   "soft_break",
+// 			Lexeme: src.Slice(n.Span),
+// 		}
+//
+// 	case ast.Newline:
+// 		return &InlineSummary{
+// 			Kind:   "newline",
+// 			Lexeme: src.Slice(n.Span),
+// 		}
+//
+// 	default:
+// 		panic("unknown ast.Inline type")
+// 	}
+// }
 
-	for _, item := range items {
-		switch item := item.(type) {
-		case *TextItem:
-			summary = append(summary, WorkingItemSummary{
-				Kind:   "text",
-				Lexeme: src.Slice(item.Span),
-			})
+// func summarizeInlines(src *source.Source, inlines []ast.Inline) []InlineSummary {
+// 	out := make([]InlineSummary, 0, len(inlines))
+// 	for _, inl := range inlines {
+// 		out = append(out, *summarizeInline(src, inl))
+// 	}
+// 	return out
+// }
 
-		case *DelimiterItem:
-			summary = append(summary, WorkingItemSummary{
-				Kind:      "delimiter",
-				Lexeme:    src.Slice(item.Span),
-				Delimiter: item.Delimiter,
-			})
-
-		case *TokenItem:
-			summary = append(summary, WorkingItemSummary{
-				Kind:   "token",
-				Token:  item.Kind.String(),
-				Lexeme: src.Slice(item.Span),
-			})
-
-		case *NodeItem:
-			summary = append(summary, WorkingItemSummary{
-				Kind:   "node",
-				Lexeme: src.Slice(item.Span),
-				Node:   summarizeInline(src, item.Node),
-			})
-
-		case *ConsumedItem:
-			summary = append(summary, WorkingItemSummary{
-				Kind: "consumed",
-			})
-
-		default:
-			panic("unknown item type")
-		}
-	}
-
-	return summary
-}
-
-func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
-	switch n := inl.(type) {
-	case ast.Link:
-		return &InlineSummary{
-			Kind:     "link",
-			Lexeme:   src.Slice(n.Span),
-			Children: summarizeInlines(src, n.Children),
-		}
-
-	case ast.Em:
-		return &InlineSummary{
-			Kind:     "emphasis",
-			Lexeme:   src.Slice(n.Span),
-			Children: summarizeInlines(src, n.Children),
-		}
-
-	case ast.Strong:
-		return &InlineSummary{
-			Kind:     "strong",
-			Lexeme:   src.Slice(n.Span),
-			Children: summarizeInlines(src, n.Children),
-		}
-
-	case ast.Text:
-		return &InlineSummary{
-			Kind:   "text",
-			Lexeme: src.Slice(n.Span),
-		}
-
-	case ast.RawText:
-		return &InlineSummary{
-			Kind:   "raw_text",
-			Lexeme: src.Slice(n.Span),
-		}
-
-	case ast.HardBreak:
-		return &InlineSummary{
-			Kind:   "hard_break",
-			Lexeme: src.Slice(n.Span),
-		}
-
-	case ast.SoftBreak:
-		return &InlineSummary{
-			Kind:   "soft_break",
-			Lexeme: src.Slice(n.Span),
-		}
-
-	case ast.Newline:
-		return &InlineSummary{
-			Kind:   "newline",
-			Lexeme: src.Slice(n.Span),
-		}
-
-	default:
-		panic("unknown ast.Inline type")
-	}
-}
-
-func summarizeInlines(src *source.Source, inlines []ast.Inline) []InlineSummary {
-	out := make([]InlineSummary, 0, len(inlines))
-	for _, inl := range inlines {
-		out = append(out, *summarizeInline(src, inl))
-	}
-	return out
-}
-
-func summarizeDelimiters(src *source.Source, delims []*DelimiterRecord) []DelimiterSummary {
-	summary := make([]DelimiterSummary, 0, len(delims))
-
-	for _, delim := range delims {
-		s := src.Slice(delim.OriginalSpan)
-
-		summary = append(summary, DelimiterSummary{
-			Lexeme:       s,
-			Delimiter:    delim.Delimiter,
-			OriginalRun:  delim.OriginalRun,
-			RemainingRun: delim.RemainingRun,
-			CanOpen:      delim.CanOpen,
-			CanClose:     delim.CanClose,
-			ItemIndex:    delim.ItemIndex,
-		})
-	}
-
-	return summary
-}
+// func summarizeDelimiters(src *source.Source, delims []*DelimiterRecord) []DelimiterSummary {
+// 	summary := make([]DelimiterSummary, 0, len(delims))
+//
+// 	for _, delim := range delims {
+// 		s := src.Slice(delim.OriginalSpan)
+//
+// 		summary = append(summary, DelimiterSummary{
+// 			Lexeme:       s,
+// 			Delimiter:    delim.Delimiter,
+// 			OriginalRun:  delim.OriginalRun,
+// 			RemainingRun: delim.RemainingRun,
+// 			CanOpen:      delim.CanOpen,
+// 			CanClose:     delim.CanClose,
+// 			ItemIndex:    delim.ItemIndex,
+// 		})
+// 	}
+//
+// 	return summary
+// }
 
 func summarizeBrackets(src *source.Source, brackets []*BracketRecord) []BracketSummary {
 	summary := make([]BracketSummary, 0, len(brackets))

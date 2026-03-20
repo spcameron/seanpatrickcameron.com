@@ -6,12 +6,12 @@ import (
 )
 
 func Parse(src *source.Source, span source.ByteSpan) ([]ast.Inline, error) {
-	events, err := Scan(src, span)
+	tokens, err := Scan(src, span)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := Build(src, span, events)
+	out, err := Build(src, span, tokens)
 	if err != nil {
 		return nil, err
 	}
