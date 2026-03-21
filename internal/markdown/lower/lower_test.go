@@ -143,6 +143,14 @@ func TestLowerDocument(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "code span",
+			input: "`abc`",
+			want: tk.ASTDoc(
+				tk.ASTPara(tk.ASTCodeSpan()),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

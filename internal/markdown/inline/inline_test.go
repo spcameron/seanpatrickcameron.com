@@ -104,55 +104,61 @@ func (s InlineSummary) String() string {
 	}
 }
 
-func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
+func summarizeInline(src *source.Source, inl ast.Inline) InlineSummary {
 	switch n := inl.(type) {
+	case ast.CodeSpan:
+		return InlineSummary{
+			Kind:   "code_span",
+			Lexeme: src.Slice(n.Span),
+		}
+
 	case ast.Link:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:     "link",
 			Lexeme:   src.Slice(n.Span),
 			Children: summarizeInlines(src, n.Children),
 		}
 
 	case ast.Em:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:     "emphasis",
 			Lexeme:   src.Slice(n.Span),
 			Children: summarizeInlines(src, n.Children),
 		}
 
 	case ast.Strong:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:     "strong",
 			Lexeme:   src.Slice(n.Span),
 			Children: summarizeInlines(src, n.Children),
 		}
 
 	case ast.Text:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:   "text",
 			Lexeme: src.Slice(n.Span),
 		}
 
 	case ast.RawText:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:   "raw_text",
 			Lexeme: src.Slice(n.Span),
 		}
 
 	case ast.HardBreak:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:   "hard_break",
 			Lexeme: src.Slice(n.Span),
 		}
 
 	case ast.SoftBreak:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:   "soft_break",
 			Lexeme: src.Slice(n.Span),
 		}
 
 	case ast.Newline:
-		return &InlineSummary{
+		return InlineSummary{
 			Kind:   "newline",
 			Lexeme: src.Slice(n.Span),
 		}
@@ -165,7 +171,7 @@ func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
 func summarizeInlines(src *source.Source, inlines []ast.Inline) []InlineSummary {
 	out := make([]InlineSummary, 0, len(inlines))
 	for _, inl := range inlines {
-		out = append(out, *summarizeInline(src, inl))
+		out = append(out, summarizeInline(src, inl))
 	}
 	return out
 }

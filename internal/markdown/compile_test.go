@@ -628,6 +628,12 @@ func TestCompile(t *testing.T) {
 			want:    `<p><a href="dest" title="title">x</a></p>`,
 			wantErr: nil,
 		},
+		{
+			name:    "code span: simple",
+			md:      "`foo`",
+			want:    `<p><code>foo</code></p>`,
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

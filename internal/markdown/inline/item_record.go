@@ -7,6 +7,7 @@ type ItemKind int
 const (
 	_ ItemKind = iota
 	ItemText
+	ItemCodeSpan
 )
 
 type ItemRecord struct {

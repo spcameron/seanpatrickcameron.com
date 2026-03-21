@@ -45,6 +45,9 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		case TokenText:
 			c.appendItemRecord(token.Span, ItemText)
 
+		case TokenBacktick:
+			c.handleTokenBacktick()
+
 		default:
 			panic(fmt.Sprintf("unknown token kind encountered (%d)", token.Kind))
 		}
@@ -52,12 +55,26 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 
 	inlines := []ast.Inline{}
 
-	// traverse items and construct ast.Inlines
+	// finalize inline items and construct ast.Inlines
 	item := c.Items.Front()
 	for item != nil {
 		switch item.Kind {
 		case ItemText:
 			node := ast.Text{
+				Span: item.LiveSpan,
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemCodeSpan:
+			contentSlice := c.Source.Slice(item.OriginalSpan)
+
+			if len(contentSlice) > 0 && isSpace(contentSlice[0]) && isSpace(contentSlice[len(contentSlice)-1]) && !isAllSpaces(contentSlice) {
+				item.LiveSpan.Start++
+				item.LiveSpan.End--
+			}
+
+			node := ast.CodeSpan{
 				Span: item.LiveSpan,
 			}
 
@@ -71,6 +88,41 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 	}
 
 	return inlines, nil
+}
+
+func (c *Cursor) handleTokenBacktick() {
+	openerIdx := c.Index - 1
+	openerToken := c.Tokens[openerIdx]
+	openerWidth := openerToken.Span.Width()
+
+	closerIdx := openerIdx + 1
+	for closerIdx < len(c.Tokens) {
+		next := c.Tokens[closerIdx]
+		if next.Kind != TokenBacktick {
+			closerIdx++
+			continue
+		}
+
+		if next.Span.Width() != openerWidth {
+			closerIdx++
+			continue
+		}
+
+		break
+	}
+
+	if closerIdx == len(c.Tokens) {
+		c.appendItemRecord(openerToken.Span, ItemText)
+		return
+	}
+
+	contentSpan := source.ByteSpan{
+		Start: c.Tokens[openerIdx].Span.End,
+		End:   c.Tokens[closerIdx].Span.Start,
+	}
+
+	c.appendItemRecord(contentSpan, ItemCodeSpan)
+	c.Index = closerIdx + 1
 }
 
 func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemRecord {
@@ -857,6 +909,20 @@ func isWhitespace(r rune) bool {
 
 func isPunctuation(r rune) bool {
 	return unicode.IsPunct(r)
+}
+
+func isSpace(b byte) bool {
+	return b == ' '
+}
+
+func isAllSpaces(s string) bool {
+	for i := range len(s) {
+		if !isSpace(s[i]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {

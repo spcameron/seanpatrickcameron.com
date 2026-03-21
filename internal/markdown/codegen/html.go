@@ -280,6 +280,9 @@ func renderInlines(src *source.Source, inlines []ast.Inline) ([]html.Node, error
 
 func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	switch v := inl.(type) {
+	case ast.CodeSpan:
+		return renderCodeSpan(src, v)
+
 	case ast.Link:
 		return renderLink(src, v)
 
@@ -307,6 +310,20 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	default:
 		return nil, fmt.Errorf("unrecognized inline type: %T", inl)
 	}
+}
+
+func renderCodeSpan(src *source.Source, inl ast.CodeSpan) (html.Node, error) {
+	contentNode := html.Text{
+		Value: src.Slice(inl.Span),
+	}
+
+	node := html.Element{
+		Tag:      "code",
+		Attr:     html.Attributes{},
+		Children: []html.Node{contentNode},
+	}
+
+	return node, nil
 }
 
 func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {

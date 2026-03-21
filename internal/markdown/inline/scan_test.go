@@ -220,6 +220,48 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "backtick run",
+			input: "```",
+			want: []TokenSummary{
+				{
+					Kind:   TokenBacktick,
+					Lexeme: "```",
+				},
+				{
+					Kind: TokenEOF,
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "star delimiter run",
+			input: "***",
+			want: []TokenSummary{
+				{
+					Kind:   TokenStarDelimiter,
+					Lexeme: "***",
+				},
+				{
+					Kind: TokenEOF,
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "underscore delimiter run",
+			input: "__",
+			want: []TokenSummary{
+				{
+					Kind:   TokenUnderscoreDelimiter,
+					Lexeme: "__",
+				},
+				{
+					Kind: TokenEOF,
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

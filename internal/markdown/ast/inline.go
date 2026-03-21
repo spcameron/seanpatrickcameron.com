@@ -10,6 +10,16 @@ type Inline interface {
 	isInline()
 }
 
+type CodeSpan struct {
+	Span source.ByteSpan
+}
+
+func (c CodeSpan) isInline() {}
+
+func (c CodeSpan) String() string {
+	return "[CodeSpan]"
+}
+
 type Link struct {
 	Span        source.ByteSpan
 	Label       source.ByteSpan

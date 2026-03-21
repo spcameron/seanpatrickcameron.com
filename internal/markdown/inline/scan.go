@@ -73,14 +73,14 @@ func (s *Scanner) Next() (Token, bool) {
 		return Token{}, false
 	}
 
-	kind, ok := s.CurrentKind()
+	kind, width, ok := s.Special()
 	if ok {
-		return s.token(kind), true
+		return s.token(kind, width), true
 	}
 
 	start := s.Position
 	for !s.EOF() {
-		if _, ok := s.CurrentKind(); ok {
+		if _, _, ok := s.Special(); ok {
 			break
 		}
 		s.Position++
@@ -97,61 +97,58 @@ func (s *Scanner) Next() (Token, bool) {
 	}, true
 }
 
-func (s *Scanner) CurrentKind() (TokenKind, bool) {
+func (s *Scanner) Special() (TokenKind, int, bool) {
 	b, ok := s.Current()
 	if !ok {
-		return 0, false
+		return 0, 0, false
 	}
 
 	switch b {
 	case '*':
-		return TokenStarDelimiter, true
+		return TokenStarDelimiter, s.runLength(b), true
 
 	case '_':
-		return TokenUnderscoreDelimiter, true
+		return TokenUnderscoreDelimiter, s.runLength(b), true
 
 	case '`':
-		return TokenBacktick, true
+		return TokenBacktick, s.runLength(b), true
 
 	case '[':
-		return TokenOpenBracket, true
+		return TokenOpenBracket, 1, true
 
 	case ']':
-		return TokenCloseBracket, true
+		return TokenCloseBracket, 1, true
 
 	case '(':
-		return TokenOpenParen, true
+		return TokenOpenParen, 1, true
 
 	case ')':
-		return TokenCloseParen, true
+		return TokenCloseParen, 1, true
 
 	case '<':
-		return TokenOpenAngle, true
+		return TokenOpenAngle, 1, true
 
 	case '>':
-		return TokenCloseAngle, true
+		return TokenCloseAngle, 1, true
 
 	case '!':
 		if next, ok := s.Peek(); ok && next == '[' {
-			return TokenImageOpenBracket, true
+			return TokenImageOpenBracket, 2, true
 		}
-		return TokenBang, true
+		return TokenBang, 1, true
 
 	case '\n':
 		panic("illegal newline character encountered during inline parsing")
 
 	default:
-		return 0, false
+		return 0, 0, false
 	}
 
 }
 
-func (s *Scanner) token(kind TokenKind) Token {
+func (s *Scanner) token(kind TokenKind, width int) Token {
 	start := s.Position
-	s.Position++
-	if kind == TokenImageOpenBracket {
-		s.Position++
-	}
+	s.Position += width
 
 	return Token{
 		Span: s.span(start, s.Position),
@@ -164,4 +161,13 @@ func (s *Scanner) span(start, end int) source.ByteSpan {
 		Start: s.Base + source.BytePos(start),
 		End:   s.Base + source.BytePos(end),
 	}
+}
+
+func (s *Scanner) runLength(b byte) int {
+	pos := s.Position
+	for pos < len(s.Input) && s.Input[pos] == b {
+		pos++
+	}
+
+	return pos - s.Position
 }

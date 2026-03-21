@@ -32,6 +32,72 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "code span",
+			input: "`foo`",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: "foo",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: two backticks",
+			input: "``foo`bar``",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: "foo`bar",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: leading and trailing spaces",
+			input: "` `` `",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: "``",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: only one leading/trailing space is stripped",
+			input: "`  ``  `",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: " `` ",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: stripping only if the space is on both sides",
+			input: "` a`",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: " a",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: interior spaces are not collapsed",
+			input: "`foo   bar`",
+			want: []InlineSummary{
+				{
+					Kind:   "code_span",
+					Lexeme: "foo   bar",
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
