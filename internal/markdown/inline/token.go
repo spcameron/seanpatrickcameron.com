@@ -20,6 +20,7 @@ const (
 	TokenCloseAngle
 	TokenBang
 	TokenImageOpenBracket
+	TokenEOF
 )
 
 type Token struct {

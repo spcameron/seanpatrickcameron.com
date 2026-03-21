@@ -1,65 +1,86 @@
 package inline
 
 import (
+	"fmt"
 	"unicode"
-	"unicode/utf8"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 type Cursor struct {
-	Source *source.Source
-	Span   source.ByteSpan
-	Tokens []Token
-	Index  int
-
-	WorkingItems     []WorkingItem
-	DelimiterRecords []*DelimiterRecord
-	BracketRecords   []*BracketRecord
+	Source     *source.Source
+	Span       source.ByteSpan
+	Tokens     []Token
+	Index      int
+	Items      *ItemList
+	Delimiters *DelimiterStack
 }
 
 func NewCursor(src *source.Source, span source.ByteSpan, tokens []Token) *Cursor {
 	return &Cursor{
-		Source:           src,
-		Span:             span,
-		Tokens:           tokens,
-		Index:            0,
-		WorkingItems:     []WorkingItem{},
-		DelimiterRecords: []*DelimiterRecord{},
-		BracketRecords:   []*BracketRecord{},
+		Source: src,
+		Span:   span,
+		Tokens: tokens,
+		Index:  0,
+		Items:  NewItemList(),
 	}
 }
 
-func (c *Cursor) Peek() (Token, bool) {
-	if c.EOF() {
-		return Token{}, false
-	}
-
-	return c.Tokens[c.Index], true
-}
-
-func (c *Cursor) Next() (Token, bool) {
-	if c.EOF() {
-		return Token{}, false
-	}
-
+func (c *Cursor) Next() Token {
 	out := c.Tokens[c.Index]
 	c.Index++
-
-	return out, true
+	return out
 }
 
-func (c *Cursor) Mark() int {
-	return c.Index
+func (c *Cursor) Build() ([]ast.Inline, error) {
+	// traverse tokens and dispatch as needed
+	for {
+		token := c.Next()
+		if token.Kind == TokenEOF {
+			break
+		}
+
+		switch token.Kind {
+		case TokenText:
+			c.appendItemRecord(token.Span, ItemText)
+
+		default:
+			panic(fmt.Sprintf("unknown token kind encountered (%d)", token.Kind))
+		}
+	}
+
+	inlines := []ast.Inline{}
+
+	// traverse items and construct ast.Inlines
+	item := c.Items.Front()
+	for item != nil {
+		switch item.Kind {
+		case ItemText:
+			node := ast.Text{
+				Span: item.LiveSpan,
+			}
+
+			inlines = append(inlines, node)
+
+		default:
+			panic(fmt.Sprintf("unknown item kind encountered (%d)", item.Kind))
+		}
+
+		item = item.Next()
+	}
+
+	return inlines, nil
 }
 
-func (c *Cursor) Reset(i int) {
-	c.Index = i
-}
+func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemRecord {
+	item := &ItemRecord{
+		OriginalSpan: span,
+		LiveSpan:     span,
+		Kind:         kind,
+	}
 
-func (c *Cursor) EOF() bool {
-	return c.Index >= len(c.Tokens)
+	return c.Items.PushBack(item)
 }
 
 // func (c *Cursor) Gather() error {
@@ -135,38 +156,38 @@ func (c *Cursor) EOF() bool {
 // 	return inlines, nil
 // }
 
-func (c *Cursor) gatherText(ev Event) {
-	item := &TextItem{
-		Span: ev.Span,
-	}
+// func (c *Cursor) gatherText(ev Event) {
+// 	item := &TextItem{
+// 		Span: ev.Span,
+// 	}
+//
+// 	c.WorkingItems = append(c.WorkingItems, item)
+// }
 
-	c.WorkingItems = append(c.WorkingItems, item)
-}
-
-func (c *Cursor) gatherDelimiter(ev Event) {
-	item := &DelimiterItem{
-		Span:      ev.Span,
-		Delimiter: ev.Delimiter,
-	}
-
-	c.WorkingItems = append(c.WorkingItems, item)
-	idx := len(c.WorkingItems) - 1
-
-	canOpen, canClose := c.delimiterEligibility(ev.Span)
-
-	record := &DelimiterRecord{
-		OriginalSpan: ev.Span,
-		LiveSpan:     ev.Span,
-		Delimiter:    ev.Delimiter,
-		OriginalRun:  ev.RunLength,
-		RemainingRun: ev.RunLength,
-		CanOpen:      canOpen,
-		CanClose:     canClose,
-		ItemIndex:    idx,
-	}
-
-	c.DelimiterRecords = append(c.DelimiterRecords, record)
-}
+// func (c *Cursor) gatherDelimiter(ev Event) {
+// 	item := &DelimiterItem{
+// 		Span:      ev.Span,
+// 		Delimiter: ev.Delimiter,
+// 	}
+//
+// 	c.WorkingItems = append(c.WorkingItems, item)
+// 	idx := len(c.WorkingItems) - 1
+//
+// 	canOpen, canClose := c.delimiterEligibility(ev.Span)
+//
+// 	record := &DelimiterRecord{
+// 		OriginalSpan: ev.Span,
+// 		LiveSpan:     ev.Span,
+// 		Delimiter:    ev.Delimiter,
+// 		OriginalRun:  ev.RunLength,
+// 		RemainingRun: ev.RunLength,
+// 		CanOpen:      canOpen,
+// 		CanClose:     canClose,
+// 		ItemIndex:    idx,
+// 	}
+//
+// 	c.DelimiterRecords = append(c.DelimiterRecords, record)
+// }
 
 // func (c *Cursor) gatherToken(ev Event, t TokenKind) {
 // 	item := &TokenItem{
@@ -191,15 +212,15 @@ func (c *Cursor) gatherDelimiter(ev Event) {
 // 	c.BracketRecords = append(c.BracketRecords, record)
 // }
 
-func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose bool) {
-	before, beforeOK := c.runeBefore(span)
-	after, afterOK := c.runeAfter(span)
-
-	canOpen = leftFlanking(before, beforeOK, after, afterOK)
-	canClose = rightFlanking(before, beforeOK, after, afterOK)
-
-	return canOpen, canClose
-}
+// func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose bool) {
+// 	before, beforeOK := c.runeBefore(span)
+// 	after, afterOK := c.runeAfter(span)
+//
+// 	canOpen = leftFlanking(before, beforeOK, after, afterOK)
+// 	canClose = rightFlanking(before, beforeOK, after, afterOK)
+//
+// 	return canOpen, canClose
+// }
 
 // func (c *Cursor) resolveEmphasis() error {
 // 	for closerIdx := 0; closerIdx < len(c.DelimiterRecords); closerIdx++ {
@@ -225,28 +246,28 @@ func (c *Cursor) delimiterEligibility(span source.ByteSpan) (canOpen, canClose b
 // 	return nil
 // }
 
-func (c *Cursor) findOpenerForCloserDelimiter(closerIdx int) (int, bool) {
-	closer := c.DelimiterRecords[closerIdx]
+// func (c *Cursor) findOpenerForCloserDelimiter(closerIdx int) (int, bool) {
+// 	closer := c.DelimiterRecords[closerIdx]
+//
+// 	for openerIdx := closerIdx - 1; openerIdx >= 0; openerIdx-- {
+// 		d := c.DelimiterRecords[openerIdx]
+// 		if d.Delimiter == closer.Delimiter && d.CanOpen && d.RemainingRun > 0 {
+// 			return openerIdx, true
+// 		}
+// 	}
+//
+// 	return -1, false
+// }
 
-	for openerIdx := closerIdx - 1; openerIdx >= 0; openerIdx-- {
-		d := c.DelimiterRecords[openerIdx]
-		if d.Delimiter == closer.Delimiter && d.CanOpen && d.RemainingRun > 0 {
-			return openerIdx, true
-		}
-	}
-
-	return -1, false
-}
-
-func (c *Cursor) delimiterUse(openerIdx, closerIdx int) int {
-	use := 1
-	if c.DelimiterRecords[openerIdx].RemainingRun >= 2 &&
-		c.DelimiterRecords[closerIdx].RemainingRun >= 2 {
-		use = 2
-	}
-
-	return use
-}
+// func (c *Cursor) delimiterUse(openerIdx, closerIdx int) int {
+// 	use := 1
+// 	if c.DelimiterRecords[openerIdx].RemainingRun >= 2 &&
+// 		c.DelimiterRecords[closerIdx].RemainingRun >= 2 {
+// 		use = 2
+// 	}
+//
+// 	return use
+// }
 
 // func (c *Cursor) resolveDelimiterPair(openerIdx, closerIdx, use int) (bool, error) {
 // 	// retrieve the delimiter records
@@ -592,14 +613,14 @@ func (c *Cursor) delimiterUse(openerIdx, closerIdx int) int {
 // 	return -1, false
 // }
 
-type InlineLinkTail struct {
-	OpenParenItemIndex  int
-	CloseParenItemIndex int
-	FullSpan            source.ByteSpan
-	DestinationSpan     source.ByteSpan
-	TitleSpan           source.ByteSpan
-}
-
+// type InlineLinkTail struct {
+// 	OpenParenItemIndex  int
+// 	CloseParenItemIndex int
+// 	FullSpan            source.ByteSpan
+// 	DestinationSpan     source.ByteSpan
+// 	TitleSpan           source.ByteSpan
+// }
+//
 // func (c *Cursor) buildChildren(start, end int) ([]ast.Inline, source.ByteSpan) {
 // 	children := make([]ast.Inline, 0, end-start)
 //
@@ -738,97 +759,97 @@ type InlineLinkTail struct {
 // 	return nil
 // }
 
-func (c *Cursor) delimiterRecordForItem(index int) (int, bool) {
-	for i := 0; i < len(c.DelimiterRecords); i++ {
-		if c.DelimiterRecords[i].ItemIndex == index {
-			return i, true
-		}
-	}
+// func (c *Cursor) delimiterRecordForItem(index int) (int, bool) {
+// 	for i := 0; i < len(c.DelimiterRecords); i++ {
+// 		if c.DelimiterRecords[i].ItemIndex == index {
+// 			return i, true
+// 		}
+// 	}
+//
+// 	return -1, false
+// }
 
-	return -1, false
-}
+// func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
+// 	if delimSpan.Start == c.Span.Start {
+// 		return 0, false
+// 	}
+//
+// 	leftWindow := source.ByteSpan{
+// 		Start: c.Span.Start,
+// 		End:   delimSpan.Start,
+// 	}
+//
+// 	s := c.Source.Slice(leftWindow)
+// 	r, width := utf8.DecodeLastRuneInString(s)
+// 	if width == 0 {
+// 		return 0, false
+// 	}
+//
+// 	return r, true
+// }
 
-func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
-	if delimSpan.Start == c.Span.Start {
-		return 0, false
-	}
+// func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
+// 	if delimSpan.End == c.Span.End {
+// 		return 0, false
+// 	}
+//
+// 	rightWindow := source.ByteSpan{
+// 		Start: delimSpan.End,
+// 		End:   c.Span.End,
+// 	}
+//
+// 	s := c.Source.Slice(rightWindow)
+// 	r, width := utf8.DecodeRuneInString(s)
+// 	if width == 0 {
+// 		return 0, false
+// 	}
+//
+// 	return r, true
+// }
 
-	leftWindow := source.ByteSpan{
-		Start: c.Span.Start,
-		End:   delimSpan.Start,
-	}
+// func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
+// 	if !afterOK {
+// 		return false
+// 	}
+// 	if isWhitespace(after) {
+// 		return false
+// 	}
+// 	if !isPunctuation(after) {
+// 		return true
+// 	}
+// 	if !beforeOK {
+// 		return true
+// 	}
+// 	if isWhitespace(before) {
+// 		return true
+// 	}
+// 	if isPunctuation(before) {
+// 		return true
+// 	}
+// 	return false
+// }
 
-	s := c.Source.Slice(leftWindow)
-	r, width := utf8.DecodeLastRuneInString(s)
-	if width == 0 {
-		return 0, false
-	}
-
-	return r, true
-}
-
-func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
-	if delimSpan.End == c.Span.End {
-		return 0, false
-	}
-
-	rightWindow := source.ByteSpan{
-		Start: delimSpan.End,
-		End:   c.Span.End,
-	}
-
-	s := c.Source.Slice(rightWindow)
-	r, width := utf8.DecodeRuneInString(s)
-	if width == 0 {
-		return 0, false
-	}
-
-	return r, true
-}
-
-func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
-	if !afterOK {
-		return false
-	}
-	if isWhitespace(after) {
-		return false
-	}
-	if !isPunctuation(after) {
-		return true
-	}
-	if !beforeOK {
-		return true
-	}
-	if isWhitespace(before) {
-		return true
-	}
-	if isPunctuation(before) {
-		return true
-	}
-	return false
-}
-
-func rightFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
-	if !beforeOK {
-		return false
-	}
-	if isWhitespace(before) {
-		return false
-	}
-	if !isPunctuation(before) {
-		return true
-	}
-	if !afterOK {
-		return true
-	}
-	if isWhitespace(after) {
-		return true
-	}
-	if isPunctuation(after) {
-		return true
-	}
-	return false
-}
+// func rightFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
+// 	if !beforeOK {
+// 		return false
+// 	}
+// 	if isWhitespace(before) {
+// 		return false
+// 	}
+// 	if !isPunctuation(before) {
+// 		return true
+// 	}
+// 	if !afterOK {
+// 		return true
+// 	}
+// 	if isWhitespace(after) {
+// 		return true
+// 	}
+// 	if isPunctuation(after) {
+// 		return true
+// 	}
+// 	return false
+// }
 
 func isWhitespace(r rune) bool {
 	return unicode.IsSpace(r)
@@ -838,33 +859,33 @@ func isPunctuation(r rune) bool {
 	return unicode.IsPunct(r)
 }
 
-func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {
-	switch n := inl.(type) {
-	case ast.Link:
-		return n.Span, true
-
-	case ast.Em:
-		return n.Span, true
-
-	case ast.Strong:
-		return n.Span, true
-
-	case ast.Text:
-		return n.Span, true
-
-	case ast.RawText:
-		return n.Span, true
-
-	case ast.HardBreak:
-		return n.Span, true
-
-	case ast.SoftBreak:
-		return n.Span, true
-
-	case ast.Newline:
-		return n.Span, true
-
-	default:
-		return source.ByteSpan{}, false
-	}
-}
+// func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {
+// 	switch n := inl.(type) {
+// 	case ast.Link:
+// 		return n.Span, true
+//
+// 	case ast.Em:
+// 		return n.Span, true
+//
+// 	case ast.Strong:
+// 		return n.Span, true
+//
+// 	case ast.Text:
+// 		return n.Span, true
+//
+// 	case ast.RawText:
+// 		return n.Span, true
+//
+// 	case ast.HardBreak:
+// 		return n.Span, true
+//
+// 	case ast.SoftBreak:
+// 		return n.Span, true
+//
+// 	case ast.Newline:
+// 		return n.Span, true
+//
+// 	default:
+// 		return source.ByteSpan{}, false
+// 	}
+// }

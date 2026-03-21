@@ -16,24 +16,10 @@ var (
 func Build(src *source.Source, span source.ByteSpan, tokens []Token) ([]ast.Inline, error) {
 	c := NewCursor(src, span, tokens)
 
-	_ = c
+	inlines, err := c.Build()
+	if err != nil {
+		return []ast.Inline{}, err
+	}
 
-	return []ast.Inline{}, nil
-
-	// err := c.Gather()
-	// if err != nil {
-	// 	return []ast.Inline{}, err
-	// }
-	//
-	// err = c.Resolve()
-	// if err != nil {
-	// 	return []ast.Inline{}, err
-	// }
-	//
-	// inlines, err := c.Finalize()
-	// if err != nil {
-	// 	return []ast.Inline{}, err
-	// }
-	//
-	// return inlines, nil
+	return inlines, err
 }

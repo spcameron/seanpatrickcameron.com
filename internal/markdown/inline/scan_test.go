@@ -15,9 +15,13 @@ func TestScan(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "empty input",
-			input:   "",
-			want:    []TokenSummary{},
+			name:  "empty input",
+			input: "",
+			want: []TokenSummary{
+				{
+					Kind: TokenEOF,
+				},
+			},
 			wantErr: nil,
 		},
 		{
@@ -27,6 +31,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenText,
 					Lexeme: "abc",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -39,6 +46,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenText,
 					Lexeme: " $.;'",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -49,6 +59,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenText,
 					Lexeme: "a   b   c",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -61,6 +74,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenStarDelimiter,
 					Lexeme: "*",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -71,6 +87,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenUnderscoreDelimiter,
 					Lexeme: "_",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -83,6 +102,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenBacktick,
 					Lexeme: "`",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -93,6 +115,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenOpenBracket,
 					Lexeme: "[",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -105,6 +130,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenCloseBracket,
 					Lexeme: "]",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -115,6 +143,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenOpenParen,
 					Lexeme: "(",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -127,6 +158,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenCloseParen,
 					Lexeme: ")",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -137,6 +171,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenOpenAngle,
 					Lexeme: "<",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,
@@ -149,6 +186,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenCloseAngle,
 					Lexeme: ">",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -160,6 +200,9 @@ func TestScan(t *testing.T) {
 					Kind:   TokenBang,
 					Lexeme: "!",
 				},
+				{
+					Kind: TokenEOF,
+				},
 			},
 			wantErr: nil,
 		},
@@ -170,6 +213,9 @@ func TestScan(t *testing.T) {
 				{
 					Kind:   TokenImageOpenBracket,
 					Lexeme: "![",
+				},
+				{
+					Kind: TokenEOF,
 				},
 			},
 			wantErr: nil,

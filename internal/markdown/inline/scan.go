@@ -10,8 +10,20 @@ func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
 
 	tokens := []Token{}
 	for {
+		// repeatedly call Next to emit tokens
 		token, ok := scanner.Next()
 		if !ok {
+			// if EOF, append TokenEOF and break
+			anchor := source.ByteSpan{
+				Start: scanner.Base + source.BytePos(scanner.Position),
+				End:   scanner.Base + source.BytePos(scanner.Position),
+			}
+
+			tokens = append(tokens, Token{
+				Span: anchor,
+				Kind: TokenEOF,
+			})
+
 			break
 		}
 

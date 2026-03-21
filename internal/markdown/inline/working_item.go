@@ -5,35 +5,35 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-type WorkingItem interface {
-	isWorkingItem()
+type InlineItem interface {
+	isInlineItem()
 }
 
 type TextItem struct {
 	Span source.ByteSpan
 }
 
-func (*TextItem) isWorkingItem() {}
+func (*TextItem) isInlineItem() {}
 
 type DelimiterItem struct {
 	Span      source.ByteSpan
 	Delimiter byte
 }
 
-func (*DelimiterItem) isWorkingItem() {}
+func (*DelimiterItem) isInlineItem() {}
 
 type NodeItem struct {
 	Span source.ByteSpan
 	Node ast.Inline
 }
 
-func (*NodeItem) isWorkingItem() {}
+func (*NodeItem) isInlineItem() {}
 
 type ConsumedItem struct {
 	Span source.ByteSpan
 }
 
-func (*ConsumedItem) isWorkingItem() {}
+func (*ConsumedItem) isInlineItem() {}
 
 // type TokenKind int
 //

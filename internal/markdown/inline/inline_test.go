@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
@@ -50,6 +51,9 @@ func (ts TokenSummary) String() string {
 	case TokenImageOpenBracket:
 		return `image_open_bracket("![")`
 
+	case TokenEOF:
+		return "EOF"
+
 	default:
 		return fmt.Sprintf("unknown_token(%d, %q)", ts.Kind, ts.Lexeme)
 	}
@@ -68,66 +72,6 @@ func summarizeTokens(src *source.Source, tokens []Token) []TokenSummary {
 	}
 
 	return summary
-}
-
-type CursorSummary struct {
-	WorkingItems []WorkingItemSummary
-	Delimiters   []DelimiterSummary
-	Brackets     []BracketSummary
-}
-
-func (s CursorSummary) String() string {
-	var b strings.Builder
-
-	b.WriteString("Working:\n")
-	for i, w := range s.WorkingItems {
-		fmt.Fprintf(&b, "  [%d] %s\n", i, w.String())
-	}
-
-	b.WriteString("Delimiters:\n")
-	for i, d := range s.Delimiters {
-		fmt.Fprintf(&b, "  [%d] %s\n", i, d.String())
-	}
-
-	b.WriteString("Brackets:\n")
-	for i, br := range s.Brackets {
-		fmt.Fprintf(&b, "  [%d] %s\n", i, br.String())
-	}
-
-	return b.String()
-}
-
-type WorkingItemSummary struct {
-	Kind      string
-	Lexeme    string
-	Delimiter byte
-	Token     string
-	Node      *InlineSummary
-}
-
-func (w WorkingItemSummary) String() string {
-	switch w.Kind {
-	case "text":
-		return fmt.Sprintf("text(%q)", w.Lexeme)
-
-	case "delimiter":
-		return fmt.Sprintf("delimiter(%q)", w.Lexeme)
-
-	case "token":
-		return fmt.Sprintf("%s(%q)", w.Token, w.Lexeme)
-
-	case "node":
-		if w.Node != nil {
-			return fmt.Sprintf("node(%s, %q)", w.Node.String(), w.Lexeme)
-		}
-		return fmt.Sprintf("node(%q)", w.Lexeme)
-
-	case "consumed":
-		return "consumed"
-
-	default:
-		return fmt.Sprintf("unknown(%s)", w.Kind)
-	}
 }
 
 type InlineSummary struct {
@@ -160,77 +104,203 @@ func (s InlineSummary) String() string {
 	}
 }
 
-type DelimiterSummary struct {
-	Lexeme       string
-	Delimiter    byte
-	OriginalRun  int
-	RemainingRun int
-	CanOpen      bool
-	CanClose     bool
-	ItemIndex    int
-}
+func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
+	switch n := inl.(type) {
+	case ast.Link:
+		return &InlineSummary{
+			Kind:     "link",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
 
-func (d DelimiterSummary) String() string {
-	return fmt.Sprintf(
-		"%q run=%d rem=%d open=%t close=%t item=%d",
-		d.Lexeme,
-		d.OriginalRun,
-		d.RemainingRun,
-		d.CanOpen,
-		d.CanClose,
-		d.ItemIndex,
-	)
-}
+	case ast.Em:
+		return &InlineSummary{
+			Kind:     "emphasis",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
 
-type BracketSummary struct {
-	Lexeme    string
-	ItemIndex int
-	Active    bool
-}
+	case ast.Strong:
+		return &InlineSummary{
+			Kind:     "strong",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
 
-func (b BracketSummary) String() string {
-	return fmt.Sprintf(
-		"%q active=%t item=%d",
-		b.Lexeme,
-		b.Active,
-		b.ItemIndex,
-	)
-}
+	case ast.Text:
+		return &InlineSummary{
+			Kind:   "text",
+			Lexeme: src.Slice(n.Span),
+		}
 
-type EventSummary struct {
-	Kind      EventKind
-	Lexeme    string
-	Delimiter byte
-	RunLength int
-}
+	case ast.RawText:
+		return &InlineSummary{
+			Kind:   "raw_text",
+			Lexeme: src.Slice(n.Span),
+		}
 
-func (es EventSummary) String() string {
-	switch es.Kind {
-	case EventText:
-		return fmt.Sprintf("text(%q)", es.Lexeme)
+	case ast.HardBreak:
+		return &InlineSummary{
+			Kind:   "hard_break",
+			Lexeme: src.Slice(n.Span),
+		}
 
-	case EventDelimiterRun:
-		return fmt.Sprintf("delimiter(%q)", es.Lexeme)
+	case ast.SoftBreak:
+		return &InlineSummary{
+			Kind:   "soft_break",
+			Lexeme: src.Slice(n.Span),
+		}
 
-	case EventOpenBracket:
-		return `open_bracket("[")`
-
-	case EventCloseBracket:
-		return `close_bracket("]")`
-
-	case EventOpenParen:
-		return `open_paren("(")`
-
-	case EventCloseParen:
-		return `close_paren(")")`
-
-	case EventIllegalNewline:
-		return `illegal_newline("\n")`
+	case ast.Newline:
+		return &InlineSummary{
+			Kind:   "newline",
+			Lexeme: src.Slice(n.Span),
+		}
 
 	default:
-		return fmt.Sprintf("unknown_event(%s, %q)", es.Kind, es.Lexeme)
+		panic("unknown ast.Inline type")
 	}
 }
+
+func summarizeInlines(src *source.Source, inlines []ast.Inline) []InlineSummary {
+	out := make([]InlineSummary, 0, len(inlines))
+	for _, inl := range inlines {
+		out = append(out, *summarizeInline(src, inl))
+	}
+	return out
+}
+
+// type CursorSummary struct {
+// 	WorkingItems []WorkingItemSummary
+// 	Delimiters   []DelimiterSummary
+// 	Brackets     []BracketSummary
+// }
+//
+// func (s CursorSummary) String() string {
+// 	var b strings.Builder
+//
+// 	b.WriteString("Working:\n")
+// 	for i, w := range s.WorkingItems {
+// 		fmt.Fprintf(&b, "  [%d] %s\n", i, w.String())
+// 	}
+//
+// 	b.WriteString("Delimiters:\n")
+// 	for i, d := range s.Delimiters {
+// 		fmt.Fprintf(&b, "  [%d] %s\n", i, d.String())
+// 	}
+//
+// 	b.WriteString("Brackets:\n")
+// 	for i, br := range s.Brackets {
+// 		fmt.Fprintf(&b, "  [%d] %s\n", i, br.String())
+// 	}
+//
+// 	return b.String()
+// }
+//
+// type WorkingItemSummary struct {
+// 	Kind      string
+// 	Lexeme    string
+// 	Delimiter byte
+// 	Token     string
+// 	Node      *InlineSummary
+// }
+//
+// func (w WorkingItemSummary) String() string {
+// 	switch w.Kind {
+// 	case "text":
+// 		return fmt.Sprintf("text(%q)", w.Lexeme)
+//
+// 	case "delimiter":
+// 		return fmt.Sprintf("delimiter(%q)", w.Lexeme)
+//
+// 	case "token":
+// 		return fmt.Sprintf("%s(%q)", w.Token, w.Lexeme)
+//
+// 	case "node":
+// 		if w.Node != nil {
+// 			return fmt.Sprintf("node(%s, %q)", w.Node.String(), w.Lexeme)
+// 		}
+// 		return fmt.Sprintf("node(%q)", w.Lexeme)
+//
+// 	case "consumed":
+// 		return "consumed"
+//
+// 	default:
+// 		return fmt.Sprintf("unknown(%s)", w.Kind)
+// 	}
+// }
+
+// type DelimiterSummary struct {
+// 	Lexeme       string
+// 	Delimiter    byte
+// 	OriginalRun  int
+// 	RemainingRun int
+// 	CanOpen      bool
+// 	CanClose     bool
+// 	ItemIndex    int
+// }
+//
+// func (d DelimiterSummary) String() string {
+// 	return fmt.Sprintf(
+// 		"%q run=%d rem=%d open=%t close=%t item=%d",
+// 		d.Lexeme,
+// 		d.OriginalRun,
+// 		d.RemainingRun,
+// 		d.CanOpen,
+// 		d.CanClose,
+// 		d.ItemIndex,
+// 	)
+// }
+//
+// type BracketSummary struct {
+// 	Lexeme    string
+// 	ItemIndex int
+// 	Active    bool
+// }
+//
+// func (b BracketSummary) String() string {
+// 	return fmt.Sprintf(
+// 		"%q active=%t item=%d",
+// 		b.Lexeme,
+// 		b.Active,
+// 		b.ItemIndex,
+// 	)
+// }
+//
+// type EventSummary struct {
+// 	Kind      EventKind
+// 	Lexeme    string
+// 	Delimiter byte
+// 	RunLength int
+// }
+//
+// func (es EventSummary) String() string {
+// 	switch es.Kind {
+// 	case EventText:
+// 		return fmt.Sprintf("text(%q)", es.Lexeme)
+//
+// 	case EventDelimiterRun:
+// 		return fmt.Sprintf("delimiter(%q)", es.Lexeme)
+//
+// 	case EventOpenBracket:
+// 		return `open_bracket("[")`
+//
+// 	case EventCloseBracket:
+// 		return `close_bracket("]")`
+//
+// 	case EventOpenParen:
+// 		return `open_paren("(")`
+//
+// 	case EventCloseParen:
+// 		return `close_paren(")")`
+//
+// 	case EventIllegalNewline:
+// 		return `illegal_newline("\n")`
+//
+// 	default:
+// 		return fmt.Sprintf("unknown_event(%s, %q)", es.Kind, es.Lexeme)
+// 	}
+// }
 
 // func summarizeCursor(c *Cursor) CursorSummary {
 // 	summary := CursorSummary{
@@ -287,72 +357,6 @@ func (es EventSummary) String() string {
 // 	return summary
 // }
 
-// func summarizeInline(src *source.Source, inl ast.Inline) *InlineSummary {
-// 	switch n := inl.(type) {
-// 	case ast.Link:
-// 		return &InlineSummary{
-// 			Kind:     "link",
-// 			Lexeme:   src.Slice(n.Span),
-// 			Children: summarizeInlines(src, n.Children),
-// 		}
-//
-// 	case ast.Em:
-// 		return &InlineSummary{
-// 			Kind:     "emphasis",
-// 			Lexeme:   src.Slice(n.Span),
-// 			Children: summarizeInlines(src, n.Children),
-// 		}
-//
-// 	case ast.Strong:
-// 		return &InlineSummary{
-// 			Kind:     "strong",
-// 			Lexeme:   src.Slice(n.Span),
-// 			Children: summarizeInlines(src, n.Children),
-// 		}
-//
-// 	case ast.Text:
-// 		return &InlineSummary{
-// 			Kind:   "text",
-// 			Lexeme: src.Slice(n.Span),
-// 		}
-//
-// 	case ast.RawText:
-// 		return &InlineSummary{
-// 			Kind:   "raw_text",
-// 			Lexeme: src.Slice(n.Span),
-// 		}
-//
-// 	case ast.HardBreak:
-// 		return &InlineSummary{
-// 			Kind:   "hard_break",
-// 			Lexeme: src.Slice(n.Span),
-// 		}
-//
-// 	case ast.SoftBreak:
-// 		return &InlineSummary{
-// 			Kind:   "soft_break",
-// 			Lexeme: src.Slice(n.Span),
-// 		}
-//
-// 	case ast.Newline:
-// 		return &InlineSummary{
-// 			Kind:   "newline",
-// 			Lexeme: src.Slice(n.Span),
-// 		}
-//
-// 	default:
-// 		panic("unknown ast.Inline type")
-// 	}
-// }
-
-// func summarizeInlines(src *source.Source, inlines []ast.Inline) []InlineSummary {
-// 	out := make([]InlineSummary, 0, len(inlines))
-// 	for _, inl := range inlines {
-// 		out = append(out, *summarizeInline(src, inl))
-// 	}
-// 	return out
-// }
-
 // func summarizeDelimiters(src *source.Source, delims []*DelimiterRecord) []DelimiterSummary {
 // 	summary := make([]DelimiterSummary, 0, len(delims))
 //
@@ -373,16 +377,16 @@ func (es EventSummary) String() string {
 // 	return summary
 // }
 
-func summarizeBrackets(src *source.Source, brackets []*BracketRecord) []BracketSummary {
-	summary := make([]BracketSummary, 0, len(brackets))
-
-	for _, br := range brackets {
-		summary = append(summary, BracketSummary{
-			Lexeme:    src.Slice(br.Span),
-			ItemIndex: br.ItemIndex,
-			Active:    br.Active,
-		})
-	}
-
-	return summary
-}
+// func summarizeBrackets(src *source.Source, brackets []*BracketRecord) []BracketSummary {
+// 	summary := make([]BracketSummary, 0, len(brackets))
+//
+// 	for _, br := range brackets {
+// 		summary = append(summary, BracketSummary{
+// 			Lexeme:    src.Slice(br.Span),
+// 			ItemIndex: br.ItemIndex,
+// 			Active:    br.Active,
+// 		})
+// 	}
+//
+// 	return summary
+// }
