@@ -221,6 +221,20 @@ func TestScan(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:  "backslash",
+			input: `\`,
+			want: []TokenSummary{
+				{
+					Kind:   TokenBackSlash,
+					Lexeme: `\`,
+				},
+				{
+					Kind: TokenEOF,
+				},
+			},
+			wantErr: nil,
+		},
+		{
 			name:  "backtick run",
 			input: "```",
 			want: []TokenSummary{

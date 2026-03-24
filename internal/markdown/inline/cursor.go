@@ -2,7 +2,7 @@ package inline
 
 import (
 	"fmt"
-	"unicode"
+	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
@@ -48,6 +48,98 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		case TokenBacktick:
 			c.handleTokenBacktick()
 
+		case TokenOpenAngle:
+			openerIdx := c.Index - 1
+			openerToken := c.Tokens[openerIdx]
+
+			// search for the first close angle token
+			closerIdx := openerIdx + 1
+			for closerIdx < len(c.Tokens) {
+				next := c.Tokens[closerIdx]
+				if next.Kind != TokenCloseAngle {
+					closerIdx++
+					continue
+				}
+
+				break
+			}
+
+			// if no close angle token found, append the open angle token as text
+			if closerIdx == len(c.Tokens) {
+				c.appendItemRecord(openerToken.Span, ItemText)
+				continue
+			}
+
+			// define the outer span (including angle brackets)
+			outerSpan := source.ByteSpan{
+				Start: c.Tokens[openerIdx].Span.Start,
+				End:   c.Tokens[closerIdx].Span.End,
+			}
+
+			// define the content span (excluding angle brackets)
+			contentSpan := source.ByteSpan{
+				Start: c.Tokens[openerIdx].Span.End,
+				End:   c.Tokens[closerIdx].Span.Start,
+			}
+			contentSlice := c.Source.Slice(contentSpan)
+
+			// check if the content span is a valid URI autolink
+			if validateURI(contentSlice) {
+				c.appendItemRecord(outerSpan, ItemAutolinkURI)
+				c.Index = closerIdx + 1
+				continue
+			}
+
+			// check if the content span is a valid email autolink
+			if validateEmail(contentSlice) {
+				c.appendItemRecord(outerSpan, ItemAutolinkEmail)
+				c.Index = closerIdx + 1
+				continue
+			}
+
+			// extract the span and string from the opening token to the end of the inline
+			candidateSpan := source.ByteSpan{
+				Start: openerToken.Span.Start,
+				End:   c.Span.End,
+			}
+			s := c.Source.Slice(candidateSpan)
+
+			// try to find a valid inline HTML construct, and otherwise return the token as plain text
+			width, ok := tryInlineHTML(s)
+			if !ok {
+				c.appendItemRecord(openerToken.Span, ItemText)
+			}
+
+			// if valid inline HTML is found, update the candidate span to match
+			candidateSpan.End = openerToken.Span.Start + source.BytePos(width)
+
+			// recreate the closing angle bracket's span based on the candidate span
+			targetSpan := source.ByteSpan{
+				Start: candidateSpan.End - 1,
+				End:   candidateSpan.End,
+			}
+
+			// locate the token for this closing angle bracket by matching spans
+			candidateCloserIdx := -1
+			for i := openerIdx; i < len(c.Tokens); i++ {
+				tok := c.Tokens[i]
+				if tok.Span == targetSpan {
+					candidateCloserIdx = i
+					break
+				}
+			}
+
+			if candidateCloserIdx == -1 {
+				panic("candidate closing index found during byte-traversal search, but no matching token could be found in the token stream")
+			}
+
+			c.appendItemRecord(candidateSpan, ItemHTML)
+			c.Index = candidateCloserIdx + 1
+			continue
+
+		case TokenCloseAngle:
+			c.appendItemRecord(token.Span, ItemText)
+
 		default:
 			panic(fmt.Sprintf("unknown token kind encountered (%d)", token.Kind))
 		}
@@ -69,12 +161,59 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		case ItemCodeSpan:
 			contentSlice := c.Source.Slice(item.OriginalSpan)
 
-			if len(contentSlice) > 0 && isSpace(contentSlice[0]) && isSpace(contentSlice[len(contentSlice)-1]) && !isAllSpaces(contentSlice) {
+			if len(contentSlice) > 0 &&
+				isSpace(contentSlice[0]) &&
+				isSpace(contentSlice[len(contentSlice)-1]) &&
+				!isAllSpaces(contentSlice) {
 				item.LiveSpan.Start++
 				item.LiveSpan.End--
 			}
 
 			node := ast.CodeSpan{
+				Span: item.LiveSpan,
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemAutolinkURI:
+			contentSpan := source.ByteSpan{
+				Start: item.LiveSpan.Start + 1,
+				End:   item.LiveSpan.End - 1,
+			}
+
+			node := ast.Link{
+				Span:        item.LiveSpan,
+				Destination: contentSpan,
+				Children: []ast.Inline{
+					ast.Text{
+						Span: contentSpan,
+					},
+				},
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemAutolinkEmail:
+			contentSpan := source.ByteSpan{
+				Start: item.LiveSpan.Start + 1,
+				End:   item.LiveSpan.End - 1,
+			}
+
+			node := ast.Link{
+				Span:        item.LiveSpan,
+				Destination: contentSpan,
+				MailTo:      true,
+				Children: []ast.Inline{
+					ast.Text{
+						Span: contentSpan,
+					},
+				},
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemHTML:
+			node := ast.RawText{
 				Span: item.LiveSpan,
 			}
 
@@ -95,6 +234,7 @@ func (c *Cursor) handleTokenBacktick() {
 	openerToken := c.Tokens[openerIdx]
 	openerWidth := openerToken.Span.Width()
 
+	// search for a closing backtick token with the same length as the opener
 	closerIdx := openerIdx + 1
 	for closerIdx < len(c.Tokens) {
 		next := c.Tokens[closerIdx]
@@ -111,16 +251,19 @@ func (c *Cursor) handleTokenBacktick() {
 		break
 	}
 
-	if closerIdx == len(c.Tokens) {
+	// if no matching closer is found, append the opening token as plain text and return
+	if closerIdx >= len(c.Tokens) {
 		c.appendItemRecord(openerToken.Span, ItemText)
 		return
 	}
 
+	// define the exclusive span between the backtick delimiters
 	contentSpan := source.ByteSpan{
 		Start: c.Tokens[openerIdx].Span.End,
 		End:   c.Tokens[closerIdx].Span.Start,
 	}
 
+	// append the item to the item record list and advance the index past the closer backtick token
 	c.appendItemRecord(contentSpan, ItemCodeSpan)
 	c.Index = closerIdx + 1
 }
@@ -903,12 +1046,308 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 // 	return false
 // }
 
-func isWhitespace(r rune) bool {
-	return unicode.IsSpace(r)
+func validateURI(s string) bool {
+	idx := 0
+	for idx < len(s) {
+		if s[idx] == ':' {
+			break
+		}
+		idx++
+	}
+
+	if idx == len(s) {
+		return false
+	}
+
+	scheme := s[:idx]
+	rest := s[idx+1:]
+
+	// validate the scheme length
+	if len(scheme) < 2 || len(scheme) > 32 {
+		return false
+	}
+
+	// validate the first scheme character
+	b := scheme[0]
+	if !isAlpha(b) {
+		return false
+	}
+
+	// validate the scheme characters
+	for i := 1; i < len(scheme); i++ {
+		b := scheme[i]
+		if isAlpha(b) || isDigit(b) {
+			continue
+		}
+
+		if b == '+' || b == '.' || b == '-' {
+			continue
+		}
+
+		return false
+	}
+
+	// validate the rest of the URI
+	for i := 0; i < len(rest); i++ {
+		b := rest[i]
+		if b < 0x20 || b == 0x7F {
+			return false
+		}
+
+		if b == ' ' || b == '<' || b == '>' {
+			return false
+		}
+	}
+
+	return true
 }
 
-func isPunctuation(r rune) bool {
-	return unicode.IsPunct(r)
+func validateEmail(s string) bool {
+	idx := -1
+	for i := 0; i < len(s); i++ {
+		if s[i] != '@' {
+			continue
+		}
+		if idx != -1 {
+			return false
+		}
+		idx = i
+	}
+
+	if idx == -1 {
+		return false
+	}
+
+	local := s[:idx]
+	domain := s[idx+1:]
+
+	if len(local) == 0 || len(domain) == 0 {
+		return false
+	}
+
+	for i := 0; i < len(local); i++ {
+		b := local[i]
+		if isAlpha(b) || isDigit(b) || isEmailLocalSpecial(b) {
+			continue
+		}
+
+		return false
+	}
+
+	for label := range strings.SplitSeq(domain, ".") {
+		if len(label) < 1 || len(label) > 63 {
+			return false
+		}
+
+		firstByte := label[0]
+		if !isAlpha(firstByte) && !isDigit(firstByte) {
+			return false
+		}
+
+		lastByte := label[len(label)-1]
+		if !isAlpha(lastByte) && !isDigit(lastByte) {
+			return false
+		}
+
+		for i := 0; i < len(label); i++ {
+			b := label[i]
+			if isAlpha(b) || isDigit(b) || b == '-' {
+				continue
+			}
+
+			return false
+		}
+	}
+
+	return true
+}
+
+func tryInlineHTML(s string) (int, bool) {
+	if len(s) < 2 {
+		return 0, false
+	}
+
+	switch s[1] {
+	case '!':
+		if n, ok := tryHTMLComment(s); ok {
+			return n, true
+		}
+
+		if n, ok := tryHTMLCDATA(s); ok {
+			return n, true
+		}
+
+		if n, ok := tryHTMLDeclaration(s); ok {
+			return n, true
+		}
+
+	case '?':
+		if n, ok := tryHTMLProcessingInstruction(s); ok {
+			return n, true
+		}
+
+	case '/':
+		if n, ok := tryHTMLClosingTag(s); ok {
+			return n, true
+		}
+
+	default:
+		if n, ok := tryHTMLOpenTag(s); ok {
+			return n, true
+		}
+	}
+
+	return 0, false
+}
+
+func tryHTMLComment(s string) (int, bool) {
+	return 0, false
+}
+
+func tryHTMLProcessingInstruction(s string) (int, bool) {
+	return 0, false
+}
+
+func tryHTMLDeclaration(s string) (int, bool) {
+	return 0, false
+}
+
+func tryHTMLCDATA(s string) (int, bool) {
+	return 0, false
+}
+
+func tryHTMLOpenTag(s string) (int, bool) {
+	// NOTE: 1: candidate end detection
+	insideSingleQuote := false
+	insideDoubleQuote := false
+
+	// traverse the string and break on the first unquoted closing angle bracket
+	pos := 1
+	for pos < len(s) {
+		b := s[pos]
+		// only toggle the double quote status if not inside single quotes
+		if b == '"' && !insideSingleQuote {
+			insideDoubleQuote = !insideDoubleQuote
+		}
+
+		// only toggle the single quote status if not inside double quotes
+		if b == '\'' && !insideDoubleQuote {
+			insideSingleQuote = !insideSingleQuote
+		}
+
+		// only break on closing angle brackets if not inside quoted material
+		if b == '>' && !insideSingleQuote && !insideDoubleQuote {
+			break
+		}
+
+		pos++
+	}
+
+	// no terminating '>' found outside of quotes, not a valid tag candidate
+	if pos == len(s) {
+		return 0, false
+	}
+
+	last := pos      // index of the closing '>'
+	width := pos + 1 // total width of the candidate slice
+	candidate := s[:width]
+
+	// local helper
+	consumeSpacesTabs := func(i int) int {
+		for i < last && (candidate[i] == ' ' || candidate[i] == '\t') {
+			i++
+		}
+		return i
+	}
+
+	// must begin with '<' and end with '>'
+	if candidate[0] != '<' || candidate[last] != '>' {
+		return 0, false
+	}
+
+	// NOTE: 2: tag name parsing
+
+	// validate the tag name
+	// the first byte after '<' must be an ASCII letter
+	idx := 1
+	if !isAlpha(candidate[idx]) {
+		return 0, false
+	}
+	idx++
+
+	// consume maximal tag name
+	for idx < last {
+		b := candidate[idx]
+		if isAlpha(b) || isDigit(b) || b == '-' {
+			idx++
+			continue
+		}
+		break
+	}
+
+	// NOTE: 3: tail parsing
+
+	// form is <tag>
+	if idx == last {
+		return width, true
+	}
+
+	// form is <tag/> or <tag /...>
+	if candidate[idx] == '/' {
+		idx++
+		idx = consumeSpacesTabs(idx)
+		if idx == last {
+			return width, true
+		}
+		return 0, false
+	}
+
+	// general tail, attributes must be preceded by at least one space/tab
+	for {
+		mark := idx
+
+		// consume separator whitespace between elements
+		idx = consumeSpacesTabs(idx)
+
+		// valid end
+		if idx == last {
+			return width, true
+		}
+
+		// self-closing suffix after whitespace
+		if candidate[idx] == '/' {
+			idx++
+			idx = consumeSpacesTabs(idx)
+			if idx == last {
+				return width, true
+			}
+			return 0, false
+		}
+
+		// no separator consumed, cannot begin an attribute
+		if mark == idx {
+			return 0, false
+		}
+
+		// parse a single attribute (name + optional value)
+		next, ok := tryHTMLAttribute(candidate, idx, last)
+
+		// must succeed and must make forward progress
+		if !ok || next <= idx {
+			return 0, false
+		}
+
+		idx = next
+	}
+}
+
+func tryHTMLClosingTag(s string) (int, bool) {
+	return 0, false
+}
+
+// TODO:
+func tryHTMLAttribute(string, int, int) (int, bool) {
+	return 0, false
 }
 
 func isSpace(b byte) bool {
@@ -924,6 +1363,31 @@ func isAllSpaces(s string) bool {
 
 	return true
 }
+
+func isAlpha(b byte) bool {
+	return 'A' <= b && b <= 'Z' || 'a' <= b && b <= 'z'
+}
+
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
+}
+
+func isEmailLocalSpecial(b byte) bool {
+	switch b {
+	case '.', '!', '#', '$', '%', '&', '\'', '*', '+',
+		'/', '=', '?', '^', '_', '`', '{', '|', '}', '~', '-':
+		return true
+	}
+	return false
+}
+
+// func isWhitespace(r rune) bool {
+// 	return unicode.IsSpace(r)
+// }
+
+// func isPunctuation(r rune) bool {
+// 	return unicode.IsPunct(r)
+// }
 
 // func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {
 // 	switch n := inl.(type) {

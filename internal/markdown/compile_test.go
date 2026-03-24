@@ -634,6 +634,18 @@ func TestCompile(t *testing.T) {
 			want:    `<p><code>foo</code></p>`,
 			wantErr: nil,
 		},
+		{
+			name:    "link: autolink uri",
+			md:      "<http://foo.bar.baz>",
+			want:    `<p><a href="http://foo.bar.baz">http://foo.bar.baz</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: autolink email",
+			md:      "<foo@bar.example.com>",
+			want:    `<p><a href="mailto:foo@bar.example.com">foo@bar.example.com</a></p>`,
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

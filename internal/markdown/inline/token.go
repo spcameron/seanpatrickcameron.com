@@ -20,6 +20,7 @@ const (
 	TokenCloseAngle
 	TokenBang
 	TokenImageOpenBracket
+	TokenBackSlash
 	TokenEOF
 )
 

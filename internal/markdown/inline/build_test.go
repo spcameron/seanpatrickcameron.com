@@ -98,6 +98,84 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "autolink: absolute URI",
+			input: "<http://foo.bar.baz>",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "<http://foo.bar.baz>",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "http://foo.bar.baz",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "autolink: email",
+			input: "<local@domain.com>",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "<local@domain.com>",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "local@domain.com",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: simple open tag",
+			input: "<a>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<a>",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: open tag with trailing whitespace",
+			input: "<a >",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<a >",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: self-closing open tag",
+			input: "<a/>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<a/>",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: self-closing open tag with whitespace",
+			input: "<a />",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<a />",
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

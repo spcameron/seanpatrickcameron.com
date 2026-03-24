@@ -8,6 +8,10 @@ const (
 	_ ItemKind = iota
 	ItemText
 	ItemCodeSpan
+	ItemLink
+	ItemAutolinkURI
+	ItemAutolinkEmail
+	ItemHTML
 )
 
 type ItemRecord struct {
@@ -27,7 +31,7 @@ func (r *ItemRecord) Next() *ItemRecord {
 	return nil
 }
 
-// PRev returns the previous list ItemRecord or nil.
+// Prev returns the previous list ItemRecord or nil.
 func (r *ItemRecord) Prev() *ItemRecord {
 	if p := r.prev; r.list != nil && p != &r.list.root {
 		return p

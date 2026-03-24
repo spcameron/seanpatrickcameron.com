@@ -332,8 +332,13 @@ func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 		return nil, err
 	}
 
+	href := src.Slice(inl.Destination)
+	if inl.MailTo {
+		href = "mailto:" + href
+	}
+
 	attr := html.Attributes{
-		"href": src.Slice(inl.Destination),
+		"href": href,
 	}
 
 	if inl.Title != (source.ByteSpan{}) {

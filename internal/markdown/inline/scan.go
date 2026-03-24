@@ -137,6 +137,9 @@ func (s *Scanner) Special() (TokenKind, int, bool) {
 		}
 		return TokenBang, 1, true
 
+	case '\\':
+		return TokenBackSlash, 1, true
+
 	case '\n':
 		panic("illegal newline character encountered during inline parsing")
 

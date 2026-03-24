@@ -14,7 +14,7 @@ type CodeSpan struct {
 	Span source.ByteSpan
 }
 
-func (c CodeSpan) isInline() {}
+func (CodeSpan) isInline() {}
 
 func (c CodeSpan) String() string {
 	return "[CodeSpan]"
@@ -25,6 +25,7 @@ type Link struct {
 	Label       source.ByteSpan
 	Destination source.ByteSpan
 	Title       source.ByteSpan
+	MailTo      bool
 	Children    []Inline
 }
 
