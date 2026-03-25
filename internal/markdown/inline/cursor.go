@@ -49,93 +49,7 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			c.handleTokenBacktick()
 
 		case TokenOpenAngle:
-			openerIdx := c.Index - 1
-			openerToken := c.Tokens[openerIdx]
-
-			// search for the first close angle token
-			closerIdx := openerIdx + 1
-			for closerIdx < len(c.Tokens) {
-				next := c.Tokens[closerIdx]
-				if next.Kind != TokenCloseAngle {
-					closerIdx++
-					continue
-				}
-
-				break
-			}
-
-			// if no close angle token found, append the open angle token as text
-			if closerIdx == len(c.Tokens) {
-				c.appendItemRecord(openerToken.Span, ItemText)
-				continue
-			}
-
-			// define the outer span (including angle brackets)
-			outerSpan := source.ByteSpan{
-				Start: c.Tokens[openerIdx].Span.Start,
-				End:   c.Tokens[closerIdx].Span.End,
-			}
-
-			// define the content span (excluding angle brackets)
-			contentSpan := source.ByteSpan{
-				Start: c.Tokens[openerIdx].Span.End,
-				End:   c.Tokens[closerIdx].Span.Start,
-			}
-			contentSlice := c.Source.Slice(contentSpan)
-
-			// check if the content span is a valid URI autolink
-			if validateURI(contentSlice) {
-				c.appendItemRecord(outerSpan, ItemAutolinkURI)
-				c.Index = closerIdx + 1
-				continue
-			}
-
-			// check if the content span is a valid email autolink
-			if validateEmail(contentSlice) {
-				c.appendItemRecord(outerSpan, ItemAutolinkEmail)
-				c.Index = closerIdx + 1
-				continue
-			}
-
-			// extract the span and string from the opening token to the end of the inline
-			candidateSpan := source.ByteSpan{
-				Start: openerToken.Span.Start,
-				End:   c.Span.End,
-			}
-			s := c.Source.Slice(candidateSpan)
-
-			// try to find a valid inline HTML construct, and otherwise return the token as plain text
-			width, ok := tryInlineHTML(s)
-			if !ok {
-				c.appendItemRecord(openerToken.Span, ItemText)
-			}
-
-			// if valid inline HTML is found, update the candidate span to match
-			candidateSpan.End = openerToken.Span.Start + source.BytePos(width)
-
-			// recreate the closing angle bracket's span based on the candidate span
-			targetSpan := source.ByteSpan{
-				Start: candidateSpan.End - 1,
-				End:   candidateSpan.End,
-			}
-
-			// locate the token for this closing angle bracket by matching spans
-			candidateCloserIdx := -1
-			for i := openerIdx; i < len(c.Tokens); i++ {
-				tok := c.Tokens[i]
-				if tok.Span == targetSpan {
-					candidateCloserIdx = i
-					break
-				}
-			}
-
-			if candidateCloserIdx == -1 {
-				panic("candidate closing index found during byte-traversal search, but no matching token could be found in the token stream")
-			}
-
-			c.appendItemRecord(candidateSpan, ItemHTML)
-			c.Index = candidateCloserIdx + 1
-			continue
+			c.handleTokenOpenAngle()
 
 		case TokenCloseAngle:
 			c.appendItemRecord(token.Span, ItemText)
@@ -266,6 +180,100 @@ func (c *Cursor) handleTokenBacktick() {
 	// append the item to the item record list and advance the index past the closer backtick token
 	c.appendItemRecord(contentSpan, ItemCodeSpan)
 	c.Index = closerIdx + 1
+}
+
+func (c *Cursor) handleTokenOpenAngle() {
+	openerIdx := c.Index - 1
+	openerToken := c.Tokens[openerIdx]
+
+	// search for the very next close angle token
+	closerIdx := openerIdx + 1
+	for closerIdx < len(c.Tokens) {
+		next := c.Tokens[closerIdx]
+		if next.Kind != TokenCloseAngle {
+			closerIdx++
+			continue
+		}
+
+		break
+	}
+	closerToken := c.Tokens[closerIdx]
+
+	// if no close angle token found, append the open angle token as text
+	if closerIdx == len(c.Tokens) {
+		c.appendItemRecord(openerToken.Span, ItemText)
+		return
+	}
+
+	// define the outer span (including angle brackets)
+	outerSpan := source.ByteSpan{
+		Start: openerToken.Span.Start,
+		End:   closerToken.Span.End,
+	}
+
+	// define the content span (excluding angle brackets)
+	contentSpan := source.ByteSpan{
+		Start: openerToken.Span.End,
+		End:   closerToken.Span.Start,
+	}
+
+	// extract the content slice
+	contentSlice := c.Source.Slice(contentSpan)
+
+	// check if the content span is a valid URI autolink
+	if validateURIAutolink(contentSlice) {
+		c.appendItemRecord(outerSpan, ItemAutolinkURI)
+		c.Index = closerIdx + 1
+		return
+	}
+
+	// check if the content span is a valid email autolink
+	if validateEmailAutolink(contentSlice) {
+		c.appendItemRecord(outerSpan, ItemAutolinkEmail)
+		c.Index = closerIdx + 1
+		return
+	}
+
+	// if autolinks fail, extract the span and matching string from the opening token
+	// through the very end of the line for use in a byte-wise search
+	candidateSpan := source.ByteSpan{
+		Start: openerToken.Span.Start,
+		End:   c.Span.End,
+	}
+	candidate := c.Source.Slice(candidateSpan)
+
+	// try to find a valid inline HTML construct, otherwise return the opening token as plain text
+	width, ok := tryInlineHTML(candidate)
+	if !ok {
+		c.appendItemRecord(openerToken.Span, ItemText)
+		return
+	}
+
+	// if valid inline HTML is detected, update the candidate span to match the width returned
+	candidateSpan.End = openerToken.Span.Start + source.BytePos(width)
+
+	// recreate the closing angle bracket token's span based on the candidate span
+	targetSpan := source.ByteSpan{
+		Start: candidateSpan.End - 1,
+		End:   candidateSpan.End,
+	}
+
+	// locate the matching token for this closing angle bracket by inspecting spans
+	candidateCloserIdx := -1
+	for i := openerIdx; i < len(c.Tokens); i++ {
+		tok := c.Tokens[i]
+		if tok.Span == targetSpan {
+			candidateCloserIdx = i
+			break
+		}
+	}
+
+	if candidateCloserIdx == -1 {
+		panic("candidate closing index found during byte-traversal search, but no matching token could be found in the token stream")
+	}
+
+	c.appendItemRecord(candidateSpan, ItemHTML)
+	c.Index = candidateCloserIdx + 1
 }
 
 func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemRecord {
@@ -1046,7 +1054,7 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 // 	return false
 // }
 
-func validateURI(s string) bool {
+func validateURIAutolink(s string) bool {
 	idx := 0
 	for idx < len(s) {
 		if s[idx] == ':' {
@@ -1102,7 +1110,7 @@ func validateURI(s string) bool {
 	return true
 }
 
-func validateEmail(s string) bool {
+func validateEmailAutolink(s string) bool {
 	idx := -1
 	for i := 0; i < len(s); i++ {
 		if s[i] != '@' {
@@ -1294,9 +1302,7 @@ func tryHTMLOpenTag(s string) (int, bool) {
 
 	// form is <tag/> or <tag /...>
 	if candidate[idx] == '/' {
-		idx++
-		idx = consumeSpacesTabs(idx)
-		if idx == last {
+		if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
 			return width, true
 		}
 		return 0, false
@@ -1316,9 +1322,7 @@ func tryHTMLOpenTag(s string) (int, bool) {
 
 		// self-closing suffix after whitespace
 		if candidate[idx] == '/' {
-			idx++
-			idx = consumeSpacesTabs(idx)
-			if idx == last {
+			if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
 				return width, true
 			}
 			return 0, false
@@ -1345,9 +1349,172 @@ func tryHTMLClosingTag(s string) (int, bool) {
 	return 0, false
 }
 
+func tryHTMLSelfClosingSuffix(s string, idx, last int) (int, bool) {
+	// the suffix must being with a forward slash
+	if idx >= last || s[idx] != '/' {
+		return 0, false
+	}
+	idx++
+
+	// consume any optional spaces or tabs after the slice
+	idx = consumeSpacesTabs(s, idx, last)
+
+	// the suffix is valid only if it runs directly up to the closing angle bracket
+	if idx != last {
+		return 0, false
+	}
+
+	return idx, true
+
+}
+
+func tryHTMLAttribute(s string, idx, last int) (int, bool) {
+	// TODO: extract to tryHTMLAttributeName
+
+	// validate the attribute name
+	// the first character must be an ASCII letter, '_', or ':'
+	if !isAlpha(s[idx]) && s[idx] != '_' && s[idx] != ':' {
+		return 0, false
+	}
+	idx++
+
+	// consume maximal attribute name:
+	// ASCII letters, digits, '_', '.', ':', or '-'
+	for idx < last {
+		b := s[idx]
+		if isAlpha(b) ||
+			isDigit(b) ||
+			b == '_' ||
+			b == '.' ||
+			b == ':' ||
+			b == '-' {
+			idx++
+			continue
+		}
+		break
+	}
+
+	// if attribute name advances up to the closing angle bracket,
+	// the attribute is a bare name with no value specification
+	if idx == last {
+		return idx, true
+	}
+
+	// after the name, only spaces, tabs, or '=' may appear
+	if s[idx] != ' ' && s[idx] != '\t' && s[idx] != '=' {
+		return 0, false
+	}
+
+	// TODO: leave this as-is within function, probing for '='
+
+	// scan ahead for an attribute value specification
+	//
+	// consume any spaces or tabs after the name:
+	// - if no '=' follows, the attribute is a bare name and trailing
+	//   whitespace is left for the outer parser
+	// - if '=' follows, continue into value parsing
+	probe := consumeSpacesTabs(s, idx, last)
+	if probe == last || s[probe] != '=' {
+		return idx, true
+	}
+
+	// consume spaces or tabs after '=' and position idx
+	// at the first byte of the attribute value
+	idx = consumeSpacesTabs(s, probe+1, last)
+
+	// an '=' must by followed by an attribute value
+	if idx == last {
+		return 0, false
+	}
+
+	// TODO: extract to tryHTMLAttributeValue
+
+	// parse one of the three attribute value forms:
+	// single-quoted, double-quoted, or unquoted
+	switch s[idx] {
+	case '\'':
+		// single-quoted value
+		idx++
+		for idx < last {
+			if s[idx] != '\'' {
+				idx++
+				continue
+			}
+			break
+		}
+
+		// no closing single quote found
+		if idx == last {
+			return 0, false
+		}
+
+		// consume the closing quote
+		idx++
+
+	case '"':
+		// double-quoted value
+		idx++
+		for idx < last {
+			if s[idx] != '"' {
+				idx++
+				continue
+			}
+			break
+		}
+
+		// no closing double quote found
+		if idx == last {
+			return 0, false
+		}
+
+		// consume the closing quote
+		idx++
+
+	default:
+		// unquoted value
+		// a nonempty string of characters excluding spaces, tabs, ", ', =, <, >, and `
+		start := idx
+		for idx < last {
+			b := s[idx]
+			if b == ' ' ||
+				b == '\t' ||
+				b == '"' ||
+				b == '\'' ||
+				b == '=' ||
+				b == '<' ||
+				b == '>' ||
+				b == '`' {
+				break
+			}
+			idx++
+		}
+
+		// unquoted values must be nonempty
+		if idx == start {
+			return 0, false
+		}
+	}
+
+	return idx, true
+}
+
 // TODO:
-func tryHTMLAttribute(string, int, int) (int, bool) {
-	return 0, false
+func tryHTMLAttributeName() {}
+
+// TODO:
+func tryHTMLAttributeValue() {}
+
+func consumeSpacesTabs(s string, idx, last int) int {
+	for idx < last {
+		b := s[idx]
+		if b == ' ' || b == '\t' {
+			idx++
+			continue
+		}
+		break
+	}
+
+	return idx
 }
 
 func isSpace(b byte) bool {
