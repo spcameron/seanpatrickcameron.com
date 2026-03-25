@@ -52,7 +52,7 @@ func (l *ItemList) Init() *ItemList {
 	return l
 }
 
-// New returns an initialized list.
+// NewItemList returns an initialized list.
 func NewItemList() *ItemList {
 	return new(ItemList).Init()
 }
