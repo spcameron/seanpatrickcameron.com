@@ -3,6 +3,8 @@ package inline
 import (
 	"fmt"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
@@ -51,10 +53,10 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			c.appendItemRecord(token.Span, ItemText)
 
 		case TokenStarDelimiter:
-			// TODO:
+			c.handleStarDelimiter()
 
 		case TokenUnderscoreDelimiter:
-			// TODO:
+			c.handleUnderscoreDelimiter()
 
 		case TokenBacktick:
 			c.handleTokenBacktick()
@@ -173,6 +175,69 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 	}
 
 	return inlines, nil
+}
+
+func (c *Cursor) handleStarDelimiter() {
+	tokenIdx := c.Index - 1
+	token := c.Tokens[tokenIdx]
+
+	// provisionally append the delimiter run as plain text
+	item := c.appendItemRecord(token.Span, ItemText)
+
+	// extract information about the preceding and following runes
+	before, beforeOK := c.runeBefore(token.Span)
+	after, afterOK := c.runeAfter(token.Span)
+
+	// determine the flanking for determining opening/closing capability
+	left := leftFlanking(before, beforeOK, after, afterOK)
+	right := rightFlanking(before, beforeOK, after, afterOK)
+
+	// create and append the corresponding delimiter record
+	delim := &DelimiterRecord{
+		Item:     item,
+		Kind:     DelimAsterisk,
+		Count:    token.Span.Width(),
+		Active:   true,
+		CanOpen:  left,
+		CanClose: right,
+	}
+
+	c.Delimiters.PushBack(delim)
+}
+
+func (c *Cursor) handleUnderscoreDelimiter() {
+	tokenIdx := c.Index - 1
+	token := c.Tokens[tokenIdx]
+
+	// provisionally append the delimiter run as plain text
+	item := c.appendItemRecord(token.Span, ItemText)
+
+	// extract information about the preceding and following runes
+	before, beforeOK := c.runeBefore(token.Span)
+	after, afterOK := c.runeAfter(token.Span)
+
+	beforeIsPunct := beforeOK && isPunctuation(before)
+	afterIsPunct := afterOK && isPunctuation(after)
+
+	// determine flanking
+	left := leftFlanking(before, beforeOK, after, afterOK)
+	right := rightFlanking(before, beforeOK, after, afterOK)
+
+	// define opening/closing capability
+	canOpen := left && (!right || beforeIsPunct)
+	canClose := right && (!left || afterIsPunct)
+
+	// create and append the corresponding delimiter record
+	delim := &DelimiterRecord{
+		Item:     item,
+		Kind:     DelimUnderscore,
+		Count:    token.Span.Width(),
+		Active:   true,
+		CanOpen:  canOpen,
+		CanClose: canClose,
+	}
+
+	c.Delimiters.PushBack(delim)
 }
 
 func (c *Cursor) handleTokenBacktick() {
@@ -1086,87 +1151,43 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 // 	return -1, false
 // }
 
-// func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
-// 	if delimSpan.Start == c.Span.Start {
-// 		return 0, false
-// 	}
-//
-// 	leftWindow := source.ByteSpan{
-// 		Start: c.Span.Start,
-// 		End:   delimSpan.Start,
-// 	}
-//
-// 	s := c.Source.Slice(leftWindow)
-// 	r, width := utf8.DecodeLastRuneInString(s)
-// 	if width == 0 {
-// 		return 0, false
-// 	}
-//
-// 	return r, true
-// }
+func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
+	if delimSpan.Start == c.Span.Start {
+		return 0, false
+	}
 
-// func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
-// 	if delimSpan.End == c.Span.End {
-// 		return 0, false
-// 	}
-//
-// 	rightWindow := source.ByteSpan{
-// 		Start: delimSpan.End,
-// 		End:   c.Span.End,
-// 	}
-//
-// 	s := c.Source.Slice(rightWindow)
-// 	r, width := utf8.DecodeRuneInString(s)
-// 	if width == 0 {
-// 		return 0, false
-// 	}
-//
-// 	return r, true
-// }
+	leftWindow := source.ByteSpan{
+		Start: c.Span.Start,
+		End:   delimSpan.Start,
+	}
 
-// func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
-// 	if !afterOK {
-// 		return false
-// 	}
-// 	if isWhitespace(after) {
-// 		return false
-// 	}
-// 	if !isPunctuation(after) {
-// 		return true
-// 	}
-// 	if !beforeOK {
-// 		return true
-// 	}
-// 	if isWhitespace(before) {
-// 		return true
-// 	}
-// 	if isPunctuation(before) {
-// 		return true
-// 	}
-// 	return false
-// }
+	s := c.Source.Slice(leftWindow)
+	r, width := utf8.DecodeLastRuneInString(s)
+	if width == 0 {
+		return 0, false
+	}
 
-// func rightFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
-// 	if !beforeOK {
-// 		return false
-// 	}
-// 	if isWhitespace(before) {
-// 		return false
-// 	}
-// 	if !isPunctuation(before) {
-// 		return true
-// 	}
-// 	if !afterOK {
-// 		return true
-// 	}
-// 	if isWhitespace(after) {
-// 		return true
-// 	}
-// 	if isPunctuation(after) {
-// 		return true
-// 	}
-// 	return false
-// }
+	return r, true
+}
+
+func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
+	if delimSpan.End == c.Span.End {
+		return 0, false
+	}
+
+	rightWindow := source.ByteSpan{
+		Start: delimSpan.End,
+		End:   c.Span.End,
+	}
+
+	s := c.Source.Slice(rightWindow)
+	r, width := utf8.DecodeRuneInString(s)
+	if width == 0 {
+		return 0, false
+	}
+
+	return r, true
+}
 
 func validateURIAutolink(s string) bool {
 	idx := 0
@@ -1715,41 +1736,54 @@ func isEmailLocalSpecial(b byte) bool {
 	return false
 }
 
-// func isWhitespace(r rune) bool {
-// 	return unicode.IsSpace(r)
-// }
+func isWhitespace(r rune) bool {
+	return unicode.IsSpace(r)
+}
 
-// func isPunctuation(r rune) bool {
-// 	return unicode.IsPunct(r)
-// }
+func isPunctuation(r rune) bool {
+	return unicode.IsPunct(r)
+}
 
-// func inlineSpan(inl ast.Inline) (source.ByteSpan, bool) {
-// 	switch n := inl.(type) {
-// 	case ast.Link:
-// 		return n.Span, true
-//
-// 	case ast.Em:
-// 		return n.Span, true
-//
-// 	case ast.Strong:
-// 		return n.Span, true
-//
-// 	case ast.Text:
-// 		return n.Span, true
-//
-// 	case ast.RawText:
-// 		return n.Span, true
-//
-// 	case ast.HardBreak:
-// 		return n.Span, true
-//
-// 	case ast.SoftBreak:
-// 		return n.Span, true
-//
-// 	case ast.Newline:
-// 		return n.Span, true
-//
-// 	default:
-// 		return source.ByteSpan{}, false
-// 	}
-// }
+func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
+	if !afterOK {
+		return false
+	}
+	if isWhitespace(after) {
+		return false
+	}
+	if !isPunctuation(after) {
+		return true
+	}
+	if !beforeOK {
+		return true
+	}
+	if isWhitespace(before) {
+		return true
+	}
+	if isPunctuation(before) {
+		return true
+	}
+	return false
+}
+
+func rightFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
+	if !beforeOK {
+		return false
+	}
+	if isWhitespace(before) {
+		return false
+	}
+	if !isPunctuation(before) {
+		return true
+	}
+	if !afterOK {
+		return true
+	}
+	if isWhitespace(after) {
+		return true
+	}
+	if isPunctuation(after) {
+		return true
+	}
+	return false
+}
