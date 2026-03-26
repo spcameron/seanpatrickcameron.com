@@ -14,16 +14,17 @@ type Cursor struct {
 	Tokens     []Token
 	Index      int
 	Items      *ItemList
-	Delimiters *DelimiterStack
+	Delimiters *DelimiterList
 }
 
 func NewCursor(src *source.Source, span source.ByteSpan, tokens []Token) *Cursor {
 	return &Cursor{
-		Source: src,
-		Span:   span,
-		Tokens: tokens,
-		Index:  0,
-		Items:  NewItemList(),
+		Source:     src,
+		Span:       span,
+		Tokens:     tokens,
+		Index:      0,
+		Items:      NewItemList(),
+		Delimiters: NewDelimiterList(),
 	}
 }
 
@@ -31,6 +32,10 @@ func (c *Cursor) Next() Token {
 	out := c.Tokens[c.Index]
 	c.Index++
 	return out
+}
+
+func (c *Cursor) Peek() Token {
+	return c.Tokens[c.Index]
 }
 
 func (c *Cursor) Build() ([]ast.Inline, error) {
@@ -45,14 +50,41 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		case TokenText:
 			c.appendItemRecord(token.Span, ItemText)
 
+		case TokenStarDelimiter:
+			// TODO:
+
+		case TokenUnderscoreDelimiter:
+			// TODO:
+
 		case TokenBacktick:
 			c.handleTokenBacktick()
+
+		case TokenOpenBracket:
+			c.handleTokenOpenBracket()
+
+		case TokenCloseBracket:
+			// TODO:
+
+		case TokenOpenParen:
+			c.appendItemRecord(token.Span, ItemText)
+
+		case TokenCloseParen:
+			c.appendItemRecord(token.Span, ItemText)
 
 		case TokenOpenAngle:
 			c.handleTokenOpenAngle()
 
 		case TokenCloseAngle:
 			c.appendItemRecord(token.Span, ItemText)
+
+		case TokenBang:
+			c.appendItemRecord(token.Span, ItemText)
+
+		case TokenImageOpenBracket:
+			c.handleTokenImageOpenBracket()
+
+		case TokenBackslash:
+			c.handleTokenBackslash()
 
 		default:
 			panic(fmt.Sprintf("unknown token kind encountered (%d)", token.Kind))
@@ -182,6 +214,23 @@ func (c *Cursor) handleTokenBacktick() {
 	c.Index = closerIdx + 1
 }
 
+func (c *Cursor) handleTokenOpenBracket() {
+	tokenIdx := c.Index - 1
+	token := c.Tokens[tokenIdx]
+
+	// provisionally append the open bracket as plain text
+	item := c.appendItemRecord(token.Span, ItemText)
+
+	// create and append the corresponding delimiter record
+	delim := &DelimiterRecord{
+		Item:   item,
+		Kind:   DelimOpenBracket,
+		Active: true,
+	}
+
+	c.Delimiters.PushBack(delim)
+}
+
 func (c *Cursor) handleTokenOpenAngle() {
 	openerIdx := c.Index - 1
 	openerToken := c.Tokens[openerIdx]
@@ -274,6 +323,71 @@ func (c *Cursor) handleTokenOpenAngle() {
 
 	c.appendItemRecord(candidateSpan, ItemHTML)
 	c.Index = candidateCloserIdx + 1
+}
+
+func (c *Cursor) handleTokenImageOpenBracket() {
+	tokenIdx := c.Index - 1
+	token := c.Tokens[tokenIdx]
+
+	// provisionally append the open image bracket as plain text
+	item := c.appendItemRecord(token.Span, ItemText)
+
+	// create and append the corresponding delimiter record
+	delim := &DelimiterRecord{
+		Item:   item,
+		Kind:   DelimImageOpenBracket,
+		Active: true,
+	}
+
+	c.Delimiters.PushBack(delim)
+}
+
+func (c *Cursor) handleTokenBackslash() {
+	tokenIdx := c.Index - 1
+	token := c.Tokens[tokenIdx]
+
+	// peek the next token
+	next := c.Peek()
+
+	switch classifyEscapeTarget(next) {
+	case EscapeDecompose:
+		// consume the next token
+		c.Next()
+
+		// decompose the image open bracket
+		bangSpan := source.ByteSpan{
+			Start: next.Span.Start,
+			End:   next.Span.Start + 1,
+		}
+		bracketSpan := source.ByteSpan{
+			Start: next.Span.Start + 1,
+			End:   next.Span.End,
+		}
+
+		// append the bang as plain text
+		c.appendItemRecord(bangSpan, ItemText)
+
+		// provisionally append the open bracket as plain text
+		item := c.appendItemRecord(bracketSpan, ItemText)
+
+		// create and append teh corresponding delimiter record
+		delim := &DelimiterRecord{
+			Item:   item,
+			Kind:   DelimOpenBracket,
+			Active: true,
+		}
+
+		c.Delimiters.PushBack(delim)
+
+	case EscapeLiteralize:
+		// consume the next token and append as plain text
+		c.Next()
+		c.appendItemRecord(next.Span, ItemText)
+
+	case EscapeNone:
+		// append the backslash as plain text
+		c.appendItemRecord(token.Span, ItemText)
+	}
 }
 
 func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemRecord {
@@ -1209,28 +1323,31 @@ func tryInlineHTML(s string) (int, bool) {
 }
 
 func tryHTMLComment(s string) (int, bool) {
-	return 0, false
+	return tryHTMLDelimited(s, "<!--", "-->")
 }
 
 func tryHTMLProcessingInstruction(s string) (int, bool) {
-	return 0, false
+	return tryHTMLDelimited(s, "<?", "?>")
 }
 
 func tryHTMLDeclaration(s string) (int, bool) {
-	return 0, false
+	return tryHTMLDelimited(s, "<!", ">")
 }
 
 func tryHTMLCDATA(s string) (int, bool) {
-	return 0, false
+	return tryHTMLDelimited(s, "<![CDATA[", "]]>")
 }
 
 func tryHTMLOpenTag(s string) (int, bool) {
-	// NOTE: 1: candidate end detection
-	insideSingleQuote := false
-	insideDoubleQuote := false
+	if len(s) < 2 {
+		return 0, false
+	}
 
 	// traverse the string and break on the first unquoted closing angle bracket
 	pos := 1
+	insideSingleQuote := false
+	insideDoubleQuote := false
+
 	for pos < len(s) {
 		b := s[pos]
 		// only toggle the double quote status if not inside single quotes
@@ -1260,40 +1377,17 @@ func tryHTMLOpenTag(s string) (int, bool) {
 	width := pos + 1 // total width of the candidate slice
 	candidate := s[:width]
 
-	// local helper
-	consumeSpacesTabs := func(i int) int {
-		for i < last && (candidate[i] == ' ' || candidate[i] == '\t') {
-			i++
-		}
-		return i
-	}
-
 	// must begin with '<' and end with '>'
 	if candidate[0] != '<' || candidate[last] != '>' {
 		return 0, false
 	}
 
-	// NOTE: 2: tag name parsing
-
-	// validate the tag name
-	// the first byte after '<' must be an ASCII letter
+	// validate and consume the tag name
 	idx := 1
-	if !isAlpha(candidate[idx]) {
+	idx, ok := tryHTMLTagName(s, idx, last)
+	if !ok {
 		return 0, false
 	}
-	idx++
-
-	// consume maximal tag name
-	for idx < last {
-		b := candidate[idx]
-		if isAlpha(b) || isDigit(b) || b == '-' {
-			idx++
-			continue
-		}
-		break
-	}
-
-	// NOTE: 3: tail parsing
 
 	// form is <tag>
 	if idx == last {
@@ -1313,7 +1407,7 @@ func tryHTMLOpenTag(s string) (int, bool) {
 		mark := idx
 
 		// consume separator whitespace between elements
-		idx = consumeSpacesTabs(idx)
+		idx = consumeSpacesTabs(candidate, idx, last)
 
 		// valid end
 		if idx == last {
@@ -1346,7 +1440,67 @@ func tryHTMLOpenTag(s string) (int, bool) {
 }
 
 func tryHTMLClosingTag(s string) (int, bool) {
+	if len(s) < 3 {
+		return 0, false
+	}
+
+	// validate the open angle bracket
+	if s[0] != '<' || s[1] != '/' {
+		return 0, false
+	}
+
+	// traverse the string and break on the first closing angle bracket
+	pos := 2
+	for pos < len(s) {
+		if s[pos] == '>' {
+			break
+		}
+		pos++
+	}
+
+	// no terminating '>' found, not a valid candidate
+	if pos == len(s) {
+		return 0, false
+	}
+
+	last := pos
+	width := pos + 1
+	candidate := s[:width]
+
+	// validate and consume the tag name
+	idx := 2
+	idx, ok := tryHTMLTagName(candidate, idx, last)
+	if !ok {
+		return 0, false
+	}
+
+	idx = consumeSpacesTabs(candidate, idx, last)
+
+	if idx == last {
+		return width, true
+	}
+
 	return 0, false
+}
+
+func tryHTMLTagName(s string, idx, last int) (int, bool) {
+	// the first byte must be an ASCII letter
+	if !isAlpha(s[idx]) {
+		return 0, false
+	}
+	idx++
+
+	// consume maximal tag name
+	for idx < last {
+		b := s[idx]
+		if isAlpha(b) || isDigit(b) || b == '-' {
+			idx++
+			continue
+		}
+		break
+	}
+
+	return idx, true
 }
 
 func tryHTMLSelfClosingSuffix(s string, idx, last int) (int, bool) {
@@ -1503,6 +1657,19 @@ func tryHTMLAttributeName() {}
 
 // TODO:
 func tryHTMLAttributeValue() {}
+
+func tryHTMLDelimited(s, opener, terminator string) (int, bool) {
+	if !strings.HasPrefix(s, opener) {
+		return 0, false
+	}
+
+	i := strings.Index(s, terminator)
+	if i == -1 {
+		return 0, false
+	}
+
+	return i + len(terminator), true
+}
 
 func consumeSpacesTabs(s string, idx, last int) int {
 	for idx < last {

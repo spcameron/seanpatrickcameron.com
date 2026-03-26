@@ -176,6 +176,16 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "html: closing tag",
+			input: "</a>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "</a>",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

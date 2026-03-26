@@ -225,7 +225,7 @@ func TestScan(t *testing.T) {
 			input: `\`,
 			want: []TokenSummary{
 				{
-					Kind:   TokenBackSlash,
+					Kind:   TokenBackslash,
 					Lexeme: `\`,
 				},
 				{

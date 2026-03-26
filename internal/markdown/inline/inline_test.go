@@ -51,7 +51,7 @@ func (ts TokenSummary) String() string {
 	case TokenImageOpenBracket:
 		return `image_open_bracket("![")`
 
-	case TokenBackSlash:
+	case TokenBackslash:
 		return `backslash("\")`
 
 	case TokenEOF:
