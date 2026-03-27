@@ -83,3 +83,15 @@ func (l *DelimiterList) PushBack(delim *DelimiterRecord) *DelimiterRecord {
 	l.len++
 	return delim
 }
+
+// Remove removes delim from l if delim is an element of list l.
+func (l *DelimiterList) Remove(delim *DelimiterRecord) {
+	if delim.list == l {
+		delim.prev.next = delim.next
+		delim.next.prev = delim.prev
+		delim.next = nil
+		delim.prev = nil
+		delim.list = nil
+		l.len--
+	}
+}

@@ -65,6 +65,55 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			c.handleTokenOpenBracket()
 
 		case TokenCloseBracket:
+			// on encountering a ']' character, call the look for link or image procedure (below)
+
+			// starting at the top of the delimiter stack, look backwards through the stack for an opening '[' or '![' delimiter
+			currentDelim := c.Delimiters.Back()
+			for currentDelim != nil {
+				if currentDelim.Kind == DelimOpenBracket || currentDelim.Kind == DelimImageOpenBracket {
+					break
+				}
+
+				currentDelim = currentDelim.prev
+			}
+
+			// if no opening bracket found, append a literal text node
+			if currentDelim == nil {
+				c.appendItemRecord(token.Span, ItemText)
+			}
+
+			// if an opening bracket is found, but it's not active, remove the inactive delimiter from the stack and append a literal text nod2
+			if !currentDelim.Active {
+				c.Delimiters.Remove(currentDelim)
+				c.appendItemRecord(token.Span, ItemText)
+			}
+
+			// if an active opening bracket is found, then parse ahead to see whether we have:
+			// - inline link/image
+			// TODO:
+			// - reference link/image (not yet implemented)
+			// - collapsed reference link/image (not yet implemented)
+			// - short cut reference link/image (not yet implemented)
+
+			if currentDelim.Kind == DelimOpenBracket {
+				// TODO: tryInlineLink helper
+
+				// record the bracket spans surrounding the link text
+				openBracketSpan := currentDelim.Item.LiveSpan
+				closeBracketSpan := token.Span
+
+				// try to parse the inline link tail
+				// if parse fails, append the the closing bracket as plain text
+				tail, ok := c.tryParseInlineLinkTail(token.Span.End)
+				if !ok {
+					c.appendItemRecord(token.Span, ItemText)
+				}
+
+			}
+			if currentDelim.Kind == DelimImageOpenBracket {
+				// TODO: tryInlineImage helper
+			}
+
 			// TODO:
 
 		case TokenOpenParen:
@@ -465,79 +514,6 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 	return c.Items.PushBack(item)
 }
 
-// func (c *Cursor) Gather() error {
-// 	for {
-// 		if c.EOF() {
-// 			break
-// 		}
-//
-// 		ev, ok := c.Next()
-// 		if !ok {
-// 			break
-// 		}
-//
-// 		switch ev.Kind {
-// 		case EventText:
-// 			c.gatherText(ev)
-//
-// 		case EventDelimiterRun:
-// 			c.gatherDelimiter(ev)
-//
-// 		case EventOpenBracket:
-// 			c.gatherToken(ev, TokenOpenBracket)
-//
-// 		case EventCloseBracket:
-// 			c.gatherCloseBracket(ev)
-//
-// 		case EventOpenParen:
-// 			c.gatherToken(ev, TokenOpenParen)
-//
-// 		case EventCloseParen:
-// 			c.gatherToken(ev, TokenCloseParen)
-//
-// 		case EventIllegalNewline:
-// 			panic("illegal newline encountered during inline gather")
-//
-// 		default:
-// 			panic("unhandled inline event kind in gather")
-// 		}
-// 	}
-//
-// 	return nil
-// }
-
-// func (c *Cursor) Resolve() error {
-// 	snapshot := slices.Clone(c.WorkingItems)
-//
-// 	if err := c.resolveEmphasis(); err != nil {
-// 		return err
-// 	}
-//
-// 	if err := c.resolveInlineLinks(snapshot); err != nil {
-// 		return err
-// 	}
-//
-// 	return nil
-// }
-
-// func (c *Cursor) Finalize() ([]ast.Inline, error) {
-// 	inlines := make([]ast.Inline, 0, len(c.WorkingItems))
-//
-// 	for i, item := range c.WorkingItems {
-// 		inl, ok, err := c.finalizeItem(i, item)
-// 		if err != nil {
-// 			return []ast.Inline{}, err
-// 		}
-// 		if !ok {
-// 			continue
-// 		}
-//
-// 		inlines = append(inlines, inl)
-// 	}
-//
-// 	return inlines, nil
-// }
-
 // func (c *Cursor) gatherText(ev Event) {
 // 	item := &TextItem{
 // 		Span: ev.Span,
@@ -831,6 +807,91 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 // 	return nil
 // }
 
+type InlineLinkTail struct {
+	FullSpan        source.ByteSpan // from '(' through ')'
+	DestinationSpan source.ByteSpan
+	TitleSpan       source.ByteSpan
+	HasTitle        bool
+}
+
+func (c *Cursor) tryParseInlineLinkTail(start BytePos) (InlineLinkTail, bool) {
+	candidateSpan := source.ByteSpan{
+		Start: start,
+		End:   c.Source.EOF(),
+	}
+	s := c.Source.Slice(candidateSpan)
+	limit := len(s)
+
+	result := InlineLinkTail{}
+
+	// validate the candidate length and that the first byte is an open paren
+	if limit < 2 || s[0] != '(' {
+		return InlineLinkTail{}, false
+	}
+
+	// advance past the open paren
+	idx := 1
+
+	// consume any spaces and tabs
+	idx = consumeSpacesTabs(s, idx, limit)
+
+	if idx < limit && s[idx] == ')' {
+		// NOTE: valid link tail, no destintation & no title
+		// update the result value and return
+	}
+
+	// validate and consume the link destination
+	destinationSpan, idx, ok := tryLinkDestination(s, idx, limit)
+	if !ok {
+		return InlineLinkTail{}, false
+	}
+	// NOTE: update the result value
+
+	// mark the index and consume any spaces or tabs
+	sepStart := idx
+	idx = consumeSpacesTabs(s, idx, limit)
+	sepPresent := idx > sepStart
+
+	if idx < limit && s[idx] == ')' {
+		// NOTE: valid link tail, no title
+		// update the result value and return
+	}
+
+	if idx >= limit {
+		return InlineLinkTail{}, false
+	}
+
+	// check whether the next byte can start a link title
+	if s[idx] == '"' || s[idx] == '\'' || s[idx] == '(' {
+		// if no separator exists between destination and title, the tail is invalid
+		if !sepPresent {
+			return InlineLinkTail{}, false
+		}
+
+		titleSpan, idx, ok := tryLinkTitle(s, idx, limit)
+		if !ok {
+			return InlineLinkTail{}, false
+		}
+		// NOTE: update the result value
+
+		// consume any spaces or tabs
+		idx = consumeSpacesTabs(s, idx, limit)
+
+		if idx < limit && s[idx] == ')' {
+			// NOTE: valid link tail
+			// update the result value and return
+		}
+	}
+
+	return InlineLinkTail{}, false
+}
+
+// TODO:
+func tryLinkDestination(s string, idx, last int) (source.ByteSpan, int, bool) {}
+
+// TODO:
+func tryLinkTitle(s string, idx, last int) (source.ByteSpan, int, bool) {}
+
 // func (c *Cursor) tryParseInlineLinkTail(snapshot []WorkingItem, closeItemIdx int) (InlineLinkTail, bool, error) {
 // 	// initialize empty full span early, update Start and End when validated
 // 	fullSpan := source.ByteSpan{}
@@ -995,13 +1056,6 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 // 	return -1, false
 // }
 
-// type InlineLinkTail struct {
-// 	OpenParenItemIndex  int
-// 	CloseParenItemIndex int
-// 	FullSpan            source.ByteSpan
-// 	DestinationSpan     source.ByteSpan
-// 	TitleSpan           source.ByteSpan
-// }
 //
 // func (c *Cursor) buildChildren(start, end int) ([]ast.Inline, source.ByteSpan) {
 // 	children := make([]ast.Inline, 0, end-start)
