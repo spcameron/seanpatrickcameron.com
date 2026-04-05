@@ -286,7 +286,7 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	case ast.Link:
 		return renderLink(src, v)
 
-	case ast.Em:
+	case ast.Emph:
 		return renderEmphasis(src, v)
 
 	case ast.Strong:
@@ -354,7 +354,7 @@ func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 	return node, nil
 }
 
-func renderEmphasis(src *source.Source, inl ast.Em) (html.Node, error) {
+func renderEmphasis(src *source.Source, inl ast.Emph) (html.Node, error) {
 	inlines, err := renderInlines(src, inl.Children)
 	if err != nil {
 		return nil, err

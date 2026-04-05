@@ -40,6 +40,22 @@ func (c *Cursor) Peek() Token {
 	return c.Tokens[c.Index]
 }
 
+func (c *Cursor) advanceToBytePos(pos source.BytePos) {
+	for c.Index < len(c.Tokens) {
+		tok := c.Tokens[c.Index]
+
+		if tok.Span.Start >= pos {
+			return
+		}
+
+		if tok.Span.Start < pos && tok.Span.End > pos {
+			panic("advanceToBytePos: token straddles consumed boundary")
+		}
+
+		c.Index++
+	}
+}
+
 func (c *Cursor) Build() ([]ast.Inline, error) {
 	// traverse tokens and dispatch as needed
 	for {
@@ -68,24 +84,28 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			// on encountering a ']' character, call the look for link or image procedure (below)
 
 			// starting at the top of the delimiter stack, look backwards through the stack for an opening '[' or '![' delimiter
-			currentDelim := c.Delimiters.Back()
-			for currentDelim != nil {
-				if currentDelim.Kind == DelimOpenBracket || currentDelim.Kind == DelimImageOpenBracket {
+			openerDelim := c.Delimiters.Back()
+			for openerDelim != nil {
+				if openerDelim.Kind == DelimOpenBracket || openerDelim.Kind == DelimImageOpenBracket {
 					break
 				}
 
-				currentDelim = currentDelim.prev
+				openerDelim = openerDelim.prev
 			}
 
 			// if no opening bracket found, append a literal text node
-			if currentDelim == nil {
+			if openerDelim == nil {
 				c.appendItemRecord(token.Span, ItemText)
+				// NOTE: becomes return in helper version
+				continue
 			}
 
-			// if an opening bracket is found, but it's not active, remove the inactive delimiter from the stack and append a literal text nod2
-			if !currentDelim.Active {
-				c.Delimiters.Remove(currentDelim)
+			// if an opening bracket is found, but it's not active, remove the inactive delimiter from the stack and append a literal text node
+			if !openerDelim.Active {
+				c.Delimiters.Remove(openerDelim)
 				c.appendItemRecord(token.Span, ItemText)
+				// NOTE: becomes return in helper version
+				continue
 			}
 
 			// if an active opening bracket is found, then parse ahead to see whether we have:
@@ -95,26 +115,81 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			// - collapsed reference link/image (not yet implemented)
 			// - short cut reference link/image (not yet implemented)
 
-			if currentDelim.Kind == DelimOpenBracket {
+			switch openerDelim.Kind {
+			case DelimOpenBracket:
 				// TODO: tryInlineLink helper
 
-				// record the bracket spans surrounding the link text
-				openBracketSpan := currentDelim.Item.LiveSpan
-				closeBracketSpan := token.Span
-
 				// try to parse the inline link tail
-				// if parse fails, append the the closing bracket as plain text
+				// if parse fails, remove the delimiter from the stack and append the the closing bracket as plain text
 				tail, ok := c.tryParseInlineLinkTail(token.Span.End)
 				if !ok {
+					c.Delimiters.Remove(openerDelim)
 					c.appendItemRecord(token.Span, ItemText)
+					// NOTE: becomes return in helper version
+					continue
 				}
 
-			}
-			if currentDelim.Kind == DelimImageOpenBracket {
-				// TODO: tryInlineImage helper
-			}
+				openerItem := openerDelim.Item
 
-			// TODO:
+				linkOriginalSpan := source.ByteSpan{
+					Start: openerItem.OriginalSpan.Start,
+					End:   tail.FullSpan.End,
+				}
+
+				linkLiveSpan := source.ByteSpan{
+					Start: openerItem.OriginalSpan.End,
+					End:   token.Span.Start,
+				}
+
+				// process emphasis beginning from the opening bracket
+				c.processEmphasis(openerDelim)
+
+				// identify the first and last child items
+				firstChild := openerItem.Next()
+				lastChild := c.Items.Back()
+
+				// define the list of child items
+				var childList *ItemList
+				if firstChild == nil {
+					// if there are no child items, initialize an empty list
+					childList = NewItemList()
+				} else {
+					// otherwise, detach the contiguous span [firstChild, lastChild] and extract to a new *ItemList
+					childList = c.Items.DetachRange(firstChild, lastChild)
+				}
+
+				// mutate the opener item and update metadata
+				openerItem.Kind = ItemLink
+				openerItem.OriginalSpan = linkOriginalSpan
+				openerItem.LiveSpan = linkLiveSpan
+				openerItem.DestinationSpan = tail.DestinationSpan
+				openerItem.TitleSpan = source.ByteSpan{}
+				openerItem.HasTitle = tail.HasTitle
+				if tail.HasTitle {
+					openerItem.TitleSpan = tail.TitleSpan
+				}
+				openerItem.Children = childList
+
+				// deactivate all prior '[' delimiters
+				for delim := openerDelim.Prev(); delim != nil; delim = delim.Prev() {
+					if delim.Kind == DelimOpenBracket {
+						delim.Active = false
+					}
+				}
+
+				// advance the cursor past the tail
+				c.advanceToBytePos(tail.FullSpan.End)
+
+				// remove the opening delimiter from the stack
+				c.Delimiters.Remove(openerDelim)
+
+			case DelimImageOpenBracket:
+				// TODO: tryInlineImage helper
+
+			default:
+				// TODO: revise panic text
+				panic("unrecognized delimiter kind encountered")
+			}
 
 		case TokenOpenParen:
 			c.appendItemRecord(token.Span, ItemText)
@@ -142,10 +217,23 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		}
 	}
 
+	// process emphasis once again across the entire stack
+	c.processEmphasis(nil)
+
+	inlines := c.lowerItems(c.Items)
+
+	return inlines, nil
+}
+
+// TODO:
+func (c *Cursor) buildItems() error {
+	return nil
+}
+
+func (c *Cursor) lowerItems(items *ItemList) []ast.Inline {
 	inlines := []ast.Inline{}
 
-	// finalize inline items and construct ast.Inlines
-	item := c.Items.Front()
+	item := items.Front()
 	for item != nil {
 		switch item.Kind {
 		case ItemText:
@@ -156,16 +244,6 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 			inlines = append(inlines, node)
 
 		case ItemCodeSpan:
-			contentSlice := c.Source.Slice(item.OriginalSpan)
-
-			if len(contentSlice) > 0 &&
-				isSpace(contentSlice[0]) &&
-				isSpace(contentSlice[len(contentSlice)-1]) &&
-				!isAllSpaces(contentSlice) {
-				item.LiveSpan.Start++
-				item.LiveSpan.End--
-			}
-
 			node := ast.CodeSpan{
 				Span: item.LiveSpan,
 			}
@@ -174,12 +252,12 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 
 		case ItemAutolinkURI:
 			contentSpan := source.ByteSpan{
-				Start: item.LiveSpan.Start + 1,
-				End:   item.LiveSpan.End - 1,
+				Start: item.OriginalSpan.Start + 1,
+				End:   item.OriginalSpan.End - 1,
 			}
 
 			node := ast.Link{
-				Span:        item.LiveSpan,
+				Span:        item.OriginalSpan,
 				Destination: contentSpan,
 				Children: []ast.Inline{
 					ast.Text{
@@ -192,12 +270,12 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 
 		case ItemAutolinkEmail:
 			contentSpan := source.ByteSpan{
-				Start: item.LiveSpan.Start + 1,
-				End:   item.LiveSpan.End - 1,
+				Start: item.OriginalSpan.Start + 1,
+				End:   item.OriginalSpan.End - 1,
 			}
 
 			node := ast.Link{
-				Span:        item.LiveSpan,
+				Span:        item.OriginalSpan,
 				Destination: contentSpan,
 				MailTo:      true,
 				Children: []ast.Inline{
@@ -216,6 +294,41 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 
 			inlines = append(inlines, node)
 
+		case ItemEmphasis:
+			children := c.lowerItems(item.Children)
+
+			node := ast.Emph{
+				Span:     item.OriginalSpan,
+				Children: children,
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemStrong:
+			children := c.lowerItems(item.Children)
+
+			node := ast.Strong{
+				Span:     item.OriginalSpan,
+				Children: children,
+			}
+
+			inlines = append(inlines, node)
+
+		case ItemLink:
+			children := c.lowerItems(item.Children)
+
+			node := ast.Link{
+				Span:        item.OriginalSpan,
+				Destination: item.DestinationSpan,
+				Children:    children,
+			}
+
+			if item.HasTitle {
+				node.Title = item.TitleSpan
+			}
+
+			inlines = append(inlines, node)
+
 		default:
 			panic(fmt.Sprintf("unknown item kind encountered (%d)", item.Kind))
 		}
@@ -223,7 +336,232 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 		item = item.Next()
 	}
 
-	return inlines, nil
+	return inlines
+}
+
+func (c *Cursor) processEmphasis(stackBottom *DelimiterRecord) {
+	// initialize the openers table
+	openersTable := newOpenersTable(stackBottom)
+
+	// define the starting delimiter record for traversal
+	var current *DelimiterRecord
+	if stackBottom == nil {
+		// if nil is passed as argument, begin from the first delimiter in the list
+		current = c.Delimiters.Front()
+	} else {
+		// otherwise, start from the first delimiter after the delimiter passed as argument
+		current = stackBottom.Next()
+	}
+
+	// traverse the delimiters stack
+	for current != nil {
+		// if current cannot close, advance to the next delimiter
+		if !current.CanClose {
+			current = current.Next()
+			continue
+		}
+
+		// obtain the openerKey for the current delimiter
+		key := openerKeyForCloser(current)
+		openerBottom := openersTable[key]
+
+		// find a matching opener
+		opener := findMatchingOpener(current, stackBottom, openerBottom)
+
+		// if a matching opener is found, derive the emphasis level and resolve the match
+		if opener != nil {
+			strong := opener.Count >= 2 && current.Count >= 2
+			current = c.resolveEmphasisMatch(opener, current, strong)
+			continue
+		}
+
+		// if no matching opener is found, update the table for future searches
+		openersTable[key] = current.Prev()
+
+		// if current also cannot open, remove it from the delimiter stack (since it also cannot be a closer)
+		next := current.Next()
+		if !current.CanOpen {
+			c.Delimiters.Remove(current)
+		}
+		current = next
+	}
+
+	c.removeAllDelimitersAbove(stackBottom)
+}
+
+func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bool) *DelimiterRecord {
+	// determine the number of delimiter characters to consume
+	use := 1
+	if strong {
+		use = 2
+	}
+
+	// compute the original and live spans for the item record to be created
+	originalSpan := source.ByteSpan{
+		Start: opener.Item.LiveSpan.End - source.BytePos(use),
+		End:   closer.Item.LiveSpan.Start + source.BytePos(use),
+	}
+
+	liveSpan := source.ByteSpan{
+		Start: opener.Item.LiveSpan.End,
+		End:   closer.Item.LiveSpan.Start,
+	}
+
+	// save the next delimiter record to be potentially returned
+	nextCurrent := closer.Next()
+
+	// remove all delimiter records strictly between opener and closer
+	c.removeAllDelimitersBetween(opener, closer)
+
+	// guard against underflow
+	if opener.Count < use || closer.Count < use {
+		panic("resolveEmphasisMatch: delimiter count underflow")
+	}
+
+	// decrement opener and closer counts by use
+	opener.Count -= use
+	closer.Count -= use
+
+	// update the ItemRecord live spans as well
+	opener.Item.LiveSpan.End -= source.BytePos(use)
+	closer.Item.LiveSpan.Start += source.BytePos(use)
+
+	// define the list of child items
+	var childList *ItemList
+	if opener.Item.Next() == closer.Item {
+		// if there is no item strictly between the opener and closer items, initialize an empty list
+		childList = NewItemList()
+	} else {
+		// otherwise, detach the contiguous span [firstChild, lastChild] and extract to a new *ItemList
+		firstChild := opener.Item.Next()
+		lastChild := closer.Item.Prev()
+		childList = c.Items.DetachRange(firstChild, lastChild)
+	}
+
+	item := &ItemRecord{
+		OriginalSpan: originalSpan,
+		LiveSpan:     liveSpan,
+		Children:     childList,
+	}
+
+	if use == 1 {
+		item.Kind = ItemEmphasis
+	} else {
+		item.Kind = ItemStrong
+	}
+
+	c.Items.InsertAfter(item, opener.Item)
+
+	// remove the items and delimiters whose runs are fully consumed
+	if opener.Count == 0 {
+		c.Items.Remove(opener.Item)
+		c.Delimiters.Remove(opener)
+	}
+	if closer.Count == 0 {
+		c.Items.Remove(closer.Item)
+		c.Delimiters.Remove(closer)
+		// if closer count reached zero, return the nextCurrent record
+		return nextCurrent
+	}
+
+	// if closer count is > 0, return the closer
+	return closer
+}
+
+func (c *Cursor) removeAllDelimitersAbove(stackBottom *DelimiterRecord) {
+	var current *DelimiterRecord
+	if stackBottom == nil {
+		current = c.Delimiters.Front()
+	} else {
+		current = stackBottom.Next()
+	}
+
+	for current != nil {
+		next := current.Next()
+		c.Delimiters.Remove(current)
+		current = next
+	}
+}
+
+func (c *Cursor) removeAllDelimitersBetween(opener, closer *DelimiterRecord) {
+	first := opener.Next()
+	if first == nil || first == closer {
+		return
+	}
+
+	last := closer.Prev()
+	c.Delimiters.RemoveRange(first, last)
+}
+
+type openerKey struct {
+	kind    DelimiterKind
+	mod3    int
+	canOpen bool
+}
+
+func newOpenersTable(bottom *DelimiterRecord) map[openerKey]*DelimiterRecord {
+	m := make(map[openerKey]*DelimiterRecord)
+
+	kinds := []DelimiterKind{
+		DelimAsterisk,
+		DelimUnderscore,
+	}
+
+	for _, kind := range kinds {
+		for mod3 := range 3 {
+			for _, canOpen := range []bool{false, true} {
+				key := openerKey{
+					kind:    kind,
+					mod3:    mod3,
+					canOpen: canOpen,
+				}
+
+				m[key] = bottom
+			}
+		}
+	}
+
+	return m
+}
+
+func openerKeyForCloser(delim *DelimiterRecord) openerKey {
+	return openerKey{
+		kind:    delim.Kind,
+		mod3:    delim.Count % 3,
+		canOpen: delim.CanOpen,
+	}
+}
+
+func findMatchingOpener(closer, stackBottom, openerBottom *DelimiterRecord) *DelimiterRecord {
+	for opener := closer.Prev(); opener != nil && opener != stackBottom && opener != openerBottom; opener = opener.Prev() {
+		if delimitersMatch(opener, closer) {
+			return opener
+		}
+	}
+
+	return nil
+}
+
+func delimitersMatch(opener, closer *DelimiterRecord) bool {
+	if opener == nil || closer == nil {
+		return false
+	}
+
+	if opener.Kind != closer.Kind {
+		return false
+	}
+
+	if !opener.CanOpen || !closer.CanClose {
+		return false
+	}
+
+	if (opener.CanClose || closer.CanOpen) &&
+		(opener.Count+closer.Count)%3 == 0 {
+		return false
+	}
+
+	return true
+
 }
 
 func (c *Cursor) handleStarDelimiter() {
@@ -317,14 +655,37 @@ func (c *Cursor) handleTokenBacktick() {
 		return
 	}
 
-	// define the exclusive span between the backtick delimiters
-	contentSpan := source.ByteSpan{
+	// define the original span (delimiter inclusive)
+	originalSpan := source.ByteSpan{
+		Start: c.Tokens[openerIdx].Span.Start,
+		End:   c.Tokens[closerIdx].Span.End,
+	}
+	// define the live span (delimiter exclusive)
+	liveSpan := source.ByteSpan{
 		Start: c.Tokens[openerIdx].Span.End,
 		End:   c.Tokens[closerIdx].Span.Start,
 	}
 
+	// examine the content slice, and if there is both leading and trailing spaces and at least one non-space character, trim one space from both ends
+	contentSlice := c.Source.Slice(liveSpan)
+
+	if len(contentSlice) > 0 &&
+		isSpace(contentSlice[0]) &&
+		isSpace(contentSlice[len(contentSlice)-1]) &&
+		!isAllSpaces(contentSlice) {
+		liveSpan.Start++
+		liveSpan.End--
+	}
+
+	// define the new ItemRecord
+	item := &ItemRecord{
+		OriginalSpan: originalSpan,
+		LiveSpan:     liveSpan,
+		Kind:         ItemCodeSpan,
+	}
+
 	// append the item to the item record list and advance the index past the closer backtick token
-	c.appendItemRecord(contentSpan, ItemCodeSpan)
+	c.Items.PushBack(item)
 	c.Index = closerIdx + 1
 }
 
@@ -360,13 +721,13 @@ func (c *Cursor) handleTokenOpenAngle() {
 
 		break
 	}
-	closerToken := c.Tokens[closerIdx]
 
 	// if no close angle token found, append the open angle token as text
 	if closerIdx == len(c.Tokens) {
 		c.appendItemRecord(openerToken.Span, ItemText)
 		return
 	}
+	closerToken := c.Tokens[closerIdx]
 
 	// define the outer span (including angle brackets)
 	outerSpan := source.ByteSpan{
@@ -814,7 +1175,7 @@ type InlineLinkTail struct {
 	HasTitle        bool
 }
 
-func (c *Cursor) tryParseInlineLinkTail(start BytePos) (InlineLinkTail, bool) {
+func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, bool) {
 	candidateSpan := source.ByteSpan{
 		Start: start,
 		End:   c.Source.EOF(),
@@ -836,16 +1197,26 @@ func (c *Cursor) tryParseInlineLinkTail(start BytePos) (InlineLinkTail, bool) {
 	idx = consumeSpacesTabs(s, idx, limit)
 
 	if idx < limit && s[idx] == ')' {
-		// NOTE: valid link tail, no destintation & no title
-		// update the result value and return
+		// valid link title, no destination & no title
+		result.FullSpan = source.ByteSpan{
+			Start: candidateSpan.Start,
+			End:   candidateSpan.Start + source.BytePos(idx+1),
+		}
+
+		return result, true
 	}
 
 	// validate and consume the link destination
-	destinationSpan, idx, ok := tryLinkDestination(s, idx, limit)
+	destinationSpanRel, idx, ok := tryLinkDestination(s, idx, limit)
 	if !ok {
 		return InlineLinkTail{}, false
 	}
-	// NOTE: update the result value
+
+	// update the result struct
+	result.DestinationSpan = source.ByteSpan{
+		Start: candidateSpan.Start + destinationSpanRel.Start,
+		End:   candidateSpan.Start + destinationSpanRel.End,
+	}
 
 	// mark the index and consume any spaces or tabs
 	sepStart := idx
@@ -853,8 +1224,13 @@ func (c *Cursor) tryParseInlineLinkTail(start BytePos) (InlineLinkTail, bool) {
 	sepPresent := idx > sepStart
 
 	if idx < limit && s[idx] == ')' {
-		// NOTE: valid link tail, no title
-		// update the result value and return
+		// valid link title, no title
+		result.FullSpan = source.ByteSpan{
+			Start: candidateSpan.Start,
+			End:   candidateSpan.Start + source.BytePos(idx+1),
+		}
+
+		return result, true
 	}
 
 	if idx >= limit {
@@ -868,29 +1244,203 @@ func (c *Cursor) tryParseInlineLinkTail(start BytePos) (InlineLinkTail, bool) {
 			return InlineLinkTail{}, false
 		}
 
-		titleSpan, idx, ok := tryLinkTitle(s, idx, limit)
+		titleSpanRel, idx, ok := tryLinkTitle(s, idx, limit)
 		if !ok {
 			return InlineLinkTail{}, false
 		}
-		// NOTE: update the result value
+
+		// update the result struct
+		result.TitleSpan = source.ByteSpan{
+			Start: candidateSpan.Start + titleSpanRel.Start,
+			End:   candidateSpan.Start + titleSpanRel.End,
+		}
 
 		// consume any spaces or tabs
 		idx = consumeSpacesTabs(s, idx, limit)
 
 		if idx < limit && s[idx] == ')' {
-			// NOTE: valid link tail
-			// update the result value and return
+			// valid link title
+			result.FullSpan = source.ByteSpan{
+				Start: candidateSpan.Start,
+				End:   candidateSpan.Start + source.BytePos(idx+1),
+			}
+
+			return result, true
 		}
 	}
 
 	return InlineLinkTail{}, false
 }
 
-// TODO:
-func tryLinkDestination(s string, idx, last int) (source.ByteSpan, int, bool) {}
+func tryLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
+	if idx >= limit {
+		return source.ByteSpan{}, 0, false
+	}
+
+	if s[idx] == '<' {
+		return tryAngleLinkDestination(s, idx, limit)
+	}
+	return tryBareLinkDestination(s, idx, limit)
+}
+
+func tryAngleLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
+	// validate that the first byte is '<'
+	if idx >= limit || s[idx] != '<' {
+		return source.ByteSpan{}, 0, false
+	}
+
+	// advance past the opening angle bracket
+	idx++
+	start := idx
+
+	for idx < limit {
+		switch s[idx] {
+		case '\n', '\r':
+			// newlines are not permitted inside the destination
+			return source.ByteSpan{}, 0, false
+
+		case '<':
+			// an unescaped '<' is an invalid destination
+			return source.ByteSpan{}, 0, false
+
+		case '>':
+			// an unescaped '>' is the end of the destination
+			span := source.ByteSpan{
+				Start: source.BytePos(start),
+				End:   source.BytePos(idx),
+			}
+
+			return span, idx + 1, true
+
+		case '\\':
+			// on a backslash, advance two bytes if within span limit
+			if idx+1 < limit {
+				idx += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			idx++
+
+		default:
+			idx++
+		}
+	}
+
+	return source.ByteSpan{}, 0, false
+}
 
 // TODO:
-func tryLinkTitle(s string, idx, last int) (source.ByteSpan, int, bool) {}
+func tryBareLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
+	return source.ByteSpan{}, 0, false
+}
+
+func tryLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
+	if idx >= limit {
+		return source.ByteSpan{}, 0, false
+	}
+
+	switch s[idx] {
+	case '"', '\'':
+		return tryQuotedLinkTitle(s, idx, limit, s[idx])
+	case '(':
+		return tryParenLinkTitle(s, idx, limit)
+	default:
+		return source.ByteSpan{}, 0, false
+	}
+}
+
+func tryQuotedLinkTitle(s string, idx, limit int, delim byte) (source.ByteSpan, int, bool) {
+	if idx >= limit || s[idx] != delim {
+		return source.ByteSpan{}, 0, false
+	}
+
+	idx++
+	start := idx
+
+	for idx < limit {
+		switch s[idx] {
+		case '\n', '\r':
+			// newlines are not permitted inside the title
+			return source.ByteSpan{}, 0, false
+
+		case delim:
+			// an unescaped closer ends the title
+			span := source.ByteSpan{
+				Start: source.BytePos(start),
+				End:   source.BytePos(idx),
+			}
+
+			return span, idx + 1, true
+
+		case '\\':
+			// on a backslash, advance two bytes if within span limit
+			if idx+1 < limit {
+				idx += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			idx++
+
+		default:
+			idx++
+		}
+	}
+
+	return source.ByteSpan{}, 0, false
+}
+
+func tryParenLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
+	if idx >= limit || s[idx] != '(' {
+		return source.ByteSpan{}, 0, false
+	}
+
+	idx++
+	start := idx
+	depth := 1
+
+	for idx < limit {
+		switch s[idx] {
+		case '\n', '\r':
+			// newlines are not permitted inside the title
+			return source.ByteSpan{}, 0, false
+
+		case '(':
+			// an unescaped open paren increases the paren depth
+			depth++
+			idx++
+
+		case ')':
+			// an unescaped close paren decreases the paren depth
+			depth--
+
+			// reaching the depth 0 ends the title
+			if depth == 0 {
+				span := source.ByteSpan{
+					Start: source.BytePos(start),
+					End:   source.BytePos(idx),
+				}
+
+				return span, idx + 1, true
+			}
+
+			idx++
+
+		case '\\':
+			// on a backslash, advance two bytes if within span limit
+			if idx+1 < limit {
+				idx += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			idx++
+
+		default:
+			idx++
+		}
+	}
+
+	return source.ByteSpan{}, 0, false
+}
 
 // func (c *Cursor) tryParseInlineLinkTail(snapshot []WorkingItem, closeItemIdx int) (InlineLinkTail, bool, error) {
 // 	// initialize empty full span early, update Start and End when validated

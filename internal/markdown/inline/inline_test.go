@@ -122,7 +122,7 @@ func summarizeInline(src *source.Source, inl ast.Inline) InlineSummary {
 			Children: summarizeInlines(src, n.Children),
 		}
 
-	case ast.Em:
+	case ast.Emph:
 		return InlineSummary{
 			Kind:     "emphasis",
 			Lexeme:   src.Slice(n.Span),

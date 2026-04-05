@@ -301,7 +301,7 @@ func TestGenerateHTML(t *testing.T) {
 		},
 		{
 			name:  "autolink email",
-			input: "local@domain.com",
+			input: "<local@domain.com>",
 			want: html.FragmentNode(
 				html.ElemNode(
 					"p",

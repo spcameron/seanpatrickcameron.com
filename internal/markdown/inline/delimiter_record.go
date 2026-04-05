@@ -95,3 +95,53 @@ func (l *DelimiterList) Remove(delim *DelimiterRecord) {
 		l.len--
 	}
 }
+
+// RemoveRange removes the contiguous range [first, last] from list l.
+func (l *DelimiterList) RemoveRange(first, last *DelimiterRecord) {
+	// nil guard
+	if first == nil || last == nil {
+		panic("RemoveRange: first and last must be non-nil")
+	}
+
+	// list membership guards
+	if first.list != l {
+		panic("RemoveRange: first does not belong to receiver list")
+	}
+	if last.list != l {
+		panic("RemoveRange: last does not belong to receiver list")
+	}
+
+	// verify that last is reachable from first within l
+	found := false
+	count := 0
+	for item := first; item != nil; item = item.Next() {
+		count++
+		if item == last {
+			found = true
+			break
+		}
+	}
+	if !found {
+		panic("RemoveRange: last is not reachable from first in receiver list")
+	}
+
+	before := first.prev
+	after := last.next
+
+	// splice [first, last] out of l
+	before.next = after
+	after.prev = before
+
+	// update ownership pointers
+	item := first
+	for item != after {
+		next := item.next
+		item.prev = nil
+		item.next = nil
+		item.list = nil
+		item = next
+	}
+
+	// update list count
+	l.len -= count
+}

@@ -9,9 +9,12 @@ const (
 	ItemText
 	ItemCodeSpan
 	ItemLink
+	ItemImage
 	ItemAutolinkURI
 	ItemAutolinkEmail
 	ItemHTML
+	ItemEmphasis
+	ItemStrong
 )
 
 type ItemRecord struct {
@@ -21,6 +24,12 @@ type ItemRecord struct {
 	OriginalSpan source.ByteSpan
 	LiveSpan     source.ByteSpan
 	Kind         ItemKind
+
+	DestinationSpan source.ByteSpan
+	TitleSpan       source.ByteSpan
+	HasTitle        bool
+
+	Children *ItemList
 }
 
 // Next returns the next list ItemRecord or nil.
@@ -73,6 +82,20 @@ func (l *ItemList) Back() *ItemRecord {
 	return l.root.prev
 }
 
+// InsertAfter inserts a new ItemRecord item immediately after mark.
+func (l *ItemList) InsertAfter(item, mark *ItemRecord) {
+	if mark == nil || mark.list != l {
+		return
+	}
+
+	item.prev = mark
+	item.next = mark.next
+	item.prev.next = item
+	item.next.prev = item
+	item.list = l
+	l.len++
+}
+
 // PushBack inserts an ItemRecord at the back of list l and returns the ItemRecord.
 func (l *ItemList) PushBack(item *ItemRecord) *ItemRecord {
 	last := l.root.prev
@@ -83,4 +106,72 @@ func (l *ItemList) PushBack(item *ItemRecord) *ItemRecord {
 	item.list = l
 	l.len++
 	return item
+}
+
+// Remove removes item from l if item is an element of list l.
+func (l *ItemList) Remove(item *ItemRecord) {
+	if item.list == l {
+		item.prev.next = item.next
+		item.next.prev = item.prev
+		item.next = nil
+		item.prev = nil
+		item.list = nil
+		l.len--
+	}
+}
+
+// DetachRange removes the contiguous range [first, last] from list l
+// and returns a new ItemList containing that range.
+func (l *ItemList) DetachRange(first, last *ItemRecord) *ItemList {
+	// nil guard
+	if first == nil || last == nil {
+		panic("DetachRange: first and last must be non-nil")
+	}
+
+	// list membership guards
+	if first.list != l {
+		panic("DetachRange: first does not belong to receiver list")
+	}
+	if last.list != l {
+		panic("DetachRange: last does not belong to receiver list")
+	}
+
+	// verify that last is reachable from first within l
+	found := false
+	count := 0
+	for item := first; item != nil; item = item.Next() {
+		count++
+		if item == last {
+			found = true
+			break
+		}
+	}
+	if !found {
+		panic("DetachRange: last is not reachable from first in receiver list")
+	}
+
+	newList := NewItemList()
+
+	before := first.prev
+	after := last.next
+
+	// splice [first, last] out of l
+	before.next = after
+	after.prev = before
+
+	// splice [first, last] into newList
+	newList.root.next = first
+	newList.root.prev = last
+	first.prev = &newList.root
+	last.next = &newList.root
+
+	// update ownership pointers and lengths
+	for item := first; item != &newList.root; item = item.next {
+		item.list = newList
+	}
+
+	newList.len = count
+	l.len -= count
+
+	return newList
 }

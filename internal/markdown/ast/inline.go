@@ -35,14 +35,14 @@ func (l Link) String() string {
 	return fmt.Sprintf("[Link] (Children = %d)", len(l.Children))
 }
 
-type Em struct {
+type Emph struct {
 	Span     source.ByteSpan
 	Children []Inline
 }
 
-func (Em) isInline() {}
+func (Emph) isInline() {}
 
-func (e Em) String() string {
+func (e Emph) String() string {
 	return fmt.Sprintf("[Emphasis] (Children = %d)", len(e.Children))
 }
 

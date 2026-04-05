@@ -110,8 +110,8 @@ func ASTLink(inlines ...ast.Inline) ast.Link {
 	}
 }
 
-func ASTEm(inlines ...ast.Inline) ast.Em {
-	return ast.Em{
+func ASTEm(inlines ...ast.Inline) ast.Emph {
+	return ast.Emph{
 		Span:     source.ByteSpan{},
 		Children: inlines,
 	}
@@ -255,7 +255,7 @@ func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 			v.Children = NormalizeASTInlines(v.Children)
 			out = append(out, v)
 
-		case ast.Em:
+		case ast.Emph:
 			v.Span = source.ByteSpan{}
 			v.Children = NormalizeASTInlines(v.Children)
 			out = append(out, v)

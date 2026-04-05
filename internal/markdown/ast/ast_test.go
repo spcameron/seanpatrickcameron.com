@@ -6,7 +6,7 @@ var (
 
 var (
 	_ Inline = Link{}
-	_ Inline = Em{}
+	_ Inline = Emph{}
 	_ Inline = Strong{}
 	_ Inline = Text{}
 	_ Inline = RawText{}
