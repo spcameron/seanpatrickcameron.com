@@ -7,6 +7,10 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 )
 
+// Based on Version 0.31.2 (2024-01-28)
+// The following test cases are based on the CommonMark spec examples, and are used
+// to help illustrate where Scribe diverges in implementation from the CM spec.
+
 func TestCommonMarkSpec(t *testing.T) {
 	testCases := []struct {
 		name      string
@@ -16,6 +20,9 @@ func TestCommonMarkSpec(t *testing.T) {
 		matchCM   bool
 		reason    string
 	}{
+		// Section 2 - Preliminaries
+		//
+		// 2.2 - Tabs
 		{
 			name:      "1: tabs define block structure; code block payload ends with newline in CM",
 			md:        "\tfoo\tbaz\t\tbim",
