@@ -34,31 +34,3 @@ type ConsumedItem struct {
 }
 
 func (*ConsumedItem) isInlineItem() {}
-
-// type TokenKind int
-//
-// func (tk TokenKind) String() string {
-// 	switch tk {
-// 	case TokenOpenBracket:
-// 		return "open_bracket"
-//
-// 	case TokenCloseBracket:
-// 		return "close_bracket"
-//
-// 	case TokenOpenParen:
-// 		return "open_paren"
-//
-// 	case TokenCloseParen:
-// 		return "close_paren"
-//
-// 	default:
-// 		return fmt.Sprintf("unknown_token_kind(%d)", tk)
-// 	}
-// }
-
-// type TokenItem struct {
-// 	Span source.ByteSpan
-// 	Kind TokenKind
-// }
-//
-// func (*TokenItem) isWorkingItem() {}
