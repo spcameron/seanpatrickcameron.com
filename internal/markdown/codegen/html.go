@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
@@ -280,10 +281,16 @@ func renderInlines(src *source.Source, inlines []ast.Inline) ([]html.Node, error
 
 func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	switch v := inl.(type) {
+	case ast.CodeSpan:
+		return renderCodeSpan(src, v)
+
+	case ast.Image:
+		return renderImage(src, v)
+
 	case ast.Link:
 		return renderLink(src, v)
 
-	case ast.Em:
+	case ast.Emph:
 		return renderEmphasis(src, v)
 
 	case ast.Strong:
@@ -309,14 +316,56 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	}
 }
 
+func renderCodeSpan(src *source.Source, inl ast.CodeSpan) (html.Node, error) {
+	contentNode := html.Text{
+		Value: src.Slice(inl.Span),
+	}
+
+	node := html.Element{
+		Tag:      "code",
+		Attr:     html.Attributes{},
+		Children: []html.Node{contentNode},
+	}
+
+	return node, nil
+}
+
+func renderImage(src *source.Source, inl ast.Image) (html.Node, error) {
+	alt, err := inlineText(src, inl.Children)
+	if err != nil {
+		return nil, err
+	}
+
+	attr := html.Attributes{
+		"src": src.Slice(inl.Destination),
+		"alt": alt,
+	}
+
+	if inl.Title != (source.ByteSpan{}) {
+		attr["title"] = src.Slice(inl.Title)
+	}
+
+	node := html.VoidElement{
+		Tag:  "img",
+		Attr: attr,
+	}
+
+	return node, nil
+}
+
 func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 	inlines, err := renderInlines(src, inl.Children)
 	if err != nil {
 		return nil, err
 	}
 
+	href := src.Slice(inl.Destination)
+	if inl.MailTo {
+		href = "mailto:" + href
+	}
+
 	attr := html.Attributes{
-		"href": src.Slice(inl.Destination),
+		"href": href,
 	}
 
 	if inl.Title != (source.ByteSpan{}) {
@@ -332,7 +381,7 @@ func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 	return node, nil
 }
 
-func renderEmphasis(src *source.Source, inl ast.Em) (html.Node, error) {
+func renderEmphasis(src *source.Source, inl ast.Emph) (html.Node, error) {
 	inlines, err := renderInlines(src, inl.Children)
 	if err != nil {
 		return nil, err
@@ -401,4 +450,53 @@ func renderNewline() (html.Node, error) {
 	}
 
 	return node, nil
+}
+
+func inlineText(src *source.Source, inlines []ast.Inline) (string, error) {
+	if len(inlines) == 0 {
+		return "", nil
+	}
+
+	var b strings.Builder
+
+	for _, inl := range inlines {
+		s, err := inlineNodeText(src, inl)
+		if err != nil {
+			return "", nil
+		}
+		b.WriteString(s)
+	}
+
+	return b.String(), nil
+}
+
+func inlineNodeText(src *source.Source, inl ast.Inline) (string, error) {
+	switch n := inl.(type) {
+
+	case ast.Text:
+		return src.Slice(n.Span), nil
+
+	case ast.CodeSpan:
+		return src.Slice(n.Span), nil
+
+	case ast.RawText:
+		return src.Slice(n.Span), nil
+
+	case ast.Emph:
+		return inlineText(src, n.Children)
+
+	case ast.Strong:
+		return inlineText(src, n.Children)
+
+	case ast.Link:
+		// alt text ignores the destination; use label text
+		return inlineText(src, n.Children)
+
+	case ast.Image:
+		// nested images are rare, but spec allows recursion
+		return inlineText(src, n.Children)
+
+	default:
+		return "", fmt.Errorf("inlineNodeText: unsupported inline type %T", inl)
+	}
 }

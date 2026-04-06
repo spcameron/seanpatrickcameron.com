@@ -5,8 +5,10 @@ var (
 )
 
 var (
+	_ Inline = CodeSpan{}
 	_ Inline = Link{}
-	_ Inline = Em{}
+	_ Inline = Image{}
+	_ Inline = Emph{}
 	_ Inline = Strong{}
 	_ Inline = Text{}
 	_ Inline = RawText{}

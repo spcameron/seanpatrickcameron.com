@@ -13,23 +13,13 @@ var (
 	ErrNoRuleMatched         = errors.New("no inline rule could be applied")
 )
 
-func Build(src *source.Source, span source.ByteSpan, events []Event) ([]ast.Inline, error) {
-	c := NewCursor(src, span, events)
+func Build(src *source.Source, span source.ByteSpan, tokens []Token) ([]ast.Inline, error) {
+	c := NewCursor(src, span, tokens)
 
-	err := c.Gather()
+	inlines, err := c.Build()
 	if err != nil {
 		return []ast.Inline{}, err
 	}
 
-	err = c.Resolve()
-	if err != nil {
-		return []ast.Inline{}, err
-	}
-
-	inlines, err := c.Finalize()
-	if err != nil {
-		return []ast.Inline{}, err
-	}
-
-	return inlines, nil
+	return inlines, err
 }

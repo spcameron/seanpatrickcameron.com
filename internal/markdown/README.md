@@ -2,434 +2,427 @@
 
 ## Design Overview
 
-This package implements a small, staged compiler that transforms Markdown source into HTML.
+This package implements a staged compiler that transforms Markdown source into HTML.
 
-The compiler operates on a single immutable `Source` buffer. All structural elements (lines, blocks, inline nodes) are represented as `ByteSpan` coordinates into that source. Text is not copied or passed between stages, and strings are derived from spans only at the final HTML emission boundary.
+The compiler operates over a single immutable `Source` buffer. All structural elements—lines, blocks, and inline nodes—are represented as `ByteSpan` coordinates into that source. Text is never copied or passed between stages; it is materialized only at the HTML boundary.
 
-Each stage performs one transformation and hands off a well-defined representation to the next:
+Each stage performs a single transformation and hands off a representation with a narrower and more semantic shape than the one before it:
 
-- **Scanning** segments input into structural units.
-- **Parsing** assembles those units into a block-level intermediate representation (IR).
-- **Lowering** transforms block IR into a semantic abstract syntax tree (AST).
-- **Code generation** converts the AST into an HTML node tree.
-- **Emission** serializes the HTML tree into bytes or strings.
+* scanning segments input into structural units
+* parsing assembles those units into block-level intermediate representation (IR)
+* lowering converts block IR into semantic AST and invokes inline parsing over content spans
+* code generation produces an HTML node tree
+* emission serializes that tree to an `io.Writer` or string
 
 No stage reinterprets raw input that belongs to another layer.
 
-This guarantees a single source of truth for content, stable byte-coordinate semantics across all stages, precise span-based diagnostics, and no string drift or duplicated normalization logic.
+As a consequence:
 
-*The shape of the compiler is stable. New Markdown features expand rule vocabularies, not the architecture itself.*
+* the source buffer is the single authority for all text
+* all intermediate structures are span-based projections of that buffer
+* coordinate semantics remain stable across all stages
+* normalization and interpretation occur exactly once, at the appropriate layer
+
+The shape of the compiler is stable. New Markdown features expand rule vocabularies, not the architecture itself.
+
+---
 
 ## Compilation Pipeline
 
 ### Pipeline Overview
 
-- Markdown (string)
-- Source (immutable buffer + line index)
-- Block Parse
-    - Block Scan: outputs `[]Line` (spans)
-    - Block Build: outputs `ir.Document` (block IR)
-- Lowering
-    - `ir.Document` becomes `ast.Document`
-    - Performs inline parsing per content span
-- Inline Parse (invoked during lowering)
-    - Inline Scan: outputs `[]Event` (span-based lexical tokens)
-    - Gather: builds working items and delimiter records
-    - Resolve: pairs compatible delimiters and constructs inline nodes
-    - Finalize: emits `[]ast.Inline`
-- Code Generation
-    - `ast.Document` becomes `html.Node` tree
-- HTML Emission
-    - Serializes `html.Tree` to string output or io.Writer
-    - `html.Write` writes to a provided io.Writer
-    - `html.Render` returns a serialized string directly
+* Markdown (`string`)
+* `source.Source`
 
-### Inline Parsing Model
+  * immutable buffer
+  * line index
+* Block Parse
 
-Inline parsing follows a staged pipeline designed to separate lexical recognition from delimiter resolution.
+  * block scan → `[]Line`
+  * block build → `ir.Document`
+* Lowering
 
-- **Inline Scan**: The scanner walks a content span and emits a sequence of inline events. Events represent either literal text or delimiter runs (such as `*` sequences). Each event carries a `ByteSpan` into the original source.
-- **Gather**: Gather converts events into a working stream while recording delimiter metadata. The gather phase performs no semantic interpretation beyond delimiter eligibility classification.
-- **Resolve**: Resolve walks the delimiter stack and pairs compatible delimiter runs. This phase constructs nesting inline nodes such as `Em` and `Strong`.
-- **Finalize**: Finalize walks the working item stream and materializes the final `ast.Inline` nodes. The result is the finalized inline AST for the parsed span.
+  * `ir.Document` → `ast.Document`
+  * invokes inline parsing for content-bearing spans
+* Inline Parse (during lowering)
 
-### Representation Boundaries
+  * inline scan → `[]Token`
+  * build → mutable item list + delimiter stack
+  * lower → `[]ast.Inline`
+* Code Generation
 
-- `source.Source`: Immutable input buffer with span utilities and line/column mapping.
-- `ir.Document`: Block-level intermediate representation. Structural only and span-based.
-- `ast.Document`: Semantic tree suitable for code generation. Span-based.
-- `html.Node`: Target-language representation (HTML tree). String-backed.
+  * `ast.Document` → `html.Node`
+* HTML Emission
 
-Only the HTML layer operates on concrete strings.
+  * `html.Write(io.Writer, node)`
+  * `html.Render(node) string`
+
+Inline parsing is not a separate compilation stage; it is a transformation applied during lowering to spans that carry inline content.
+
+---
+
+## Representation Boundaries
+
+The compiler is organized around four representation layers:
+
+* `source.Source`: immutable input buffer with span utilities and line/column mapping
+* `ir.Document`: block-level intermediate representation; structural only, span-based
+* `ast.Document`: semantic representation used for code generation; still span-based
+* `html.Node`: target-language tree used for HTML serialization
+
+Only the HTML layer materializes concrete output text. All earlier layers operate by preserving and transforming coordinates into the original source.
+
+---
 
 ## Entry Points
 
-- `HTML(md string) (string, error)`: Executes the full pipeline and returns serialized HTML. 
-- `Tree(md string) (html.Node, error)`: Returns the HTML node tree (useful for templ integration or further processing).
+* `HTML(md string) (string, error)`: executes the full pipeline and returns serialized HTML
+* `Tree(md string) (html.Node, error)`: executes the full pipeline and returns the HTML node tree
+
+The string-returning entry point is convenient for standalone rendering. The tree-returning entry point allows the generated structure to be embedded or transformed before serialization.
+
+---
 
 ## Architectural Decisions
 
 ### 1. Immutable Source
 
-All parsing and lowering operate on a single `Source`. Structural elements carry spans into the source rather than copying substrings. This enables zero string passing across seams, accurate diagnostics, and consistent normalization rules.
+All stages operate on a single `Source`. Structural elements carry spans into that source rather than copying substrings.
+
+This eliminates string drift, centralizes normalization, and ensures that every node can be traced back to an exact byte range in the original input.
 
 ### 2. IR vs AST Separation
 
-The compiler distinguishes between **Block IR** (structural parsing) and **AST** (semantic representation). Block parsing occurs first and determines structural boundaries, while lowering to AST determines semantic meaning. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning.
+The compiler distinguishes between:
+
+* **Block IR**: structural parsing of block boundaries and hierarchy
+* **AST**: semantic representation suitable for code generation
+
+Block parsing determines *where* structure exists. Lowering determines *what it means*. This separation keeps rule logic local and prevents semantic concerns from leaking into scanning or block construction.
 
 ### 3. Lowering as a First-Class Stage
 
-Mentioned above, lowering is a structural transformation pass and performs real transformations. Lowering converts block IR into semantic AST nodes, invokes line parsing per content span, and preserves spans across transformations. Lowering is not rendering.
+Lowering is a semantic transformation stage.
+
+It converts block IR into AST nodes, invokes inline parsing for content-bearing spans, and normalizes distinct surface forms into unified semantic constructs. Lowering preserves span identity across these transformations and does not perform rendering.
 
 ### 4. Code Generation vs. Emission
 
-The compiler distinguishes between **code generation** (AST -> `html.Node` tree) and **emission** (`html.Node` -> serialized output). Text materialization occurs exactly once, during code generation.
+The compiler distinguishes between:
+
+* **code generation**: AST → `html.Node` tree
+* **emission**: `html.Node` → serialized output
+
+Output text is first materialized during code generation. Emission is a separate concern responsible only for serialization.
 
 ### 5. Scanner Discipline
 
-Scanners are mechanical, meaning they do *not* interpret structure or create semantic nodes. Their only responsibility is to segment input into span-referenced units. All interpretation occurs in build or lowering rules.
+Scanners are mechanical. They do not construct semantic nodes or partially interpret structure.
 
-### 6. Delimiter Resolution Model
+Their responsibility is limited to segmenting input into span-referenced units. Interpretation is deferred to build and lowering stages, where sufficient context exists to make correct decisions.
 
-Inline emphasis and strong emphasis are implemented using a delimiter stack model similar to the one described in the CommonMark specification.
+### 6. Inline Working Model
 
-Delimiter runs are first gathered into a working stream along with metadata describing their eligibility to open or close emphasis. A subsequent resolution phase pairs compatible delimiters and constructs inline nodes while preserving index stability within the working stream.
+Inline parsing is built around two mutable structures: an item list and a delimiter stack.
 
-This approach separates delimiter recognition from pairing logic and enables nested constructs to be resolved without modifying earlier parse stages.
+The parser consumes tokens in a single pass, initially treating recognized syntax as provisional text. As closing conditions are encountered, regions of the item list are rewritten in place into structured nodes (emphasis, links, images, code spans).
 
-## Markdown Rules (CommonMark-ish)
+This approach avoids premature interpretation while allowing nested and overlapping constructs to be resolved incrementally. Unmatched candidates remain literal text.
 
-### Indentation Model
+## Block Elements
 
-Block-level constructs use visual column indentation.
+Block parsing in this compiler is intentionally conservative and structurally driven. Rather than re-specifying CommonMark in full, this section describes the subset of constructs supported and the principles used to recognize them.
 
-- Indentation is measured in columns.
-- A space (` `) advances indentation by one column.
-- A tab (`\t`) advances indentation to the next multiple of 4 columns.
-- Only leading spaces and tabs contribute to indentation.
-- A block rules that reference "0-3 spaces" are interpreted as "0-3 columns".
+The parser operates over line spans derived from a normalized source buffer and applies a fixed set of block rules in precedence order. Each rule consumes the maximal sequence of lines that form a valid construct. Container blocks transform their input (e.g., by stripping markers or adjusting indentation) and recursively invoke the same parser, ensuring that all structure is derived through the same mechanism.
 
-Indentation is used only for structural recognition. Tabs are not expanded in content.
+The goal is not full CommonMark compliance, but a predictable and internally consistent system that aligns with CommonMark where practical and diverges where simplicity or clarity is preferred.
 
-### Block Elements
+### Indentation
 
-#### ATX Headers (`#`)
+Indentation is measured in visual columns, with tabs advancing to the next multiple of four. Only leading whitespace contributes to indentation; content is not rewritten or expanded.
 
-A header is a block used to create titles, subtitles, or otherwise structure content.
+This model is used strictly for structural recognition. It determines whether a line participates in a construct but does not alter the underlying source text.
 
-A line is recognized as a header if and only if the following is true:
+### Headers
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Run**: After leading spaces, there is a run of 1-6 `#` characters.
-- **Delimiter**: The marker run is followed by at least one delimiter character: space or tab.
-- **Content**: Header content is defined as the rest of the line after consuming all consecutive spaces or tabs following the marker run.
-- **Normalization**: Trailing whitespace is trimmed from the content.
-- **Termination**: The header is a single line. A newline ends it.
+Both ATX (`#`) and Setext (`===`, `---`) headers are supported and normalized into a single header representation.
 
-The Header IR node stores both the full line span and the content span (excludes marker and trimmed whitespace).
+ATX headers are recognized when a line begins (after up to three columns of indentation) with a run of one to six `#` characters followed by whitespace. The remainder of the line forms the header content, with trailing whitespace trimmed.
 
-Headers are rendered as `<h1></h1>` ... `<h6></h6>` in HTML.
+Setext headers are recognized as a paragraph immediately followed by an underline line consisting entirely of `=` or `-` characters (aside from indentation and trailing whitespace). The underline determines the level, and the paragraph provides the content.
 
-#### Setext Headers (`===`, `---`)
+In both cases, the original syntactic form is discarded during lowering; downstream stages operate only on the semantic header node.
 
-A Setext header is a two-line construct used to create level 1 (`=`) or level 2 (`-`) headings.
+### Thematic Breaks
 
-A Setext header is recognized if and only if the following is true:
+Thematic breaks are recognized as lines consisting of at least three identical marker characters (`-`, `*`, or `_`), optionally separated by spaces or tabs. Aside from indentation and inter-marker whitespace, no other characters are permitted.
 
-- **Structure**: A paragraph candidate line (or contiguous paragraph run) is immediately followed by a valid underline line.
-- **No Blank Separation**: The underline line must appear directly after the paragraph content with no intervening blank line.
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Character**: The first non-indent character of the underline is either `=` or `-`.
-- **Marker Run**: The underline line contains a run of one or more identical marker characters.
-- **Line Purity**: Aside from indentation and optional trailing spaces or tabs, the underline line must contain only the chosen marker character. Internal spaces between markers are not permitted.
-- **Trailing Whitespace**: Trailing spaces or tabs after the marker run are permitted.
+When ambiguity arises between a thematic break and a Setext underline (notably with `---`), the Setext interpretation takes precedence if a valid paragraph precedes the line.
 
-The entire preceding paragraph run becomes the header content. The underline line contributes only the level and is not included in the content span.
+### Block Quotes
 
-Setext headers consume exactly two logical components: the paragraph run and the underline line.
+Block quotes are formed from lines beginning with one or more `>` markers (after indentation), each optionally followed by a single space or tab. The number of markers determines the nesting depth.
 
-Setext headers are lowered into the same `Header` IR node used for ATX headers and rendered as `<h1>` or `<h2>` in HTML.
+Each level of quoting is constructed by stripping one marker layer and recursively parsing the resulting content. This produces structurally nested block quote nodes rather than a flat representation.
 
-#### Thematic Breaks (`---`, `***`, `___`)
+This implementation does not support lazy continuation. Every line within a block quote must carry an explicit `>` marker, including blank lines. This constraint simplifies parsing and preserves a direct correspondence between source lines and structure.
 
-A thematic break is a leaf block representing a horizontal rule.
+### Lists
 
-A line is recognized as a thematic break if all of the following are true:
+Ordered and unordered lists are supported as container blocks whose structure is determined by marker recognition and indentation.
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Character**: The first non-indent character is one of `-` `*` or `_`.
-- **Marker Count**: The line contains at least three marker characters, and all marker characters must be identical.
-- **Separator Rules**: Marker characters may be separated by any number of spaces or tabs, but no other characters are permitted.
-- **Line Purity**: Aside from indentation and optional inter-marker whitespace, the line must contain only the chosen marker. Trailing whitespace is permitted.
+Unordered lists use `-`, `*`, or `+` markers. Ordered lists use a sequence of digits followed by `.` or `)`. In both cases, the marker must be followed by whitespace, and the indentation of the marker establishes the list’s structural baseline.
 
-A thematic break consumes exactly one line, and may interrupt paragraphs.
+A list item consists of the marker line and any subsequent lines whose indentation meets or exceeds the item’s content baseline. These continuation lines are parsed recursively as block content.
 
-When a line of dashes (`---`) directly follows a paragraph run and satisfies Setext underline rules, it is interpreted as a Setext level 2 header rather than a thematic break. Otherwise, thematic break rules apply.
+Blank lines within items are permitted and influence whether the list is rendered as tight or loose. Nested lists emerge naturally when a continuation line itself satisfies a list marker rule at a deeper indentation level.
 
-Breaks are rendered as `<hr>` in HTML.
+The parser does not enforce sequential numbering for ordered lists. If the first item does not begin at `1`, the resulting HTML includes a `start` attribute.
 
-#### Block Quotes (`>`)
+### Code Blocks
 
-A block quote is a container block used to quote or otherwise offset content. Block quotes may contain any other block elements supported by the compiler, including paragraphs, headers, thematic breaks, lists, and other (nested) block quotes.
+Code blocks are treated as literal regions and are never subject to inline parsing.
 
-A line is recognized as a part of a block quote if and only if the following is true:
+Two forms are supported:
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Unit**: After indentation, the line contains at least one quote marker unit. A quote marker unit is:
-    - a single `>` character, followed by
-    - an optional single delimiter character, space or tab.
-- **Marker Run**: The quote marker run is one or more consecutive quote marker units. The nesting depth of the line is the number of `>` characters consumer by the marker run.
-- **Content**: Quote line content is defined as the remainder of the line after consuming indentation and the full marker run.
-- **Whitespace Preservation**: Only one delimiter character (space or tab) may be consumed after each `>` marker. Any additional spaces or tabs are preserved as content.
+Indented code blocks arise from lines with at least four columns of indentation. The first four columns are removed during normalization, and any additional indentation is preserved as content.
 
-A block quote consists of a maximal contiguous sequence of quote-eligible lines. Lazy continuation is not supported; every physical line in a block quote must bear a leading `>` marker.
+Fenced code blocks are introduced by runs of backticks or tildes (at least three). The closing fence must use the same marker and meet or exceed the opening length. An optional info string may follow the opening fence; its first token is interpreted as a language identifier during rendering.
 
-Blank lines inside a block quote must also include a `>` marker. Such lines are treated as blank lines within the quoted content and may separate paragraphs or other blocks.
+In both forms, line boundaries are preserved exactly, and the resulting content is emitted as literal text within `<pre><code>`.
 
-Multiple consecutive `>` markers indicate nested block quotes. Each nesting layer is parsed by stripping exactly one leading `>` marker (and optional delimiter) from each line in the block and recursively invoking block parsing on the resulting content. This process yields structurally nested `BlockQuote` nodes in the IR.
+### HTML Blocks
 
-Block quotes are rendered as `<blockquote>...</blockquote>` in HTML.
+HTML blocks provide a passthrough mechanism for raw HTML. When a recognized HTML opener appears at the start of a line (after indentation), the parser suspends Markdown interpretation and treats the content as literal until a corresponding termination condition is met.
 
-#### Lists
+Supported forms include comments, declarations, CDATA sections, processing instructions, and a restricted set of block-level tags.
 
-Lists are container blocks composed of one or more list items. Each item begins with a marker followed by a delimiter and item content. Lists may contain any other block elements supported by the compiler.
+Delimiter-terminated forms (e.g., `<!-- ... -->`) continue until their closing sequence is found. Named-tag blocks continue until a blank line is encountered.
 
-A list begins when a line satisfies either the unordered list marker rules or the ordered list marker rules described below.
+Within an HTML block, no inline parsing or normalization occurs. The content is emitted verbatim.
 
-- **Indentation**: The line beginning a list item must start with 0-3 columns of indentation. The list indentation column is defined as the visual column where the marker begins. The item content baseline is the visual column immediately after the marker and delimiter run.
-- **Item Body Continuation**: After a marker line is consumed, additional lines may belong to the same list item. A subsequent line is treated as a continuation of the current item if the line is not blank and the line's indentation is greater than or equal to the item content baseline column. Continuation lines are included in the list item body and parsed recursively as block content.
-- **Blank Lines**: Blank lines inside list items are permitted. Blank lines are tentatively consumed. If the following non-blank line does not satisfy the continuation rule, the blank lines are discarded and parsing resumes outside the list item. Retained blank lines determine whether the list is tight or loose.
-- **Item Termination**: A list item ends when a subsequent non-blank line has indentation less than the item content baseline or begins a sibling list item at the same list indentation level.
-- **Sibling Items**: After completing an item, the parser attempts to recognize another list item. A sibling item begins when the next line has indentation equal to the list indentation column and satisfies a valid list marker rule.
-- **List Termination**: The list ends when the next line has indentation less than the list indentation column or does not form a valid sibling list item.
-- **Structure**: Each list item is parsed as a separate block scope. The marker and delimiter are removed and the item body is parsed recursively using the item content baseline as the indentation baseline.
-- **Tight vs. Loose Lists**: Lists may be tight or loose depending on whether retained blank lines appear between block elements inside items. Tight lists do not render `<p>` tags around list item text content, while loose lists do.
+### Paragraphs
 
-#### Unordered List Markers (`-`, `*`, `+`)
+A paragraph consists of one or more consecutive non-blank lines that do not form another block construct.
 
-A line is recognized as the beginning of an unordered list item if:
+Paragraphs serve as the default block and the primary carrier of inline content. During lowering, line boundaries are interpreted to produce either soft breaks (rendered as spaces) or hard breaks (rendered as `<br>`), depending on trailing whitespace or escape markers.
 
-- after indentation, the line begins with one of the marker characters `-`, `*`, or `+`
-- the marker is followed by at least one space or tab delimiter.
+### Deviations from CommonMark
 
-#### Ordered List Markers (`1.`, `1)`)
+This implementation intentionally diverges from CommonMark in a small number of areas:
 
-A line is recognized as the beginning of an ordered list item if:
+* **No lazy continuation**: Block quotes require explicit markers on every line. This avoids implicit structure and simplifies parsing.
+* **Restricted HTML block recognition**: Only a subset of block-level tags is recognized to prevent accidental capture of inline HTML.
+* **Inline newline handling**: Inline parsing does not admit arbitrary newlines; line structure is resolved at the block level.
+* **Simplified ambiguity resolution**: In edge cases, precedence rules favor structural clarity over exhaustive spec compliance.
 
-- after indentation, the line begins with a run of one or more digits (`0-9`)
-- the digits are followed by either `.` or `)`
-- the punctuation is followed by at least one space or tab delimiter
+These deviations are chosen to preserve a clear separation between structural parsing and inline semantics, and to keep the parser mechanically predictable.
 
-The numeric value does not need to be sequential. The punctuation must remain consistent within a single ordered list. If the first marker value is not `1`, the resulting `<ol>` element is rendered with a `start` attribute.
+## Inline Parsing Model
 
-#### List Nesting
+Inline parsing is implemented as a single forward pass over a token stream, backed by two mutable structures: an item list and a delimiter stack.
 
-Lists may be nested within other lists or container blocks. A nested list begins when a line inside a list item satisfies a list marker rule and its indentation is greater than or equal to the current item content baseline. Ordered and unordered lists may nest within each other without restriction.
+Unlike the block layer, which is purely structural, inline parsing must resolve overlapping and nested constructs whose interpretation depends on surrounding context. The parser therefore operates incrementally, treating all input as provisional text and selectively upgrading regions into semantic nodes as patterns become valid.
 
-#### Code Blocks
+### Overview
 
-Code blocks represent literal content and are not subject to inline parsing. All Markdown syntax inside a code block is treated as plain text.
+Inline parsing proceeds in three conceptual steps:
 
-Two forms of code blocks are supported: indented code blocks and fenced code blocks. Both forms are lowered into a unified `CodeBlock` AST node and rendered as `<pre><code>...</code></pre>` in HTML.
+1. **Scan**: Convert a content span into a stream of lexical tokens.
+2. **Build**: Walk the token stream once, constructing a working representation.
+3. **Lower**: Convert the working representation into `ast.Inline` nodes.
 
-#### Indented Code Blocks
+Only the final step produces semantic nodes. All prior stages operate on span-referenced structures.
 
-An indented code block is a leaf block representing literal code content introduced by indentation.
+### Scanning
 
-A line is recognized as part of an indented code block if and only if the following is true:
+The scanner performs a linear pass over the source slice and emits tokens representing:
 
-- **Indentation**: The line begins with at least 4 columns of indentation.
-- **Leading Whitespace**: Only spaces and tabs may contribute to indentation. Indentation is measure in visual columns according to the indentation model described above.
+* delimiter runs (`*`, `_`, `` ` ``)
+* structural markers (`[`, `]`, `(`, `)`, `<`, `>`)
+* escape markers (`\`)
+* composite forms (`![`)
+* plain text
 
-An indented code block consists of a maximal contiguous sequence of such lines, with the following rules:
+Tokens are span-based and do not interpret meaning. In particular:
 
-- **Blank Lines**: Blank lines may appear inside the block. Blank lines are tentatively consumed and retained only if followed by another indented code block line.
-- **Termination**: The block ends when a non-blank line is encountered that has fewer than 4 columns of indentation.
-- **Content Preservation**: The original line content is preserved except for the indentation normalization described below.
+* delimiter runs are emitted as single tokens with width
+* no attempt is made to classify tokens as “opening” or “closing”
+* no structure is constructed during scanning
 
-During lowering, the leading indentation of each payload line is normalized as follows:
+The scanner is mechanical. It segments input but does not participate in parsing decisions.
 
-- Up to 4 visual columns of leading whitespace are removed from each line.
-- Only spaces and tabs are consumed during this process.
-- Stripping stops if the next character is not whitespace, even if fewer than 4 columns have been removed.
-- Any additional indentation beyond the first 4 columns is preserved as literal code indentation.
+### Working Representation
 
-Line boundaries are preserved exactly. Each line of code block content is separated by a literal newline character (`\n`) in the resulting payload.
+The Build phase maintains two coordinated structures:
 
-The `IndentedCodeBlock` IR node stores:
+* **ItemList**: a doubly-linked list of `ItemRecord`s representing inline content
+* **DelimiterList**: a stack of delimiter records referencing items within the list
 
-- The span covering the entire block
-- The spans of each payload line
+Each item initially represents literal text (via its span). As parsing progresses, items may be transformed in place into structured nodes (e.g., emphasis, links, code spans) while preserving their original span boundaries.
 
-Lowering converts these spans into normalized inline payload content.
+This design keeps all intermediate state anchored to the original source while allowing localized structural rewrites.
 
-#### Fenced Code Blocks ("```", `~~~`)
+### Single-Pass Construction
 
-A fenced code block is a leaf block introduced by a run of fence markers.
+The token stream is consumed exactly once.
 
-A line is recognized as the opening fence of a fenced code block if and only if the following is true:
+For each token, the parser performs one of the following actions:
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Fence Marker**: The first non-indent character is either ``` or `~`.
-- **Marker Run**: The marker is repeated at least three times without interruption.
-- **Delimiter Whitespace**: Optional spaces or tabs may follow the marker run.
-- **Info String**: The remainder of the line is treated as an optional info string.
+* append a literal text item
+* append a provisional delimiter (and record it in the delimiter stack)
+* attempt to resolve a construct immediately (e.g., code spans, autolinks, inline HTML)
+* attempt to close a previously opened construct (e.g., links or images)
 
-The closing fence must satisfy the following rules:
+Crucially, delimiter-based constructs (emphasis, links, images) are not resolved eagerly in all cases. Instead, the parser records sufficient metadata to allow later resolution when a closing condition is encountered.
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Marker Type**: The marker character must match the opening fence marker.
-- **Marker Run**: The closing run must contain at least as many markers as the opening fence (but may contain more than the opening).
-- **Line Purity**: Aside from optional trailing whitespace, the closing line must contain only the marker run.
+### Delimiter Handling
 
-A fenced code block consists of all lines between the opening and closing fence. If no closing fence is encountered, the block extends to the end of the document.
+Delimiter runs (`*`, `_`) are inserted into the item list as plain text and recorded in the delimiter stack with metadata describing:
 
-The optional info string may follow the opening fence after delimiter whitespace. The first whitespace-delimited token of the info string is extracted as the language token. Only this token is preserved during lowering and is used to generate a language class in the rendered HTML.
+* delimiter kind (asterisk or underscore)
+* run length
+* whether the run may open and/or close (derived from flanking conditions)
+* a reference to the corresponding item in the item list
 
-Payload lines are normalized relative to the indentation of the opening fence:
+At this point, delimiter runs carry no structure. They are indistinguishable from literal text except for the presence of a corresponding delimiter record.
 
-- Up to the opening fence indentation column count may be removed from each payload line.
-- Only spaces and tabs are consumed during this stripping process.
-- Stripping stops when a non-whitespace character is encountered.
-- Additional indentation beyond this amount is preserved as literal content.
+Resolution is triggered only when a delimiter capable of closing is encountered.
 
-Line boundaries are preserved exactly and represented by literal newline characters in the payload.
+The parser then walks backward through the delimiter stack to locate a compatible opener. Compatibility is determined by:
 
-The `FencedCodeBlock` IR node stores:
+* matching delimiter kind
+* opener `CanOpen` and closer `CanClose` flags
+* modulo-3 constraints on run lengths
+* additional restrictions for underscores (intraword behavior)
 
-- The span covering the entire block
-- The spans of each payload line
-- The indentation column of the opening fence
-- The span of the info string
+If no matching opener is found, the delimiter remains literal. In some cases it is removed from the stack if it can no longer participate in future matches.
 
-Lowering extracts the language token and normalizes the payload indentation.
+When a matching opener is found, the parser performs a localized rewrite:
 
-#### Rendering Code Blocks
+1. **Determine strength**
+   One or two delimiter characters are consumed from each side depending on run lengths.
 
-Both indented and fenced code blocks are lowered into a unified `CodeBlock` AST node containing:
+2. **Adjust delimiter runs**
+   The opener and closer item spans are shortened to reflect consumed characters. If a run is fully consumed, its item and delimiter record are removed.
 
-- The block span
-- The normalized payload content
-- An optional language token
+3. **Extract children**
+   All items strictly between the opener and closer are detached from the item list as a contiguous range.
 
-The code block payload is rendered as literal text, with line boundaries preserved. Markdown syntax within code blocks is not interpreted as inline elements.
+4. **Construct new item**
+   A new item is created (`Emphasis` or `Strong`) with:
 
-#### HTML Blocks
+   * an original span covering both delimiters
+   * a live span covering only the enclosed content
+   * the detached items as its children
 
-An HTML block is a raw passthrough block. Its contents are preserved exactly and are not interpreted as markdown.
+5. **Reinsert structure**
+   The new item is inserted at the opener position, preserving list order.
 
-HTML blocks allow authors to embed raw HTML within Markdown documents when Markdown syntax alone is insufficient. When a supported HTML opener appears at the beginning of a line, the compiler suspends Markdown parsing and treats the block as literal HTML until the appropriate termination condition is met.
+6. **Clean delimiter state**
+   All delimiter records between the opener and closer are removed. The parser then resumes from a stable position in the delimiter stack.
 
-HTML blocks may interrupt paragraphs.
+Because resolution operates directly on the item list, no index-based rewriting is required. The structure evolves through local mutations rather than global passes.
 
-A line begins an HTML block if and only if the following conditions are met:
+Unmatched delimiter runs remain as text. No backtracking or re-scanning is performed.
 
-- **Indentation**: The line begins with 0-3 columns of indentation.
-- **Position**: The HTML opener begins at the first non-indent byte of the line.
-- **Supported Opener**: The line matches one of the supported HTML block opener forms described below.
+### Final Emphasis Resolution
 
-If none of supported forms match, the line is not treated as an HTML block and normal Markdown parsing continues.
+After the token stream has been fully consumed, the remaining delimiter stack is processed once more to resolve any outstanding emphasis opportunities across the entire item list.
 
-HTML block contents are preserved exactly as written in the source. Within an HTML block, inline parsing does not occur, Markdown constructs are not interpreted, whitespace is not normalized, and HTML is not escaped. During HTML generation, HTML blocks are emitted as raw HTML nodes so that embedded markup is rendered verbatim.
+Any delimiter records that cannot participate in a valid match are discarded. Their corresponding items remain as literal text.
 
-#### Delimiter-Terminated HTML Blocks
+This final pass ensures that constructs spanning larger regions (for example, those interrupted by links or other inline structures) are resolved without requiring multiple parsing phases.
 
-Some HTML block forms are terminated by a specific closing delimiter. These blocks continue until a line containing the matching delimiter is encountered.
+### Code Spans
 
-- **HTML Comment**: Opener `<!--`, Terminator `-->`.
-- **Processing Instruction**: Opener `<?`, Terminator `?>`.
-- **Declaration**: Opener `<!`, Terminator `>`.
-- **CDATA Section**: Opener `<![CDATA[`, Terminator `]]>`.
+Backtick runs are resolved immediately.
 
-The closing delimiter may appear on the same line as the opener or any later line. Blank lines are permitted inside the block. If the closing delimiter is nver encountered, the block continues through end of file. The entire line containing the closing delimiter is included in the block.
+Upon encountering a backtick token, the parser scans forward for a matching run of equal length. If found:
 
-#### Named Block Tag HTML Blocks
+* the enclosed span is extracted
+* leading/trailing space normalization is applied
+* a code span item is created
 
-A line begins a named-tag HTML block if it starts with an HTML opening or closing tag whose name belongs to the supported block-level tag set.
+If no matching closer is found, the run is treated as literal text.
 
-The tag name must being with an ASCII letter, contain only ACII letters or digits, and mtch one of the supported block tag names.
+No delimiter stack interaction is required for code spans.
 
-Supported tag names:
+### Links and Images
 
-```html
-address article aside blockquote body details dialog div dl fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr html main menu nav ol p pre section table tbody td tfoot th thead tr ul
-```
+Bracket delimiters (`[` and `![`) are pushed onto the delimiter stack as provisional openers.
 
-Inline HTML tags such as `<span>` or `<em>` are not recognized as HTML block openers.
+When a closing `]` is encountered, the parser searches backward for a matching active opener. If found, it attempts to parse an inline link tail beginning at the next position.
 
-Named-tag HTML blocks continue through subsequent non-blank lines and terminate immediately before the first blank line or at end of file. Matching closing tags do not terminate the block.
+If a valid tail is parsed:
 
+* emphasis resolution is performed within the bracketed region
+* the enclosed items are detached and assigned as children
+* the opener item is transformed into a link or image node
+* prior link delimiters are deactivated (to prevent nested links)
 
-### Inline Elements
+If parsing fails, the closing bracket is emitted as literal text and the opener remains inactive.
 
-#### Paragraphs
+Reference-style links are not currently implemented.
 
-A paragraph consists of one or more consecutive non-blank lines that do not begin another block construct.
+### Autolinks and Inline HTML
 
-Paragraph IR stores:
-- A span covering all lines
-- Individual line spans (used during lowering)
+Angle-bracket sequences are handled opportunistically.
 
-Lowering inserts break semantics:
-- A line ending with two spaces or `\\` produces a `HardBreak`
-- Otherwise, inter-line boundaries produce `SoftBreak`
+When `<` is encountered, the parser first checks for:
 
-Breaks are represented explicitly in the AST.
+* URI autolinks
+* email autolinks
 
-A paragraph is rendered as `<p></p>`, and a break is rendered as `<br>` in HTML.
+If those fail, it attempts to match inline HTML constructs using a byte-level scan. Valid constructs are emitted as raw HTML items. Otherwise, the `<` is treated as literal text.
 
-#### Emphasis (`*`) and Strong Emphasis (`**`)
+These constructs are resolved immediately and do not interact with the delimiter stack.
 
-Emphasis and strong emphasis are inline constructs used to mark text with semantic stress. Emphasis corresponds to `<em>` in HTML and strong emphasis corresponds to `<strong>`.
+### Escapes
 
-These constructs are formed using runs of asterisk (`*`) delimiter characters surrounding inline content.
+Backslash escapes are resolved contextually based on the following token:
 
-A delimiter run is defined as a maximal sequence of consecutive `*` characters appearing within a paragraph or other inline content.
+* some tokens are **literalized** (treated as plain text)
+* some are **decomposed** (e.g., `\![` becomes `!` + `[`)
+* others leave the backslash intact
 
-Delimiter runs participate in emphasis parsing according to the following rules:
+Escape handling occurs during the Build pass and affects how subsequent tokens are interpreted.
 
-- **Delimiter Runs**: A delimiter run consists of one or more consecutive `*` characters. The run length determines how many delimiter characters are available for pairing.
-- **Eligibility**: A delimiter run may open emphasis, close emphasis, or both depending on the surrounding characters. Eligibility is determined by inspecting the characters immediately before and after the run.
-- **Left-Flanking Runs**: A delimiter run is considered left-flanking (eligible to open emphasis) if the character immediately following the run is not whitespace and either the following character is not punctuation, or the preceding character is whitespace or punctuation.
-- **Right-Flanking Runs**: A delimiter run is considered right-flanking (eligible to close emphasis) if the character immediately preceding the run is not whitespace and either the preceding character is not punctuation, or the following character is whitespace or punctuation.
-- **Pairing**: When a delimiter run that can close emphasis is encountered, the parser searches backward for the nearest earlier delimiter run that can open emphasis and has remaining delimiter characters available.
-- **Consumption**: When a pair is resolved, delimiter characters are consumed from both runs. If both runs contain at least two delimiter characters, two characters are consumed from each run to produce a strong emphasis node. Otherwise, one delimiter character is consumed from each run to produce an emphasis node.
-- **Nested Constructs**: Because delimiter runs may contain multiple characters nested emphasis may be produced by resolving multiple pairs from the same runs.
+### Final Emphasis Resolution
 
-Delimiter characters that cannot participate in a valid pairing are emitted as literial text.
+After the full token stream has been consumed, any remaining delimiter runs are processed to resolve emphasis across the entire item list.
 
-#### Inline Links (`[label](destination "title")`)
+Unresolved delimiters are discarded, leaving their corresponding items as literal text.
 
-Inline links are inline constructs that associate a span of content (the *label*) with a destination URL and an optional title. Links are rendered as `<a>` elements in HTML.
+### Lowering
 
-A link consists of two components, a label enclosed in square brackets `[...]`, and a link tail enclosed in parentheses `(...)`.
+The final step walks the item list and converts each item into an `ast.Inline` node.
 
-- **Label**: The label is defined as the inline content between a matching pair of `[` and `]` tokens. 
-    - The label may contain arbitrary inline content, including text and nested inline nodes.
-    - The label content is parsed using the inline pipeline and becomes the `Children` of the results `Link` AST node. 
-    - The label span excludes the surrounding bracket tokens. 
-    - If no matching opening bracket exists for a closing bracket, or if the label is not followed by a valid link tail, the brackets are treated as literal text.
-- **Link Tail**: A link tail is recognized immediately following a closing bracket if and only if the next token is an opening parenthesis `(` and a valid tail structure can be parsed.
-    - The destination begins after optional leading whitespace, must not begin with a quote character, continues until the first whitespace character, and must not contain `(` or `)` characters.
-    - If a title is present, it must be preceded by at least one space or tab.
-    - An optional title is recognized if enclosed in matching single (`'`) or double (`"`) quotes, may contain arbitrary characters except the closing quote, and must be followed only by optional trailing whitespace.
-    - The tail is terminated by the first matching `)` token, and if no parenthesis is found, the tail is invalid.
+This includes:
 
-If any of these conditions fail, the link tail is rejected and the entire construct is treated as literal text.
+* text nodes (span-backed)
+* code spans
+* emphasis and strong nodes (with recursively lowered children)
+* links and images
+* autolinks
+* raw HTML segments
 
-Inline link resolution proceeds after delimiter-based inline constructs (such as emphasis) have been resolved.
+Lowering is purely structural. It does not reinterpret spans or perform additional parsing.
 
-Links are rendered as HTML anchor elements:
+### Design Rationale
 
-```html
-<a href="destination" title="optional title">label content</a>
-```
+This model avoids premature interpretation and keeps parsing decisions local:
 
-Link recognition is intentionally conservative. Destinations do not support nested parentheses, and angle-bracketed destinations are not supported. Inline parsing is not performed within the destination or title spans; they are treated as literal text. Cross-boundary interactions between emphasis and link delimiters are not supported and may result in undefined or degraded behavior.
+* Scanning is purely lexical.
+* Structure is introduced only when sufficient context exists.
+* All intermediate state remains span-based and mutable.
+* Resolution operates directly on a stable item list, avoiding index invalidation.
+
+The result is a parser that can handle nested and overlapping inline constructs while preserving a direct correspondence to the original source.
 
 ## Diagnostics
 
-Because all nodes carry spans into a single `Source`, the compiler can produce precise, location-aware diagnostics.
+Because all nodes carry spans into a single `Source`, the compiler can produce precise, location-aware diagnostics. That being said, the program does not currently take advantage of this capability.
 
 `Source` provides:
 - `LineCol(BytePos) (line, column)`

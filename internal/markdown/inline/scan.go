@@ -4,21 +4,33 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-func Scan(src *source.Source, span source.ByteSpan) ([]Event, error) {
+func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
 	input := src.Slice(span)
 	scanner := NewScanner(input, span.Start)
 
-	events := []Event{}
+	tokens := []Token{}
 	for {
-		event, ok := scanner.Next()
+		// repeatedly call Next to emit tokens
+		token, ok := scanner.Next()
 		if !ok {
+			// if EOF, append TokenEOF and break
+			anchor := source.ByteSpan{
+				Start: scanner.Base + source.BytePos(scanner.Position),
+				End:   scanner.Base + source.BytePos(scanner.Position),
+			}
+
+			tokens = append(tokens, Token{
+				Span: anchor,
+				Kind: TokenEOF,
+			})
+
 			break
 		}
 
-		events = append(events, event)
+		tokens = append(tokens, token)
 	}
 
-	return events, nil
+	return tokens, nil
 }
 
 type Scanner struct {
@@ -39,99 +51,126 @@ func (s *Scanner) EOF() bool {
 	return s.Position >= len(s.Input)
 }
 
-func (s *Scanner) Next() (Event, bool) {
+func (s *Scanner) Current() (byte, bool) {
 	if s.EOF() {
-		return Event{}, false
+		return 0, false
+	}
+
+	return s.Input[s.Position], true
+}
+
+func (s *Scanner) Peek() (byte, bool) {
+	next := s.Position + 1
+	if next >= len(s.Input) {
+		return 0, false
+	}
+
+	return s.Input[next], true
+}
+
+func (s *Scanner) Next() (Token, bool) {
+	if s.EOF() {
+		return Token{}, false
+	}
+
+	kind, width, ok := s.Special()
+	if ok {
+		return s.token(kind, width), true
 	}
 
 	start := s.Position
-	b := s.Input[s.Position]
+	for !s.EOF() {
+		if _, _, ok := s.Special(); ok {
+			break
+		}
+		s.Position++
+	}
+	end := s.Position
 
-	// token dispatch
+	if start == end {
+		panic("inline scanner made no progress")
+	}
+
+	return Token{
+		Span: s.span(start, end),
+		Kind: TokenText,
+	}, true
+}
+
+func (s *Scanner) Special() (TokenKind, int, bool) {
+	b, ok := s.Current()
+	if !ok {
+		return 0, 0, false
+	}
+
 	switch b {
+	case '*':
+		return TokenStarDelimiter, s.runLength(b), true
+
+	case '_':
+		return TokenUnderscoreDelimiter, s.runLength(b), true
+
+	case '`':
+		return TokenBacktick, s.runLength(b), true
+
 	case '[':
-		return s.emitSingle(EventOpenBracket)
+		return TokenOpenBracket, 1, true
 
 	case ']':
-		return s.emitSingle(EventCloseBracket)
+		return TokenCloseBracket, 1, true
 
 	case '(':
-		return s.emitSingle(EventOpenParen)
+		return TokenOpenParen, 1, true
 
 	case ')':
-		return s.emitSingle(EventCloseParen)
+		return TokenCloseParen, 1, true
+
+	case '<':
+		return TokenOpenAngle, 1, true
+
+	case '>':
+		return TokenCloseAngle, 1, true
+
+	case '!':
+		if next, ok := s.Peek(); ok && next == '[' {
+			return TokenImageOpenBracket, 2, true
+		}
+		return TokenBang, 1, true
+
+	case '\\':
+		return TokenBackslash, 1, true
 
 	case '\n':
-		return s.emitSingle(EventIllegalNewline)
-
-	case '*':
-		for s.Position < len(s.Input) && s.Input[s.Position] == '*' {
-			s.Position++
-		}
-
-		end := s.Position
-		length := end - start
-
-		span := source.ByteSpan{
-			Start: s.Base + source.BytePos(start),
-			End:   s.Base + source.BytePos(end),
-		}
-
-		return Event{
-			Kind:      EventDelimiterRun,
-			Span:      span,
-			Delimiter: '*',
-			RunLength: length,
-		}, true
+		panic("illegal newline character encountered during inline parsing")
 
 	default:
-		// otherwise, scan maximum text run until next special token
-		end := s.Position
-		for end < len(s.Input) {
-			if terminatesText(s.Input[end]) {
-				break
-			}
+		return 0, 0, false
+	}
 
-			end++
-		}
+}
 
-		s.Position = end
-		if end == start {
-			panic("inline scanner made no progress")
-		}
+func (s *Scanner) token(kind TokenKind, width int) Token {
+	start := s.Position
+	s.Position += width
 
-		span := s.eventSpan(start, end)
-
-		return Event{
-			Kind: EventText,
-			Span: span,
-		}, true
+	return Token{
+		Span: s.span(start, s.Position),
+		Kind: kind,
 	}
 }
 
-func (s *Scanner) eventSpan(start, end int) source.ByteSpan {
+func (s *Scanner) span(start, end int) source.ByteSpan {
 	return source.ByteSpan{
 		Start: s.Base + source.BytePos(start),
 		End:   s.Base + source.BytePos(end),
 	}
 }
 
-func (s *Scanner) emitSingle(kind EventKind) (Event, bool) {
-	start := s.Position
-	s.Position++
-
-	return Event{
-		Kind: kind,
-		Span: s.eventSpan(start, s.Position),
-	}, true
-}
-
-func terminatesText(b byte) bool {
-	switch b {
-	case '\n', '*', '[', ']', '(', ')':
-		return true
-
-	default:
-		return false
+func (s *Scanner) runLength(b byte) int {
+	pos := s.Position
+	for pos < len(s.Input) && s.Input[pos] == b {
+		pos++
 	}
+
+	return pos - s.Position
 }

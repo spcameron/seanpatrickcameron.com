@@ -13,6 +13,6 @@ func (s ByteSpan) String() string {
 	return fmt.Sprintf("[%d:%d]", s.Start, s.End)
 }
 
-func (s ByteSpan) Len() int {
+func (s ByteSpan) Width() int {
 	return int(s.End - s.Start)
 }

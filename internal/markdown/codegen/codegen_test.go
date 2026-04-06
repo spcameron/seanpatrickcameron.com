@@ -197,6 +197,22 @@ func TestGenerateHTML(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:  "code span",
+			input: "`abc`",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"code",
+						nil,
+						html.TextNode("abc"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
 			name:  "emphasis",
 			input: "*abc*",
 			want: html.FragmentNode(
@@ -260,6 +276,42 @@ func TestGenerateHTML(t *testing.T) {
 							"title": "title",
 						},
 						html.TextNode("x"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "autolink URI",
+			input: "<https://google.com>",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"a",
+						html.Attributes{
+							"href": "https://google.com",
+						},
+						html.TextNode("https://google.com"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "autolink email",
+			input: "<local@domain.com>",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"p",
+					nil,
+					html.ElemNode(
+						"a",
+						html.Attributes{
+							"href": "mailto:local@domain.com",
+						},
+						html.TextNode("local@domain.com"),
 					),
 				),
 			),
