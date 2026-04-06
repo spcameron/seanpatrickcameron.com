@@ -646,6 +646,41 @@ func TestCompile(t *testing.T) {
 			want:    `<p><a href="mailto:foo@bar.example.com">foo@bar.example.com</a></p>`,
 			wantErr: nil,
 		},
+		{
+			name: "image: simple",
+			md:   "![alt](img.png)",
+			want: `<p><img alt="alt" src="img.png"></p>`,
+		},
+		{
+			name: "image: with title",
+			md:   `![alt](img.png "title")`,
+			want: `<p><img alt="alt" src="img.png" title="title"></p>`,
+		},
+		{
+			name: "image: empty alt",
+			md:   "![](img.png)",
+			want: `<p><img alt="" src="img.png"></p>`,
+		},
+		{
+			name: "image: emphasis in alt text",
+			md:   "![*alt*](img.png)",
+			want: `<p><img alt="alt" src="img.png"></p>`,
+		},
+		{
+			name: "image: mixed alt text",
+			md:   "![a `b` c](img.png)",
+			want: `<p><img alt="a b c" src="img.png"></p>`,
+		},
+		{
+			name: "image: angle bracket destination",
+			md:   "![alt](<bad dest>)",
+			want: `<p><img alt="alt" src="bad dest"></p>`,
+		},
+		{
+			name: "image: escaped bang is not image",
+			md:   `\![alt](img.png)`,
+			want: `<p>!<a href="img.png">alt</a></p>`,
+		},
 	}
 
 	for _, tc := range testCases {

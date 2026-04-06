@@ -186,6 +186,157 @@ func TestBuild(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "image: simple",
+			input: "![alt](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![alt](img.png)",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: with title",
+			input: `![alt](img.png "title")`,
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: `![alt](img.png "title")`,
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: empty alt",
+			input: "![](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:     "image",
+					Lexeme:   "![](img.png)",
+					Children: []InlineSummary{},
+				},
+			},
+		},
+		{
+			name:  "image: emphasis in alt text",
+			input: "![*alt*](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![*alt*](img.png)",
+					Children: []InlineSummary{
+						{
+							Kind:   "emphasis",
+							Lexeme: "*alt*",
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "alt",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: strong in alt text",
+			input: "![**alt**](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![**alt**](img.png)",
+					Children: []InlineSummary{
+						{
+							Kind:   "strong",
+							Lexeme: "**alt**",
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "alt",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: mixed alt children",
+			input: "![a `b` c](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![a `b` c](img.png)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "a "},
+						{Kind: "code_span", Lexeme: "b"},
+						{Kind: "text", Lexeme: " c"},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: escaped bang becomes text plus link",
+			input: `\![alt](img.png)`,
+			want: []InlineSummary{
+				{
+					Kind:   "text",
+					Lexeme: "!",
+				},
+				{
+					Kind:   "link",
+					Lexeme: "[alt](img.png)",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "image: missing tail falls back to text",
+			input: "![alt]",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "!["},
+				{Kind: "text", Lexeme: "alt"},
+				{Kind: "text", Lexeme: "]"},
+			},
+		},
+		{
+			name:  "image: link inside alt text",
+			input: "![see [x](y)](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![see [x](y)](img.png)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "see "},
+						{
+							Kind:   "link",
+							Lexeme: "[x](y)",
+							Children: []InlineSummary{
+								{Kind: "text", Lexeme: "x"},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

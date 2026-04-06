@@ -35,6 +35,19 @@ func (l Link) String() string {
 	return fmt.Sprintf("[Link] (Children = %d)", len(l.Children))
 }
 
+type Image struct {
+	Span        source.ByteSpan
+	Destination source.ByteSpan
+	Title       source.ByteSpan
+	Children    []Inline
+}
+
+func (i Image) isInline() {}
+
+func (i Image) String() string {
+	return fmt.Sprintf("[Image] (Children = %d)", len(i.Children))
+}
+
 type Emph struct {
 	Span     source.ByteSpan
 	Children []Inline

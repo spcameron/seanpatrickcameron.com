@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
@@ -283,6 +284,9 @@ func renderInline(src *source.Source, inl ast.Inline) (html.Node, error) {
 	case ast.CodeSpan:
 		return renderCodeSpan(src, v)
 
+	case ast.Image:
+		return renderImage(src, v)
+
 	case ast.Link:
 		return renderLink(src, v)
 
@@ -321,6 +325,29 @@ func renderCodeSpan(src *source.Source, inl ast.CodeSpan) (html.Node, error) {
 		Tag:      "code",
 		Attr:     html.Attributes{},
 		Children: []html.Node{contentNode},
+	}
+
+	return node, nil
+}
+
+func renderImage(src *source.Source, inl ast.Image) (html.Node, error) {
+	alt, err := inlineText(src, inl.Children)
+	if err != nil {
+		return nil, err
+	}
+
+	attr := html.Attributes{
+		"src": src.Slice(inl.Destination),
+		"alt": alt,
+	}
+
+	if inl.Title != (source.ByteSpan{}) {
+		attr["title"] = src.Slice(inl.Title)
+	}
+
+	node := html.VoidElement{
+		Tag:  "img",
+		Attr: attr,
 	}
 
 	return node, nil
@@ -423,4 +450,53 @@ func renderNewline() (html.Node, error) {
 	}
 
 	return node, nil
+}
+
+func inlineText(src *source.Source, inlines []ast.Inline) (string, error) {
+	if len(inlines) == 0 {
+		return "", nil
+	}
+
+	var b strings.Builder
+
+	for _, inl := range inlines {
+		s, err := inlineNodeText(src, inl)
+		if err != nil {
+			return "", nil
+		}
+		b.WriteString(s)
+	}
+
+	return b.String(), nil
+}
+
+func inlineNodeText(src *source.Source, inl ast.Inline) (string, error) {
+	switch n := inl.(type) {
+
+	case ast.Text:
+		return src.Slice(n.Span), nil
+
+	case ast.CodeSpan:
+		return src.Slice(n.Span), nil
+
+	case ast.RawText:
+		return src.Slice(n.Span), nil
+
+	case ast.Emph:
+		return inlineText(src, n.Children)
+
+	case ast.Strong:
+		return inlineText(src, n.Children)
+
+	case ast.Link:
+		// alt text ignores the destination; use label text
+		return inlineText(src, n.Children)
+
+	case ast.Image:
+		// nested images are rare, but spec allows recursion
+		return inlineText(src, n.Children)
+
+	default:
+		return "", fmt.Errorf("inlineNodeText: unsupported inline type %T", inl)
+	}
 }

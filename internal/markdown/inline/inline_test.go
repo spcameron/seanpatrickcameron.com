@@ -122,6 +122,13 @@ func summarizeInline(src *source.Source, inl ast.Inline) InlineSummary {
 			Children: summarizeInlines(src, n.Children),
 		}
 
+	case ast.Image:
+		return InlineSummary{
+			Kind:     "image",
+			Lexeme:   src.Slice(n.Span),
+			Children: summarizeInlines(src, n.Children),
+		}
+
 	case ast.Emph:
 		return InlineSummary{
 			Kind:     "emphasis",
