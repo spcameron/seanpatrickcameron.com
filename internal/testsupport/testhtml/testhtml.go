@@ -190,18 +190,6 @@ func isHTMLSpace(r rune) bool {
 	}
 }
 
-// Optional helper for readable test failures.
-func Dump(nodes []Node) string {
-	var b strings.Builder
-	for i, n := range nodes {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		writeNode(&b, n, 0)
-	}
-	return b.String()
-}
-
 func writeNode(w io.Writer, n Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 
