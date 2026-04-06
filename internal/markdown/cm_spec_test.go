@@ -5,55 +5,98 @@ import (
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
+	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/testhtml"
 )
 
-// Based on Version 0.31.2 (2024-01-28)
-// The following test cases are based on the CommonMark spec examples, and are used
-// to help illustrate where Scribe diverges in implementation from the CM spec.
+// Based on CommonMark Version 0.31.2 (2024-01-28).
+// These cases use CommonMark examples as a compliance reference while also
+// documenting intentional Scribe divergences where design choices differ.
+
+type compareMode int
+
+const (
+	_ compareMode = iota
+	compareExact
+	compareStructural
+	compareDocumentedDivergence
+)
 
 func TestCommonMarkSpec(t *testing.T) {
 	testCases := []struct {
-		name      string
-		md        string
-		cmHTML    string
-		localHTML string
-		matchCM   bool
-		reason    string
+		name   string
+		md     string
+		cm     string
+		scribe string
+		mode   compareMode
+		reason string
 	}{
 		// Section 2 - Preliminaries
 		//
 		// 2.2 - Tabs
 		{
-			name:      "1: tabs define block structure; code block payload ends with newline in CM",
-			md:        "\tfoo\tbaz\t\tbim",
-			cmHTML:    "<pre><code>foo\tbaz\t\tbim\n</code></pre>",
-			localHTML: "<pre><code>foo\tbaz\t\tbim</code></pre>",
-			matchCM:   false,
-			reason:    "final code block newline not preserved",
+			name:   "1: tabs define block structure",
+			md:     "\tfoo\tbaz\t\tbim",
+			cm:     "<pre><code>foo\tbaz\t\tbim\n</code></pre>",
+			scribe: "<pre><code>foo\tbaz\t\tbim</code></pre>",
+			mode:   compareDocumentedDivergence,
+			reason: "final code block newline not preserved",
+		},
+		{
+			name:   "2: tabs define block structure",
+			md:     "  \tfoo\tbaz\t\tbim",
+			cm:     "<pre><code>foo\tbaz\t\tbim\n</code></pre>",
+			scribe: "<pre><code>foo\tbaz\t\tbim</code></pre>",
+			mode:   compareDocumentedDivergence,
+			reason: "final code block newline not preserved",
+		},
+		{
+			name:   "3: tabs define block structure",
+			md:     "    a→a\n    ὐ→a",
+			cm:     "<pre><code>a→a\nὐ→a\n</code></pre>",
+			scribe: "<pre><code>a→a\nὐ→a</code></pre>",
+			mode:   compareDocumentedDivergence,
+			reason: "final code block newline not preserved",
+		},
+		{
+			name:   "4: paragraph continuation of a list item",
+			md:     "  - foo\n\n\tbar",
+			cm:     "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>",
+			mode:   compareStructural,
+			reason: "HTML serialization formatting differs; structure matches CommonMark",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.cmHTML == "" {
-				t.Fatalf("cmHTML must be defined")
-			}
-			if !tc.matchCM && tc.localHTML == "" {
-				t.Fatalf("localHTML must be defined when matchCM is false")
+			if tc.cm == "" {
+				t.Fatalf("CM HTML must be defined")
 			}
 
 			got, err := markdown.HTML(tc.md)
 			assert.NoError(t, err)
 
-			if tc.matchCM {
-				assert.Equal(t, got, tc.cmHTML)
-				return
-			}
+			switch tc.mode {
+			case compareExact:
+				assert.Equal(t, got, tc.cm)
 
-			assert.Equal(t, got, tc.localHTML)
+			case compareStructural:
+				wantTree, gotTree, err := testhtml.ParseAndNormalizePair(tc.cm, got)
+				assert.NoError(t, err)
+				assert.Equal(t, gotTree, wantTree)
 
-			if got == tc.cmHTML {
-				t.Errorf("unexpected match with CommonMark output: %s", tc.reason)
+			case compareDocumentedDivergence:
+				if tc.scribe == "" {
+					t.Fatalf("scribe HTML must be defined for documented divergences")
+				}
+
+				assert.Equal(t, got, tc.scribe)
+
+				if got == tc.cm {
+					t.Fatalf("expected divergence from CommonMark, but output matched exactly")
+				}
+
+			default:
+				t.Fatalf("unknown comparison mode: %v", tc.mode)
 			}
 		})
 	}
