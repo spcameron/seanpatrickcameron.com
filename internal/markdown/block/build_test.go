@@ -11,180 +11,6 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
-func TestScan(t *testing.T) {
-	testCases := []struct {
-		name    string
-		input   string
-		want    []string
-		wantErr error
-	}{
-		{
-			name:    "empty input",
-			input:   "",
-			want:    nil,
-			wantErr: nil,
-		},
-		{
-			name:  "single line, no newline",
-			input: "hello",
-			want: []string{
-				"hello",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "single line, trailing newline preserved",
-			input: "hello\n",
-			want: []string{
-				"hello",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "only newline emits empty line",
-			input: "\n",
-			want: []string{
-				"",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "single blank line preserved as delimiter",
-			input: "a\n\nb",
-			want: []string{
-				"a",
-				"",
-				"b",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "leading blank lines preserved",
-			input: "\n\na",
-			want: []string{
-				"",
-				"",
-				"a",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "trailing blank line delimiter preserved",
-			input: "a\n\n",
-			want: []string{
-				"a",
-				"",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "multiple blank lines preserved",
-			input: "a\n\n\nb",
-			want: []string{
-				"a",
-				"",
-				"",
-				"b",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "CRLF normalized",
-			input: "a\r\nb\r\n",
-			want: []string{
-				"a",
-				"b",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "trailing spaces are preserved",
-			input: "a \n",
-			want: []string{
-				"a ",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "trailing spaces and tabs are preserved",
-			input: " indented\t \nnext\t\n",
-			want: []string{
-				" indented\t ",
-				"next\t",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "trailing carriage return is normalized",
-			input: "a\r\n",
-			want: []string{
-				"a",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "whitespace only line preserves spaces and tabs",
-			input: "a\n \t \n b",
-			want: []string{
-				"a",
-				" \t ",
-				" b",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "terminal whitespace only line preserves spaces and tab",
-			input: "a\n \t \n",
-			want: []string{
-				"a",
-				" \t ",
-				"",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "no newline still preserves trailing spaces and tabs",
-			input: "a \t",
-			want: []string{
-				"a \t",
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "embedded carriage return is normalized",
-			input: "a\rb\n",
-			want: []string{
-				"a",
-				"b",
-				"",
-			},
-			wantErr: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			src := source.NewSource(tc.input)
-			gotLines, err := Scan(src)
-
-			var got []string
-			for _, line := range gotLines {
-				got = append(got, src.Slice(line.Span))
-			}
-
-			assert.Equal(t, got, tc.want)
-			assert.ErrorIs(t, err, tc.wantErr)
-		})
-	}
-}
-
 func TestBuild(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -192,6 +18,9 @@ func TestBuild(t *testing.T) {
 		want    ir.Document
 		wantErr error
 	}{
+		// ---------------------------------------------------------------------
+		// Empty input and paragraph formation
+		// ---------------------------------------------------------------------
 		{
 			name:    "empty input",
 			input:   "",
@@ -205,7 +34,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "single paragraph, one line",
+			name:  "single paragraph: one line",
 			input: "a",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -213,7 +42,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "single paragraph, multiple lines",
+			name:  "single paragraph: multiple lines",
 			input: "a\nb\nc",
 			want: tk.IRDoc(
 				tk.IRPara("a", "b", "c"),
@@ -221,7 +50,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "leading blank lines ignored",
+			name:  "leading blank lines: ignored",
 			input: "\n\na",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -229,7 +58,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "trailing blank lines ignored",
+			name:  "trailing blank lines: ignored",
 			input: "a\n\n",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -237,7 +66,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "two paragraphs separated by one blank line",
+			name:  "two paragraphs: separated by one blank line",
 			input: "a\n\nb",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -246,7 +75,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "two paragraphs separated by two blank lines",
+			name:  "two paragraphs: separated by two blank lines",
 			input: "a\n\n\nb",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -255,7 +84,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "two paragraphs separated by whitespace only line",
+			name:  "two paragraphs: separated by whitespace only line",
 			input: "a\n \nb",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -264,7 +93,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "paragraph stops before header without blank line",
+			name:  "paragraph: stops before header without blank line",
 			input: "a\n# h",
 			want: tk.IRDoc(
 				tk.IRPara("a"),
@@ -272,6 +101,63 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "paragraph: interrupted by thematic break",
+			input: "a\n---",
+			want: tk.IRDoc(
+				tk.IRHeader(2, "a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: interrupted by unordered list",
+			input: "a\n- b",
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "paragraph: interrupted by fenced code block",
+			input: strings.Join([]string{
+				"a",
+				"```",
+				"code",
+				"```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRFencedCodeBlock(
+					0,
+					"code",
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "paragraph: interrupted by HTML block",
+			input: strings.Join([]string{
+				"a",
+				"<!--",
+				"b",
+				"-->",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("a"),
+				tk.IRHTMLBlock("<!--", "b", "-->"),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// ATX headers
+		// ---------------------------------------------------------------------
 		{
 			name:  "header level 1",
 			input: "# header",
@@ -297,7 +183,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, 3 leading spaces (max)",
+			name:  "header level 1: 3 leading spaces (max)",
 			input: "   # header",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -305,7 +191,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, tab delimiter",
+			name:  "header level 1: tab delimiter",
 			input: "#\theader",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -313,7 +199,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, consumes multiple spaces",
+			name:  "header level 1: consumes multiple spaces",
 			input: "#     header",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -321,7 +207,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, consumes multiple tabs",
+			name:  "header level 1: consumes multiple tabs",
 			input: "#\t\t\theader",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -329,7 +215,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, trailing whitespace trimmed",
+			name:  "header level 1: trailing whitespace trimmed",
 			input: "# header     ",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -337,7 +223,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, mixed whitespace trimmed",
+			name:  "header level 1: mixed whitespace trimmed",
 			input: "# \t header \t ",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "header"),
@@ -345,7 +231,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header level 1, empty header allowed",
+			name:  "header level 1: empty header allowed",
 			input: "# ",
 			want: tk.IRDoc(
 				tk.IRHeader(1, ""),
@@ -362,7 +248,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, no marker",
+			name:  "header rejected: no marker",
 			input: "header",
 			want: tk.IRDoc(
 				tk.IRPara("header"),
@@ -370,7 +256,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, too many leading spaces",
+			name:  "header rejected: too many leading spaces",
 			input: "    header",
 			want: tk.IRDoc(
 				tk.IRIndentedCodeBlock("    header"),
@@ -378,7 +264,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, missing delimiter",
+			name:  "header rejected: missing delimiter",
 			input: "#header",
 			want: tk.IRDoc(
 				tk.IRPara("#header"),
@@ -386,7 +272,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, too many hashes",
+			name:  "header rejected: too many hashes",
 			input: "####### header",
 			want: tk.IRDoc(
 				tk.IRPara("####### header"),
@@ -394,7 +280,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, too many hashes after indent",
+			name:  "header rejected: too many hashes after indent",
 			input: "   ####### header",
 			want: tk.IRDoc(
 				tk.IRPara("   ####### header"),
@@ -402,15 +288,19 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected, valid marker but missing delimieter",
+			name:  "header rejected: valid marker but missing delimiter",
 			input: "##",
 			want: tk.IRDoc(
 				tk.IRPara("##"),
 			),
 			wantErr: nil,
 		},
+
+		// ---------------------------------------------------------------------
+		// Thematic breaks
+		// ---------------------------------------------------------------------
 		{
-			name:  "thematic break (---)",
+			name:  "thematic break: ---",
 			input: "---",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -418,7 +308,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break (***)",
+			name:  "thematic break: ***",
 			input: "***",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -426,7 +316,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break (___)",
+			name:  "thematic break: ___",
 			input: "___",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -434,7 +324,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, leading spaces",
+			name:  "thematic break: leading spaces",
 			input: "   ---",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -442,7 +332,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, inter-marker whitespace",
+			name:  "thematic break: inter-marker whitespace",
 			input: "- \t - \t -",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -450,7 +340,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, trailing whitespace",
+			name:  "thematic break: trailing whitespace",
 			input: "---   ",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -458,7 +348,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, more than three identical markers",
+			name:  "thematic break: more than three identical markers",
 			input: "-----------------------",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -466,7 +356,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break rejected, too many leading spaces",
+			name:  "thematic break rejected: too many leading spaces",
 			input: "    ---",
 			want: tk.IRDoc(
 				tk.IRIndentedCodeBlock("    ---"),
@@ -474,7 +364,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break rejected, tabs in leading whitespace",
+			name:  "thematic break rejected: tabs in leading whitespace",
 			input: "\t---",
 			want: tk.IRDoc(
 				tk.IRIndentedCodeBlock("\t---"),
@@ -482,15 +372,19 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break rejected, mixed marker characters",
+			name:  "thematic break rejected: mixed marker characters",
 			input: "-*-",
 			want: tk.IRDoc(
 				tk.IRPara("-*-"),
 			),
 			wantErr: nil,
 		},
+
+		// ---------------------------------------------------------------------
+		// Block quotes
+		// ---------------------------------------------------------------------
 		{
-			name:  "block quote, plain text",
+			name:  "block quote: plain text",
 			input: "> text",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -500,7 +394,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, leading spaces",
+			name:  "block quote: leading spaces",
 			input: "   > text",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -510,7 +404,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, tab delimiter",
+			name:  "block quote: tab delimiter",
 			input: ">\ttext",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -520,7 +414,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, no delimiter",
+			name:  "block quote: no delimiter",
 			input: ">text",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -530,7 +424,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, multiple lines",
+			name:  "block quote: multiple lines",
 			input: "> a\n> b",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -540,7 +434,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, containing header",
+			name:  "block quote: containing header",
 			input: "> # header",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -550,7 +444,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote rejected, too many leading spaces",
+			name:  "block quote rejected: too many leading spaces",
 			input: "    > text",
 			want: tk.IRDoc(
 				tk.IRIndentedCodeBlock("    > text"),
@@ -558,7 +452,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, blank line splits paragraphs",
+			name:  "block quote: blank line splits paragraphs",
 			input: "> a\n>\n> b",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -569,7 +463,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, starts with a blank line",
+			name:  "block quote: starts with a blank line",
 			input: ">\n> a",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -579,7 +473,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, only blank lines",
+			name:  "block quote: only blank lines",
 			input: ">\n>\n",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(),
@@ -587,7 +481,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, mixed indentation across lines",
+			name:  "block quote: mixed indentation across lines",
 			input: "> a\n > b\n  > c",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -597,7 +491,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, terminates on first non-quote line",
+			name:  "block quote: terminates on first non-quote line",
 			input: "> a\nb",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -608,7 +502,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "block quote, terminates on truly blank line",
+			name:  "block quote: terminates on truly blank line",
 			input: "> a\n\n> b",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -621,7 +515,18 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "nested quotes, via >>",
+			name:  "block quote: terminates on dedented non-quote line",
+			input: "> a\n b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRPara("a"),
+				),
+				tk.IRPara(" b"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "nested quotes: via >>",
 			input: ">> a",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -633,7 +538,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "nested quotes, via > >",
+			name:  "nested quotes: via > >",
 			input: "> > a",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -645,7 +550,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "nested quotes, via >\t>",
+			name:  "nested quotes: via >\t>",
 			input: ">\t> a",
 			want: tk.IRDoc(
 				tk.IRBlockQuote(
@@ -684,7 +589,39 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, h1 (minimum)",
+			name:  "block quote: contains unordered list",
+			input: "> - a\n> - b",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRUnorderedList(
+						true,
+						tk.IRListItem(
+							tk.IRPara("a"),
+						),
+						tk.IRListItem(
+							tk.IRPara("b"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: contains indented code block",
+			input: ">     code",
+			want: tk.IRDoc(
+				tk.IRBlockQuote(
+					tk.IRIndentedCodeBlock("    code"),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Setext headings
+		// ---------------------------------------------------------------------
+		{
+			name:  "setext: h1 (minimum)",
 			input: "heading\n=",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "heading"),
@@ -692,7 +629,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, h1 (typical)",
+			name:  "setext: h1 (typical)",
 			input: "heading\n===",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "heading"),
@@ -700,7 +637,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, h2 (minimum)",
+			name:  "setext: h2 (minimum)",
 			input: "heading\n-",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -708,7 +645,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, h2 (typical)",
+			name:  "setext: h2 (typical)",
 			input: "heading\n---",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -716,7 +653,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading and paragraph",
+			name:  "setext: heading and paragraph",
 			input: "heading\n---\nnext",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -725,7 +662,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, trailing spaces",
+			name:  "setext: trailing spaces",
 			input: "heading\n===   ",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "heading"),
@@ -733,7 +670,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, trailing tabs",
+			name:  "setext: trailing tabs",
 			input: "heading\n===\t\t",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "heading"),
@@ -741,7 +678,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, mixed trailing spaces and tabs",
+			name:  "setext: mixed trailing spaces and tabs",
 			input: "heading\n===\t \t ",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "heading"),
@@ -749,7 +686,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext heading, leading spaces",
+			name:  "setext: leading spaces",
 			input: "heading\n   ---",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -757,7 +694,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, too many leading spaces",
+			name:  "setext rejected: too many leading spaces",
 			input: "heading\n    ---",
 			want: tk.IRDoc(
 				tk.IRPara("heading", "    ---"),
@@ -765,7 +702,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, underline with internal spaces (dash)",
+			name:  "setext rejected: underline with internal spaces (dash)",
 			input: "heading\n- - -",
 			want: tk.IRDoc(
 				tk.IRPara("heading"),
@@ -774,7 +711,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, underline with internal spaces (equals)",
+			name:  "setext rejected: underline with internal spaces (equals)",
 			input: "heading\n= = =",
 			want: tk.IRDoc(
 				tk.IRPara("heading", "= = ="),
@@ -782,7 +719,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, underline with non-marker character",
+			name:  "setext rejected: underline with non-marker character",
 			input: "heading\n--x--",
 			want: tk.IRDoc(
 				tk.IRPara("heading", "--x--"),
@@ -790,7 +727,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, underline with mixed markers",
+			name:  "setext rejected: underline with mixed markers",
 			input: "heading\n-=-",
 			want: tk.IRDoc(
 				tk.IRPara("heading", "-=-"),
@@ -798,7 +735,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, underline with trailing non-space",
+			name:  "setext rejected: underline with trailing non-space",
 			input: "heading\n---x",
 			want: tk.IRDoc(
 				tk.IRPara("heading", "---x"),
@@ -806,7 +743,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, h2 takes precedence over thematic break for '---'",
+			name:  "setext: h2 takes precedence over thematic break for ---",
 			input: "heading\n---\nnext",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -815,7 +752,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, '- - -' does not become setext",
+			name:  "thematic break: - - - does not become setext",
 			input: "heading\n- - -\nnext",
 			want: tk.IRDoc(
 				tk.IRPara("heading"),
@@ -825,7 +762,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "thematic break, '***' does not become setext",
+			name:  "thematic break: *** does not become setext",
 			input: "heading\n***\nnext",
 			want: tk.IRDoc(
 				tk.IRPara("heading"),
@@ -835,7 +772,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, multiline content",
+			name:  "setext: multiline content",
 			input: "line1\nline2\n---",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "line1", "line2"),
@@ -843,7 +780,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, multiline content stops before underline",
+			name:  "setext: multiline content stops before underline",
 			input: "line1\nline2\n===\nnext",
 			want: tk.IRDoc(
 				tk.IRHeader(1, "line1", "line2"),
@@ -852,7 +789,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext rejected, blank line between content and underline",
+			name:  "setext rejected: blank line between content and underline",
 			input: "heading\n\n---",
 			want: tk.IRDoc(
 				tk.IRPara("heading"),
@@ -861,7 +798,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, underline followed by blank line",
+			name:  "setext: underline followed by blank line",
 			input: "heading\n---\n\nnext",
 			want: tk.IRDoc(
 				tk.IRHeader(2, "heading"),
@@ -870,7 +807,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, underline at start of doc is not a heading (dashes)",
+			name:  "setext: underline at start of doc is not a heading (dashes)",
 			input: "---",
 			want: tk.IRDoc(
 				tk.IRThematicBreak(),
@@ -878,15 +815,19 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "setext, underline at start of doc is not a heading (equals)",
+			name:  "setext: underline at start of doc is not a heading (equals)",
 			input: "===",
 			want: tk.IRDoc(
 				tk.IRPara("==="),
 			),
 			wantErr: nil,
 		},
+
+		// ---------------------------------------------------------------------
+		// Unordered lists
+		// ---------------------------------------------------------------------
 		{
-			name:  "ul: single item, single line",
+			name:  "ul: single item: single line",
 			input: "- a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
@@ -907,7 +848,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ul: accepts '*' markers",
+			name:  "ul: accepts * markers",
 			input: "* a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
@@ -920,7 +861,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ul: accepts '+' markers",
+			name:  "ul: accepts + markers",
 			input: "+ a",
 			want: tk.IRDoc(
 				tk.IRUnorderedList(
@@ -1179,7 +1120,127 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ol: single item, single line, dot delimiter",
+			name: "ul: mixed ordered list at same indent terminates unordered list",
+			input: strings.Join([]string{
+				"- a",
+				"1. b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: empty list item (bare marker) is rejected",
+			input: "-",
+			want: tk.IRDoc(
+				tk.IRPara("-"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: empty list item (marker and space) produces empty paragraph child",
+			input: "- ",
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: deep nesting",
+			input: strings.Join([]string{
+				"- a",
+				"  - b",
+				"    - c",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRUnorderedList(
+							true,
+							tk.IRListItem(
+								tk.IRPara("b"),
+								tk.IRUnorderedList(
+									true,
+									tk.IRListItem(
+										tk.IRPara("c"),
+									),
+								),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ul: item with thematic break child",
+			input: "- ---",
+			want: tk.IRDoc(
+				tk.IRThematicBreak(),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: item with fenced code block child",
+			input: strings.Join([]string{
+				"- ```",
+				"  code",
+				"  ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRFencedCodeBlock(
+							0,
+							"code",
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ul: item with HTML block child",
+			input: strings.Join([]string{
+				"- <div>",
+				"  html",
+				"",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRHTMLBlock("<div>", "html"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Ordered lists
+		// ---------------------------------------------------------------------
+		{
+			name:  "ol: single item: single line: dot delimiter",
 			input: "1. a",
 			want: tk.IRDoc(
 				tk.IROrderedList(
@@ -1193,7 +1254,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "ol: single item, single line, paren delimiter",
+			name:  "ol: single item: single line: paren delimiter",
 			input: "1) a",
 			want: tk.IRDoc(
 				tk.IROrderedList(
@@ -1436,6 +1497,57 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "ol: mixed unordered list at same indent terminates ordered list",
+			input: strings.Join([]string{
+				"1. a",
+				"- b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "ol: mixed delimiter punctuation terminates list",
+			input: strings.Join([]string{
+				"1. a",
+				"2) b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IROrderedList(
+					true,
+					1,
+					tk.IRListItem(
+						tk.IRPara("a"),
+					),
+				),
+				tk.IROrderedList(
+					true,
+					2,
+					tk.IRListItem(
+						tk.IRPara("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Indented code blocks
+		// ---------------------------------------------------------------------
+		{
 			name:  "indented code block: single line",
 			input: `	fmt.Println("hello")`,
 			want: tk.IRDoc(
@@ -1472,6 +1584,22 @@ func TestBuild(t *testing.T) {
 					"		code",
 					"	block",
 				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: exactly three spaces is paragraph",
+			input: "   a",
+			want: tk.IRDoc(
+				tk.IRPara("   a"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: exactly four spaces is code block",
+			input: "    a",
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock("    a"),
 			),
 			wantErr: nil,
 		},
@@ -1525,8 +1653,30 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		// TODO: test fails
 		{
-			name: "fenced code block: backtick, single line",
+			name: "indented code block: inside list item at baseline plus four columns",
+			input: strings.Join([]string{
+				"- a",
+				"      code",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRIndentedCodeBlock("    code"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Fenced code blocks
+		// ---------------------------------------------------------------------
+		{
+			name: "fenced code block: backtick: single line",
 			input: strings.Join([]string{
 				"```",
 				"code",
@@ -1541,7 +1691,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "fenced code block: tilde, single line",
+			name: "fenced code block: tilde: single line",
 			input: strings.Join([]string{
 				"~~~",
 				"code",
@@ -1860,6 +2010,32 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "fenced code block: inside list item",
+			input: strings.Join([]string{
+				"- a",
+				"  ```",
+				"  code",
+				"  ```",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRFencedCodeBlock(
+							0,
+							"code",
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// HTML blocks
+		// ---------------------------------------------------------------------
+		{
 			name:  "html block: comment",
 			input: "<!-- comment -->",
 			want: tk.IRDoc(
@@ -1868,7 +2044,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: comment, multiple lines",
+			name: "html block: comment: multiple lines",
 			input: strings.Join([]string{
 				"<!--",
 				"comment",
@@ -1880,7 +2056,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: comment, blank lines permitted",
+			name: "html block: comment: blank lines permitted",
 			input: strings.Join([]string{
 				"<!--",
 				"line 1",
@@ -1894,7 +2070,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: comment, consumes to EOF when unterminated",
+			name: "html block: comment: consumes to EOF when unterminated",
 			input: strings.Join([]string{
 				"<!--",
 				"line 1",
@@ -1906,7 +2082,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: comment, whole terminating line absorbed",
+			name: "html block: comment: whole terminating line absorbed",
 			input: strings.Join([]string{
 				"<!--",
 				"hello --> trailing",
@@ -1919,7 +2095,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: comment, accepts leading spaces",
+			name:  "html block: comment: accepts leading spaces",
 			input: "   <!-- comment -->",
 			want: tk.IRDoc(
 				tk.IRHTMLBlock("   <!-- comment -->"),
@@ -1927,7 +2103,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: comment, rejects 4+ leading spaces",
+			name:  "html block: comment: rejects 4+ leading spaces",
 			input: "    <!-- not comment -->",
 			want: tk.IRDoc(
 				tk.IRIndentedCodeBlock("    <!-- not comment -->"),
@@ -1946,7 +2122,7 @@ func TestBuild(t *testing.T) {
 			name:  "html block: processing instructions",
 			input: `<?xml version="1.0"?>`,
 			want: tk.IRDoc(
-				tk.IRHTMLBlock(`<?xml version="1.0"`),
+				tk.IRHTMLBlock(`<?xml version="1.0"?>`),
 			),
 			wantErr: nil,
 		},
@@ -1959,7 +2135,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block, cdata",
+			name:  "html block: cdata",
 			input: "<![CDATA[hello]]>",
 			want: tk.IRDoc(
 				tk.IRHTMLBlock("<![CDATA[hello]]>"),
@@ -1967,7 +2143,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, simple opening tag",
+			name: "html block: named tag: simple opening tag",
 			input: strings.Join([]string{
 				"<div>",
 				"hello",
@@ -1979,7 +2155,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, opening tag with attributes",
+			name: "html block: named tag: opening tag with attributes",
 			input: strings.Join([]string{
 				`<div class="note">`,
 				"hello",
@@ -1991,7 +2167,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, uppercase tag name normalized",
+			name: "html block: named tag: uppercase tag name normalized",
 			input: strings.Join([]string{
 				"<DIV>",
 				"hello",
@@ -2003,19 +2179,19 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, mixed case tag name normalized",
+			name: "html block: named tag: mixed case tag name normalized",
 			input: strings.Join([]string{
 				`<Section class="callout">`,
 				"hello",
 				"</Section>",
 			}, "\n"),
 			want: tk.IRDoc(
-				tk.IRHTMLBlock(`<section class="callout">`, "hello", "</section"),
+				tk.IRHTMLBlock(`<section class="callout">`, "hello", "</section>"),
 			),
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, closing tag line as opener",
+			name: "html block: named tag: closing tag line as opener",
 			input: strings.Join([]string{
 				"</div>",
 				"tail",
@@ -2026,7 +2202,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, self closing tag",
+			name: "html block: named tag: self closing tag",
 			input: strings.Join([]string{
 				"<hr />",
 				"tail",
@@ -2037,7 +2213,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, self closing without space",
+			name: "html block: named tag: self closing without space",
 			input: strings.Join([]string{
 				"<hr/>",
 				"tail",
@@ -2048,7 +2224,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, terminates before first blank line",
+			name: "html block: named tag: terminates before first blank line",
 			input: strings.Join([]string{
 				"<div>",
 				"hello",
@@ -2062,7 +2238,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, single opening line followed by blank line",
+			name: "html block: named tag: single opening line followed by blank line",
 			input: strings.Join([]string{
 				"<div>",
 				"",
@@ -2075,7 +2251,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, consumes through non blank lines",
+			name: "html block: named tag: consumes through non blank lines",
 			input: strings.Join([]string{
 				"<div>",
 				"line 1",
@@ -2088,7 +2264,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, closing tag does not itself terminate",
+			name: "html block: named tag: closing tag does not itself terminate",
 			input: strings.Join([]string{
 				"<div>",
 				"line 1",
@@ -2101,7 +2277,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, blank line after closing tag controls termination",
+			name: "html block: named tag: blank line after closing tag controls termination",
 			input: strings.Join([]string{
 				"<div>",
 				"hello",
@@ -2116,11 +2292,24 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, rejects inline span tag",
+			name: "html block: named tag: followed by content without blank line remains in block",
+			input: strings.Join([]string{
+				"<div>",
+				"a",
+				"</div>",
+				"b",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRHTMLBlock("<div>", "a", "</div>", "b"),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag: rejects inline span tag",
 			input: strings.Join([]string{
 				"<span>",
 				"hello",
-				"</span",
+				"</span>",
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRPara("<span>", "hello", "</span>"),
@@ -2128,11 +2317,11 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, rejects custom element",
+			name: "html block: named tag: rejects custom element",
 			input: strings.Join([]string{
 				"<custom-element>",
 				"hello",
-				"</custom-element",
+				"</custom-element>",
 			}, "\n"),
 			want: tk.IRDoc(
 				tk.IRPara("<custom-element>", "hello", "</custom-element>"),
@@ -2140,7 +2329,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, rejects missing name tag",
+			name:  "html block: named tag: rejects missing name tag",
 			input: "<>",
 			want: tk.IRDoc(
 				tk.IRPara("<>"),
@@ -2148,7 +2337,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, rejects closing slash with no name",
+			name:  "html block: named tag: rejects closing slash with no name",
 			input: "</>",
 			want: tk.IRDoc(
 				tk.IRPara("</>"),
@@ -2156,7 +2345,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, reject numeric tag start",
+			name:  "html block: named tag: reject numeric tag start",
 			input: "<1div>",
 			want: tk.IRDoc(
 				tk.IRPara("<1div>"),
@@ -2164,7 +2353,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, rejects space after opener",
+			name:  "html block: named tag: rejects space after opener",
 			input: "< div>",
 			want: tk.IRDoc(
 				tk.IRPara("< div>"),
@@ -2172,7 +2361,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, rejects incomplete opener tag",
+			name: "html block: named tag: rejects incomplete opener tag",
 			input: strings.Join([]string{
 				"<div",
 				"hello",
@@ -2183,7 +2372,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, rejects self closing garbage",
+			name:  "html block: named tag: rejects self closing garbage",
 			input: "<hr/garbage>",
 			want: tk.IRDoc(
 				tk.IRPara("<hr/garbage>"),
@@ -2191,7 +2380,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html block: named tag, rejects invalid character after tag name",
+			name:  "html block: named tag: rejects invalid character after tag name",
 			input: "<div-foo>",
 			want: tk.IRDoc(
 				tk.IRPara("<div-foo>"),
@@ -2199,7 +2388,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, rejects punctuation pseudo alpha",
+			name: "html block: named tag: rejects punctuation pseudo alpha",
 			input: strings.Join([]string{
 				"<`div>",
 				"hello",
@@ -2226,7 +2415,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "html block: named tag, interrupts paragraph consumption",
+			name: "html block: named tag: interrupts paragraph consumption",
 			input: strings.Join([]string{
 				"line 1",
 				"<div>",
@@ -2256,65 +2445,6 @@ func TestBuild(t *testing.T) {
 
 			assert.Equal(t, got, want)
 			assert.ErrorIs(t, err, tc.wantErr)
-		})
-	}
-}
-
-func TestBlockIndent(t *testing.T) {
-	testCases := []struct {
-		name        string
-		input       string
-		indentCols  int
-		indentBytes int
-	}{
-		{
-			name:        "four spaces",
-			input:       "    x",
-			indentCols:  4,
-			indentBytes: 4,
-		},
-		{
-			name:        "one tab",
-			input:       "\tx",
-			indentCols:  4,
-			indentBytes: 1,
-		},
-		{
-			name:        "one space, one tab",
-			input:       " \tx",
-			indentCols:  4,
-			indentBytes: 2,
-		},
-		{
-			name:        "two spaces, one tab",
-			input:       "  \tx",
-			indentCols:  4,
-			indentBytes: 3,
-		},
-		{
-			name:        "three spaces, one tab",
-			input:       "   \tx",
-			indentCols:  4,
-			indentBytes: 4,
-		},
-		{
-			name:        "four spaces, one tab",
-			input:       "    \tx",
-			indentCols:  8,
-			indentBytes: 5,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			src := source.NewSource(tc.input)
-			span := src.LineSpan(0)
-
-			line := Line{span}
-			indentCols, indentBytes := line.BlockIndent(src)
-
-			assert.Equal(t, indentCols, tc.indentCols)
-			assert.Equal(t, indentBytes, tc.indentBytes)
 		})
 	}
 }

@@ -15,6 +15,9 @@ func TestBuild(t *testing.T) {
 		want    []InlineSummary
 		wantErr error
 	}{
+		// ---------------------------------------------------------------------
+		// Empty input and plain text
+		// ---------------------------------------------------------------------
 		{
 			name:    "empty input",
 			input:   "",
@@ -32,6 +35,10 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// ---------------------------------------------------------------------
+		// Code spans
+		// ---------------------------------------------------------------------
 		{
 			name:  "code span",
 			input: "`foo`",
@@ -66,7 +73,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "code span: only one leading/trailing space is stripped",
+			name:  "code span: only one leading trailing space is stripped",
 			input: "`  ``  `",
 			want: []InlineSummary{
 				{
@@ -98,6 +105,169 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "code span: unmatched opener falls back to text",
+			input: "`foo",
+			want: []InlineSummary{
+				{
+					Kind:   "text",
+					Lexeme: "`",
+				},
+				{
+					Kind:   "text",
+					Lexeme: "foo",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "code span: unmatched closer falls back to text",
+			input: "foo`",
+			want: []InlineSummary{
+				{
+					Kind:   "text",
+					Lexeme: "foo",
+				},
+				{
+					Kind:   "text",
+					Lexeme: "`",
+				},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Emphasis and strong
+		// ---------------------------------------------------------------------
+		{
+			name:  "emphasis: star",
+			input: "*alt*",
+			want: []InlineSummary{
+				{
+					Kind:   "emphasis",
+					Lexeme: "*alt*",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis: underscore",
+			input: "_alt_",
+			want: []InlineSummary{
+				{
+					Kind:   "emphasis",
+					Lexeme: "_alt_",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "strong: star",
+			input: "**alt**",
+			want: []InlineSummary{
+				{
+					Kind:   "strong",
+					Lexeme: "**alt**",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "strong: underscore",
+			input: "__alt__",
+			want: []InlineSummary{
+				{
+					Kind:   "strong",
+					Lexeme: "__alt__",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "strong: nested emphasis",
+			input: "***alt***",
+			want: []InlineSummary{
+				{
+					Kind:   "emphasis",
+					Lexeme: "***alt***",
+					Children: []InlineSummary{
+						{
+							Kind:   "strong",
+							Lexeme: "**alt**",
+							Children: []InlineSummary{
+								{
+									Kind:   "text",
+									Lexeme: "alt",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis: unmatched opener falls back to text",
+			input: "*alt",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "*"},
+				{Kind: "text", Lexeme: "alt"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis: unmatched closer falls back to text",
+			input: "alt*",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "alt"},
+				{Kind: "text", Lexeme: "*"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "emphasis: contains code span",
+			input: "*a `b` c*",
+			want: []InlineSummary{
+				{
+					Kind:   "emphasis",
+					Lexeme: "*a `b` c*",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "a "},
+						{Kind: "code_span", Lexeme: "b"},
+						{Kind: "text", Lexeme: " c"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Autolinks
+		// ---------------------------------------------------------------------
 		{
 			name:  "autolink: absolute URI",
 			input: "<http://foo.bar.baz>",
@@ -133,6 +303,30 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:  "autolink: invalid scheme falls back to text",
+			input: "<x:y>",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "<"},
+				{Kind: "text", Lexeme: "x:y"},
+				{Kind: "text", Lexeme: ">"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "autolink: invalid email falls back to text",
+			input: "<local@-domain.com>",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "<"},
+				{Kind: "text", Lexeme: "local@-domain.com"},
+				{Kind: "text", Lexeme: ">"},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Inline HTML
+		// ---------------------------------------------------------------------
+		{
 			name:  "html: simple open tag",
 			input: "<a>",
 			want: []InlineSummary{
@@ -155,7 +349,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html: self-closing open tag",
+			name:  "html: self closing open tag",
 			input: "<a/>",
 			want: []InlineSummary{
 				{
@@ -166,7 +360,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "html: self-closing open tag with whitespace",
+			name:  "html: self closing open tag with whitespace",
 			input: "<a />",
 			want: []InlineSummary{
 				{
@@ -185,7 +379,195 @@ func TestBuild(t *testing.T) {
 					Lexeme: "</a>",
 				},
 			},
+			wantErr: nil,
 		},
+		{
+			name:  "html: comment",
+			input: "<!-- comment -->",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<!-- comment -->",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: declaration",
+			input: "<!DOCTYPE html>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<!DOCTYPE html>",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: processing instruction",
+			input: "<?xml version=\"1.0\"?>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<?xml version=\"1.0\"?>",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: cdata",
+			input: "<![CDATA[hello]]>",
+			want: []InlineSummary{
+				{
+					Kind:   "raw_text",
+					Lexeme: "<![CDATA[hello]]>",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "html: invalid tag falls back to text",
+			input: "<1a>",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "<"},
+				{Kind: "text", Lexeme: "1a"},
+				{Kind: "text", Lexeme: ">"},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Links
+		// ---------------------------------------------------------------------
+		{
+			name:  "link: simple",
+			input: "[alt](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[alt](dest)",
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: with title",
+			input: `[alt](dest "title")`,
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: `[alt](dest "title")`,
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: emphasis in label",
+			input: "[*alt*](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[*alt*](dest)",
+					Children: []InlineSummary{
+						{
+							Kind:   "emphasis",
+							Lexeme: "*alt*",
+							Children: []InlineSummary{
+								{Kind: "text", Lexeme: "alt"},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: strong in label",
+			input: "[**alt**](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[**alt**](dest)",
+					Children: []InlineSummary{
+						{
+							Kind:   "strong",
+							Lexeme: "**alt**",
+							Children: []InlineSummary{
+								{Kind: "text", Lexeme: "alt"},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: code span in label",
+			input: "[a `b` c](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[a `b` c](dest)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "a "},
+						{Kind: "code_span", Lexeme: "b"},
+						{Kind: "text", Lexeme: " c"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: missing tail falls back to text",
+			input: "[alt]",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "["},
+				{Kind: "text", Lexeme: "alt"},
+				{Kind: "text", Lexeme: "]"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: malformed tail falls back to text",
+			input: "[alt](dest",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "["},
+				{Kind: "text", Lexeme: "alt"},
+				{Kind: "text", Lexeme: "]"},
+				{Kind: "text", Lexeme: "("},
+				{Kind: "text", Lexeme: "dest"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: escaped opener remains text",
+			input: `\[alt](dest)`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "["},
+				{Kind: "text", Lexeme: "alt"},
+				{Kind: "text", Lexeme: "]"},
+				{Kind: "text", Lexeme: "("},
+				{Kind: "text", Lexeme: "dest"},
+				{Kind: "text", Lexeme: ")"},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Images
+		// ---------------------------------------------------------------------
 		{
 			name:  "image: simple",
 			input: "![alt](img.png)",
@@ -201,6 +583,7 @@ func TestBuild(t *testing.T) {
 					},
 				},
 			},
+			wantErr: nil,
 		},
 		{
 			name:  "image: with title",
@@ -217,6 +600,7 @@ func TestBuild(t *testing.T) {
 					},
 				},
 			},
+			wantErr: nil,
 		},
 		{
 			name:  "image: empty alt",
@@ -228,6 +612,7 @@ func TestBuild(t *testing.T) {
 					Children: []InlineSummary{},
 				},
 			},
+			wantErr: nil,
 		},
 		{
 			name:  "image: emphasis in alt text",
@@ -336,6 +721,154 @@ func TestBuild(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:  "image: emphasis and code span in alt text",
+			input: "![*a* `b`](img.png)",
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![*a* `b`](img.png)",
+					Children: []InlineSummary{
+						{
+							Kind:   "emphasis",
+							Lexeme: "*a*",
+							Children: []InlineSummary{
+								{Kind: "text", Lexeme: "a"},
+							},
+						},
+						{Kind: "text", Lexeme: " "},
+						{Kind: "code_span", Lexeme: "b"},
+					},
+				},
+			},
+		},
+
+		// ---------------------------------------------------------------------
+		// Escapes
+		// ---------------------------------------------------------------------
+		{
+			name:  "escape: star becomes text",
+			input: `\*`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "*"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: underscore becomes text",
+			input: `\_`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "_"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: backtick becomes text",
+			input: "\\`",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "`"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: open bracket becomes text",
+			input: `\[`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "["},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: close bracket becomes text",
+			input: `\]`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "]"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: ordinary text remains literal",
+			input: `\a`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "\\"},
+				{Kind: "text", Lexeme: "a"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: trailing backslash at eof",
+			input: `\`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: `\`},
+			},
+			wantErr: nil,
+		},
+
+		// ---------------------------------------------------------------------
+		// Interaction and precedence
+		// ---------------------------------------------------------------------
+		{
+			name:  "interaction: code span beats emphasis",
+			input: "*a `b*`",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "*"},
+				{Kind: "text", Lexeme: "a "},
+				{Kind: "code_span", Lexeme: "b*"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "interaction: link label resolves emphasis inside label",
+			input: "[a *b*](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[a *b*](dest)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "a "},
+						{
+							Kind:   "emphasis",
+							Lexeme: "*b*",
+							Children: []InlineSummary{
+								{Kind: "text", Lexeme: "b"},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "interaction: malformed emphasis inside link still yields link text children",
+			input: "[a *b](dest)",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[a *b](dest)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "a "},
+						{Kind: "text", Lexeme: "*"},
+						{Kind: "text", Lexeme: "b"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "interaction: adjacent link and text",
+			input: "[x](y)z",
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[x](y)",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "x"},
+					},
+				},
+				{Kind: "text", Lexeme: "z"},
+			},
+			wantErr: nil,
 		},
 	}
 

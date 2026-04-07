@@ -13,6 +13,152 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
+// TODO:
+// generateHTMLCoverageGaps is a curated set of additional codegen-layer cases worth
+// adding once expected html.Node trees are filled in. These are organized around the
+// places where code generation itself makes decisions: tight-list paragraph unwrapping,
+// attribute emission, raw/html passthrough, and preservation of inline/code payload.
+var generateHTMLCoverageGaps = []struct {
+	name  string
+	input string
+}{
+	// Paragraph/codegen whitespace behavior.
+	{
+		name:  "paragraph: mixed soft and hard breaks across three lines",
+		input: "alpha\nbeta  \ngamma",
+	},
+	{
+		name:  "paragraph: emphasis around hard break",
+		input: "*alpha*  \nbeta",
+	},
+	{
+		name:  "paragraph: code span adjacent to soft break",
+		input: "`alpha`\nbeta",
+	},
+
+	// Headers.
+	{
+		name:  "header: strong and emphasis",
+		input: "# **alpha** *beta*",
+	},
+	{
+		name:  "setext header: emphasis",
+		input: "*alpha*\n---",
+	},
+
+	// Block quotes and nested containers.
+	{
+		name:  "block quote: two paragraphs",
+		input: "> alpha\n>\n> beta",
+	},
+	{
+		name:  "block quote: nested block quote",
+		input: "> outer\n> > inner",
+	},
+	{
+		name:  "block quote: contains list",
+		input: "> - alpha\n> - beta",
+	},
+
+	// Lists: tight/loose rendering is a real codegen concern.
+	{
+		name:  "unordered list: loose list retains paragraph wrappers",
+		input: "- alpha\n\n- beta",
+	},
+	{
+		name:  "unordered list: tight list unwraps single paragraph children",
+		input: "- alpha\n- beta",
+	},
+	{
+		name:  "unordered list: item with paragraph and nested list",
+		input: "- alpha\n  - beta",
+	},
+	{
+		name:  "ordered list: non-1 start emits start attribute",
+		input: "3. alpha\n4. beta",
+	},
+	{
+		name:  "ordered list: paren delimiter still renders as ol",
+		input: "1) alpha\n2) beta",
+	},
+	{
+		name:  "list item: indented code block child",
+		input: "- alpha\n\n      beta",
+	},
+	{
+		name:  "list item: block quote child",
+		input: "- alpha\n  > beta",
+	},
+
+	// Code blocks: codegen should faithfully wrap payload and language class.
+	{
+		name:  "indented code block: multiple lines",
+		input: "    alpha\n    beta",
+	},
+	{
+		name:  "indented code block: blank line in payload",
+		input: "    alpha\n\n    beta",
+	},
+	{
+		name:  "fenced code block: language class emitted",
+		input: "```go\nalpha\n```",
+	},
+	{
+		name:  "fenced code block: info string ignores trailing words in class emission",
+		input: "```go linenos\nalpha\n```",
+	},
+	{
+		name:  "fenced code block: payload preserves leading spaces after indent stripping",
+		input: "```\n  alpha\n```",
+	},
+
+	// HTML blocks: codegen should emit raw payload as fragment children.
+	{
+		name:  "html block: multi-line comment",
+		input: "<!--\nalpha\n-->",
+	},
+	{
+		name:  "html block: named tag block",
+		input: "<div>\nalpha\n</div>",
+	},
+	{
+		name:  "html block: processing instruction",
+		input: "<?php\necho $a;\n?>",
+	},
+
+	// Links and images: attribute emission matters here.
+	{
+		name:  "link with emphasis in label",
+		input: "[*x*](dest)",
+	},
+	{
+		name:  "link with title and nested strong label",
+		input: "[**x**](dest \"title\")",
+	},
+	{
+		name:  "image",
+		input: "![alt](img.png)",
+	},
+	{
+		name:  "image with title",
+		input: "![alt](img.png \"title\")",
+	},
+	{
+		name:  "autolink email and URI in one paragraph",
+		input: "<local@domain.com> <https://google.com>",
+	},
+
+	// Mixed document cases.
+	{
+		name:  "document: header list code block paragraph",
+		input: "# alpha\n\n- beta\n- gamma\n\n    delta\n\nepsilon",
+	},
+	{
+		name:  "document: html block followed by paragraph",
+		input: "<div>\nalpha\n</div>\n\nbeta",
+	},
+}
+
 func TestGenerateHTML(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -20,6 +166,7 @@ func TestGenerateHTML(t *testing.T) {
 		want    html.Node
 		wantErr error
 	}{
+		// Paragraphs and line breaks
 		{
 			name:  "paragraph with normal text",
 			input: "paragraph",
@@ -28,18 +175,6 @@ func TestGenerateHTML(t *testing.T) {
 					"p",
 					nil,
 					html.TextNode("paragraph"),
-				),
-			),
-			wantErr: nil,
-		},
-		{
-			name:  "header with normal text",
-			input: "# header",
-			want: html.FragmentNode(
-				html.ElemNode(
-					"h1",
-					nil,
-					html.TextNode("header"),
 				),
 			),
 			wantErr: nil,
@@ -84,6 +219,20 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+
+		// Headings and simple block forms
+		{
+			name:  "header with normal text",
+			input: "# header",
+			want: html.FragmentNode(
+				html.ElemNode(
+					"h1",
+					nil,
+					html.TextNode("header"),
+				),
+			),
+			wantErr: nil,
+		},
 		{
 			name:  "thematic break",
 			input: "---",
@@ -92,6 +241,18 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "html block",
+			input: "<!-- comment -->",
+			want: html.FragmentNode(
+				html.FragmentNode(
+					html.RawNode("<!-- comment -->"),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Containers
 		{
 			name:  "block quote: plain text",
 			input: "> quote",
@@ -150,6 +311,8 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+
+		// Code blocks
 		{
 			name:  "indented code block",
 			input: `    fmt.Println("hello")`,
@@ -186,16 +349,8 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
-		{
-			name:  "html block",
-			input: "<!-- comment -->",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<!-- comment -->"),
-				),
-			),
-			wantErr: nil,
-		},
+
+		// Inline rendering through paragraphs
 		{
 			name:  "code span",
 			input: "`abc`",
@@ -244,6 +399,8 @@ func TestGenerateHTML(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+
+		// Links and autolinks
 		{
 			name:  "simple link",
 			input: `[x](dest)`,

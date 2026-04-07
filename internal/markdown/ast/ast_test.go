@@ -2,6 +2,14 @@ package ast
 
 var (
 	_ Block = Paragraph{}
+	_ Block = BlockQuote{}
+	_ Block = Header{}
+	_ Block = ThematicBreak{}
+	_ Block = OrderedList{}
+	_ Block = UnorderedList{}
+	_ Block = ListItem{}
+	_ Block = CodeBlock{}
+	_ Block = HTMLBlock{}
 )
 
 var (

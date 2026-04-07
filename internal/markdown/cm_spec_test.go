@@ -64,6 +64,30 @@ func TestCommonMarkSpec(t *testing.T) {
 			mode:   compareStructural,
 			reason: "HTML serialization formatting differs; structure matches CommonMark",
 		},
+		{
+			name:   "5: code block continuation of a list item",
+			md:     "- foo\n\n\t\tbar",
+			cm:     "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>",
+			scribe: "<ul><li><p>foo</p><pre><code>bar</code></pre></li></ul>",
+			mode:   compareDocumentedDivergence,
+			reason: "tab-based indentation is trimmed by whole-byte span cuts, so CommonMark's partial-tab space preservation is not reproduced",
+		},
+		{
+			name:   "6: block quote marker followed by tabs",
+			md:     ">\t\tfoo",
+			cm:     "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>",
+			scribe: "<blockquote><pre><code>foo</code></pre></blockquote>",
+			mode:   compareDocumentedDivergence,
+			reason: "tab-based indentation is trimmed by whole-byte span cuts, so CommonMark's partial-tab space preservation is not reproduced",
+		},
+		{
+			name:   "7: list item followed by tabs",
+			md:     "-\t\tfoo",
+			cm:     "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>",
+			scribe: "<ul><li>foo</li></ul>",
+			mode:   compareDocumentedDivergence,
+			reason: "list marker parsing consumes the full post-marker tab run as delimiter whitespace, so no indentation remains to form a code block",
+		},
 	}
 
 	for _, tc := range testCases {
