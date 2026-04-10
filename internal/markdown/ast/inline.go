@@ -17,7 +17,7 @@ type CodeSpan struct {
 func (CodeSpan) isInline() {}
 
 func (c CodeSpan) String() string {
-	return "[CodeSpan]"
+	return "CodeSpan"
 }
 
 type Link struct {
@@ -32,7 +32,11 @@ type Link struct {
 func (Link) isInline() {}
 
 func (l Link) String() string {
-	return fmt.Sprintf("[Link] (Children = %d)", len(l.Children))
+	return fmt.Sprintf(
+		"Link(mailto=%t,children=%s)",
+		l.MailTo,
+		summarizeInlines(l.Children),
+	)
 }
 
 type Image struct {
@@ -45,7 +49,7 @@ type Image struct {
 func (i Image) isInline() {}
 
 func (i Image) String() string {
-	return fmt.Sprintf("[Image] (Children = %d)", len(i.Children))
+	return fmt.Sprintf("Image(children=%s)", summarizeInlines(i.Children))
 }
 
 type Emph struct {
@@ -56,7 +60,7 @@ type Emph struct {
 func (Emph) isInline() {}
 
 func (e Emph) String() string {
-	return fmt.Sprintf("[Emphasis] (Children = %d)", len(e.Children))
+	return fmt.Sprintf("Emphasis(children=%s)", summarizeInlines(e.Children))
 }
 
 type Strong struct {
@@ -67,7 +71,7 @@ type Strong struct {
 func (Strong) isInline() {}
 
 func (s Strong) String() string {
-	return fmt.Sprintf("[Strong] (Children = %d)", len(s.Children))
+	return fmt.Sprintf("Strong(children=%s)", summarizeInlines(s.Children))
 }
 
 type Text struct {
@@ -77,7 +81,7 @@ type Text struct {
 func (Text) isInline() {}
 
 func (Text) String() string {
-	return "[Text]"
+	return "Text"
 }
 
 type RawText struct {
@@ -87,7 +91,7 @@ type RawText struct {
 func (RawText) isInline() {}
 
 func (RawText) String() string {
-	return "[RawText]"
+	return "RawText"
 }
 
 type HardBreak struct {
@@ -97,7 +101,7 @@ type HardBreak struct {
 func (HardBreak) isInline() {}
 
 func (HardBreak) String() string {
-	return "[HardBreak]"
+	return "HardBreak"
 }
 
 type SoftBreak struct {
@@ -107,7 +111,7 @@ type SoftBreak struct {
 func (SoftBreak) isInline() {}
 
 func (SoftBreak) String() string {
-	return "[SoftBreak]"
+	return "SoftBreak"
 }
 
 type Newline struct {
@@ -117,5 +121,5 @@ type Newline struct {
 func (Newline) isInline() {}
 
 func (Newline) String() string {
-	return "[Newline]"
+	return "Newline"
 }
