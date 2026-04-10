@@ -14,6 +14,7 @@ func TestScan(t *testing.T) {
 		want    []string
 		wantErr error
 	}{
+		// Empty and single line cases
 		{
 			name:    "empty input",
 			input:   "",
@@ -37,6 +38,8 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// Multiple lines and trailing newline behavior
 		{
 			name:  "multiple nonblank lines without trailing newline",
 			input: "a\nb\nc",
@@ -58,6 +61,8 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// Blank line semantics
 		{
 			name:  "only newline emits empty line",
 			input: "\n",
@@ -129,6 +134,8 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// Newline normalization behavior
 		{
 			name:  "CRLF normalized",
 			input: "a\r\nb\r\n",
@@ -170,6 +177,8 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// Whitespace preservation behavior
 		{
 			name:  "trailing spaces are preserved",
 			input: "a \n",
@@ -234,6 +243,8 @@ func TestScan(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+
+		// Embedded normalization edge cases
 		{
 			name:  "embedded carriage return is normalized",
 			input: "a\rb\n",
@@ -268,6 +279,7 @@ func TestScanSpans(t *testing.T) {
 		input string
 		want  []source.ByteSpan
 	}{
+		// Basic span mapping
 		{
 			name:  "single line no newline",
 			input: "hello",
@@ -283,6 +295,8 @@ func TestScanSpans(t *testing.T) {
 				{Start: 6, End: 6},
 			},
 		},
+
+		// Blank line spans
 		{
 			name:  "blank line between content lines",
 			input: "a\n\nb",
@@ -309,6 +323,8 @@ func TestScanSpans(t *testing.T) {
 				{Start: 3, End: 3},
 			},
 		},
+
+		// Normalization reflected in spans
 		{
 			name:  "normalized CRLF input produces spans over normalized buffer",
 			input: "a\r\nb\r\n",

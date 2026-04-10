@@ -13,6 +13,7 @@ func TestRender(t *testing.T) {
 		want    string
 		wantErr error
 	}{
+		// Text nodes
 		{
 			name:    "text: plain text",
 			node:    TextNode("test text"),
@@ -26,13 +27,19 @@ func TestRender(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name:    "text: preserves newline",
+			node:    TextNode("line one\nline two"),
+			want:    "line one\nline two",
+			wantErr: nil,
+		},
+		{
 			name:    "text: escapes lt, gt, amp",
 			node:    TextNode("Hello <world> & friends"),
 			want:    "Hello &lt;world&gt; &amp; friends",
 			wantErr: nil,
 		},
 		{
-			name:    "text: escapes quotes",
+			name:    "text: escapes double quotes",
 			node:    TextNode("\"Good morning, Sean.\""),
 			want:    "&#34;Good morning, Sean.&#34;",
 			wantErr: nil,
@@ -43,6 +50,49 @@ func TestRender(t *testing.T) {
 			want:    "café — π ≈ 3.14159 — 你好",
 			wantErr: nil,
 		},
+
+		// Raw nodes
+		{
+			name:    "raw: renders without escaping",
+			node:    RawNode("<span>raw & literal</span>"),
+			want:    "<span>raw & literal</span>",
+			wantErr: nil,
+		},
+		{
+			name:    "raw: empty raw",
+			node:    RawNode(""),
+			want:    "",
+			wantErr: nil,
+		},
+
+		// Fragment nodes
+		{
+			name:    "fragment: empty fragment",
+			node:    FragmentNode(),
+			want:    "",
+			wantErr: nil,
+		},
+		{
+			name: "fragment: multiple children",
+			node: FragmentNode(
+				TextNode("a"),
+				ElemNode("span", nil, TextNode("b")),
+				TextNode("c"),
+			),
+			want:    "a<span>b</span>c",
+			wantErr: nil,
+		},
+		{
+			name: "fragment: nested elements",
+			node: FragmentNode(
+				ElemNode("p", nil, TextNode("first")),
+				ElemNode("p", nil, TextNode("second")),
+			),
+			want:    "<p>first</p><p>second</p>",
+			wantErr: nil,
+		},
+
+		// Element nodes
 		{
 			name:    "element: no attributes, no children",
 			node:    ElemNode("span", nil),
@@ -121,7 +171,7 @@ func TestRender(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "element: attributes escape lt, gt, amp, qt",
+			name: "element: escapes special characters in attributes",
 			node: ElemNode(
 				"div",
 				Attributes{
@@ -132,6 +182,19 @@ func TestRender(t *testing.T) {
 			want:    `<div alt="Hello &lt;world&gt; &amp; &#34;friends&#34;" src="/static/images/img.png"></div>`,
 			wantErr: nil,
 		},
+		{
+			name: "element: preserves unicode in attributes",
+			node: ElemNode(
+				"div",
+				Attributes{
+					"title": "café — 你好",
+				},
+			),
+			want:    `<div title="café — 你好"></div>`,
+			wantErr: nil,
+		},
+
+		// Void elements
 		{
 			name:    "void element: no attributes",
 			node:    VoidNode("br", nil),
@@ -145,7 +208,8 @@ func TestRender(t *testing.T) {
 				Attributes{
 					"src": "/static/images/img.png",
 					"alt": "an image",
-				}),
+				},
+			),
 			want:    `<img alt="an image" src="/static/images/img.png">`,
 			wantErr: nil,
 		},
@@ -170,5 +234,4 @@ func TestRender(t *testing.T) {
 			assert.ErrorIs(t, err, tc.wantErr)
 		})
 	}
-
 }

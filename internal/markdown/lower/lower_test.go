@@ -12,196 +12,6 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
 
-// TODO:
-// lowerDocumentCoverageGaps is a curated set of additional lower-layer cases worth
-// adding once expected AST shapes are filled in. These are organized around the
-// places where lowering itself makes semantic decisions, rather than merely passing
-// IR through unchanged.
-var lowerDocumentCoverageGaps = []struct {
-	name  string
-	input string
-}{
-	// Paragraph lowering: soft/hard break assembly happens in lower.
-	{
-		name:  "paragraph: soft break between lines",
-		input: "alpha\nbeta",
-	},
-	{
-		name:  "paragraph: hard break via two trailing spaces",
-		input: "alpha  \nbeta",
-	},
-	{
-		name:  "paragraph: hard break via trailing backslash",
-		input: "alpha\\\nbeta",
-	},
-	{
-		name:  "paragraph: mixed soft and hard breaks across three lines",
-		input: "alpha\nbeta  \ngamma",
-	},
-	{
-		name:  "paragraph: emphasis cannot span lowered line boundary",
-		input: "*alpha\nbeta*",
-	},
-
-	// Header lowering: inline parsing occurs during lowering.
-	{
-		name:  "header: strong and emphasis",
-		input: "# **alpha** *beta*",
-	},
-	{
-		name:  "header: code span",
-		input: "# `alpha`",
-	},
-	{
-		name:  "setext header: plain text",
-		input: "alpha\n---",
-	},
-	{
-		name:  "setext header: inline emphasis",
-		input: "*alpha*\n---",
-	},
-
-	// Block quote lowering: recursive lowering through nested children.
-	{
-		name:  "block quote: two paragraphs",
-		input: "> alpha\n>\n> beta",
-	},
-	{
-		name:  "block quote: nested block quote",
-		input: "> outer\n> > inner",
-	},
-	{
-		name:  "block quote: contains list",
-		input: "> - alpha\n> - beta",
-	},
-	{
-		name:  "block quote: contains code block",
-		input: ">     alpha",
-	},
-
-	// List lowering: tight/loose metadata and nested child lowering.
-	{
-		name:  "ordered list: start number preserved",
-		input: "3. alpha\n4. beta",
-	},
-	{
-		name:  "ordered list: paren delimiter still lowers as ordered list",
-		input: "1) alpha\n2) beta",
-	},
-	{
-		name:  "unordered list: loose list preserves paragraph children",
-		input: "- alpha\n\n- beta",
-	},
-	{
-		name:  "unordered list: item with two paragraphs",
-		input: "- alpha\n\n  beta",
-	},
-	{
-		name:  "unordered list: nested unordered list",
-		input: "- alpha\n  - beta",
-	},
-	{
-		name:  "unordered list: nested ordered list",
-		input: "- alpha\n  1. beta",
-	},
-	{
-		name:  "list item: indented code block child",
-		input: "- alpha\n\n      beta",
-	},
-	{
-		name:  "list item: block quote child",
-		input: "- alpha\n  > beta",
-	},
-
-	// Indented code block lowering: indentation stripping and newline assembly.
-	{
-		name:  "indented code block: two lines preserves internal newline",
-		input: "    alpha\n    beta",
-	},
-	{
-		name:  "indented code block: blank line inside payload",
-		input: "    alpha\n\n    beta",
-	},
-	{
-		name:  "indented code block: spaces beyond required indent are preserved",
-		input: "      alpha",
-	},
-	{
-		name:  "indented code block: tab indentation participates in trim",
-		input: "\talpha",
-	},
-	{
-		name:  "indented code block: mixed space and tab indentation",
-		input: "  \talpha",
-	},
-
-	// Fenced code block lowering: payload reconstruction and info-string handling.
-	{
-		name:  "fenced code block: two payload lines preserves internal newline",
-		input: "```\nalpha\nbeta\n```",
-	},
-	{
-		name:  "fenced code block: blank line inside payload",
-		input: "```\nalpha\n\nbeta\n```",
-	},
-	{
-		name:  "fenced code block: indented opener strips up to opener indent",
-		input: "  ```\n  alpha\n  beta\n  ```",
-	},
-	{
-		name:  "fenced code block: info string language token only",
-		input: "```go\nalpha\n```",
-	},
-	{
-		name:  "fenced code block: info string with trailing words extracts first token only",
-		input: "```go linenos\nalpha\n```",
-	},
-	{
-		name:  "fenced code block: tilde fence with info string",
-		input: "~~~text\nalpha\n~~~",
-	},
-	{
-		name:  "fenced code block: payload preserves leading spaces after indent stripping",
-		input: "```\n  alpha\n```",
-	},
-
-	// HTML block lowering: raw payload assembly and newline insertion.
-	{
-		name:  "html block: multi-line comment preserves internal newline",
-		input: "<!--\nalpha\n-->",
-	},
-	{
-		name:  "html block: named tag block preserves multiple raw lines",
-		input: "<div>\nalpha\n</div>",
-	},
-	{
-		name:  "html block: processing instruction",
-		input: "<?php\necho $a;\n?>",
-	},
-	{
-		name:  "html block: cdata section",
-		input: "<![CDATA[\nalpha\n]]>",
-	},
-	{
-		name:  "html block: declaration",
-		input: "<!DOCTYPE html>",
-	},
-
-	// Mixed document cases: good end-to-end coverage for recursive lowering.
-	{
-		name:  "document: header list code block paragraph",
-		input: "# alpha\n\n- beta\n- gamma\n\n    delta\n\nepsilon",
-	},
-	{
-		name:  "document: html block followed by paragraph",
-		input: "<div>\nalpha\n</div>\n\nbeta",
-	},
-	{
-		name:  "document: block quote containing list containing paragraph",
-		input: "> - alpha\n>   beta",
-	},
-}
-
 func TestLowerDocument(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -214,7 +24,73 @@ func TestLowerDocument(t *testing.T) {
 			name:  "paragraph with normal text",
 			input: "paragraph",
 			want: tk.ASTDoc(
-				tk.ASTPara(tk.ASTText()),
+				tk.ASTPara(
+					tk.ASTText("paragraph"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: soft break between lines",
+			input: "alpha\nbeta",
+			want: tk.ASTDoc(
+				tk.ASTPara(
+					tk.ASTText("alpha"),
+					tk.ASTSoftBreak(),
+					tk.ASTText("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: hard break via two trailing spaces",
+			input: "alpha  \nbeta",
+			want: tk.ASTDoc(
+				tk.ASTPara(
+					tk.ASTText("alpha"),
+					tk.ASTHardBreak(),
+					tk.ASTText("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: hard break via trailing backslash",
+			input: "alpha\\\nbeta",
+			want: tk.ASTDoc(
+				tk.ASTPara(
+					tk.ASTText("alpha"),
+					tk.ASTHardBreak(),
+					tk.ASTText("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: mixed soft and hard breaks across three lines",
+			input: "alpha\nbeta  \ngamma",
+			want: tk.ASTDoc(
+				tk.ASTPara(
+					tk.ASTText("alpha"),
+					tk.ASTSoftBreak(),
+					tk.ASTText("beta"),
+					tk.ASTHardBreak(),
+					tk.ASTText("gamma"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: emphasis cannot span lowered line boundary",
+			input: "*alpha\nbeta*",
+			want: tk.ASTDoc(
+				tk.ASTPara(
+					tk.ASTText("*"),
+					tk.ASTText("alpha"),
+					tk.ASTSoftBreak(),
+					tk.ASTText("beta"),
+					tk.ASTText("*"),
+				),
 			),
 			wantErr: nil,
 		},
@@ -224,7 +100,10 @@ func TestLowerDocument(t *testing.T) {
 			name:  "header with normal text",
 			input: "# header",
 			want: tk.ASTDoc(
-				tk.ASTHeader(1, tk.ASTText()),
+				tk.ASTHeader(
+					1,
+					tk.ASTText("header"),
+				),
 			),
 			wantErr: nil,
 		},
@@ -232,7 +111,12 @@ func TestLowerDocument(t *testing.T) {
 			name:  "header with emphasis",
 			input: "# *header*",
 			want: tk.ASTDoc(
-				tk.ASTHeader(1, tk.ASTEm(tk.ASTText())),
+				tk.ASTHeader(
+					1,
+					tk.ASTEm(
+						tk.ASTText("header"),
+					),
+				),
 			),
 			wantErr: nil,
 		},
@@ -240,8 +124,65 @@ func TestLowerDocument(t *testing.T) {
 			name:  "header and paragraph",
 			input: "# header\n\nparagraph",
 			want: tk.ASTDoc(
-				tk.ASTHeader(1, tk.ASTText()),
-				tk.ASTPara(tk.ASTText()),
+				tk.ASTHeader(
+					1,
+					tk.ASTText("header"),
+				),
+				tk.ASTPara(
+					tk.ASTText("paragraph"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header: strong and emphasis",
+			input: "# **alpha** *beta*",
+			want: tk.ASTDoc(
+				tk.ASTHeader(
+					1,
+					tk.ASTStrong(
+						tk.ASTText("alpha"),
+					),
+					tk.ASTText(" "),
+					tk.ASTEm(
+						tk.ASTText("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header: code span",
+			input: "# `alpha`",
+			want: tk.ASTDoc(
+				tk.ASTHeader(
+					1,
+					tk.ASTCodeSpan("alpha"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext header: plain text",
+			input: "alpha\n---",
+			want: tk.ASTDoc(
+				tk.ASTHeader(
+					2,
+					tk.ASTText("alpha"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext header: inline emphasis",
+			input: "*alpha*\n---",
+			want: tk.ASTDoc(
+				tk.ASTHeader(
+					2,
+					tk.ASTEm(
+						tk.ASTText("alpha"),
+					),
+				),
 			),
 			wantErr: nil,
 		},
@@ -259,50 +200,295 @@ func TestLowerDocument(t *testing.T) {
 			name:  "html block",
 			input: "<!-- comment -->",
 			want: tk.ASTDoc(
-				tk.ASTHTMLBlock(tk.ASTRawText()),
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<!-- comment -->"),
+				),
 			),
 			wantErr: nil,
 		},
 
-		// Containers
+		// Block quotes
 		{
 			name:  "block quote: plain text",
 			input: "> quote",
 			want: tk.ASTDoc(
 				tk.ASTBlockQuote(
-					tk.ASTPara(tk.ASTText()),
+					tk.ASTPara(
+						tk.ASTText("quote"),
+					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "ul: two items",
+			name:  "block quote: two paragraphs",
+			input: "> alpha\n>\n> beta",
+			want: tk.ASTDoc(
+				tk.ASTBlockQuote(
+					tk.ASTPara(
+						tk.ASTText("alpha"),
+					),
+					tk.ASTPara(
+						tk.ASTText("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: nested block quote",
+			input: "> outer\n> > inner",
+			want: tk.ASTDoc(
+				tk.ASTBlockQuote(
+					tk.ASTPara(
+						tk.ASTText("outer"),
+					),
+					tk.ASTBlockQuote(
+						tk.ASTPara(
+							tk.ASTText("inner"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: contains list",
+			input: "> - alpha\n> - beta",
+			want: tk.ASTDoc(
+				tk.ASTBlockQuote(
+					tk.ASTUnorderedList(
+						true,
+						tk.ASTListItem(
+							tk.ASTPara(
+								tk.ASTText("alpha"),
+							),
+						),
+						tk.ASTListItem(
+							tk.ASTPara(
+								tk.ASTText("beta"),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: contains code block",
+			input: ">     alpha",
+			want: tk.ASTDoc(
+				tk.ASTBlockQuote(
+					tk.ASTIndentedCodeBlock(
+						tk.ASTText("alpha"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Lists
+		{
+			name:  "unordered list: two items",
 			input: "- a\n- b",
 			want: tk.ASTDoc(
 				tk.ASTUnorderedList(
 					true,
 					tk.ASTListItem(
-						tk.ASTPara(tk.ASTText()),
+						tk.ASTPara(
+							tk.ASTText("a"),
+						),
 					),
 					tk.ASTListItem(
-						tk.ASTPara(tk.ASTText()),
+						tk.ASTPara(
+							tk.ASTText("b"),
+						),
 					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "ol: two items",
+			name:  "unordered list: loose list preserves paragraph children",
+			input: "- alpha\n\n- beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					false,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+					),
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "unordered list: item with two paragraphs",
+			input: "- alpha\n\n  beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					false,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+						tk.ASTPara(
+							tk.ASTText("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "unordered list: nested unordered list",
+			input: "- alpha\n  - beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					true,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+						tk.ASTUnorderedList(
+							true,
+							tk.ASTListItem(
+								tk.ASTPara(
+									tk.ASTText("beta"),
+								),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "unordered list: nested ordered list",
+			input: "- alpha\n  1. beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					true,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+						tk.ASTOrderedList(
+							true,
+							1,
+							tk.ASTListItem(
+								tk.ASTPara(
+									tk.ASTText("beta"),
+								),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: two items",
 			input: "1. a\n2. b",
 			want: tk.ASTDoc(
 				tk.ASTOrderedList(
 					true,
 					1,
 					tk.ASTListItem(
-						tk.ASTPara(tk.ASTText()),
+						tk.ASTPara(
+							tk.ASTText("a"),
+						),
 					),
 					tk.ASTListItem(
-						tk.ASTPara(tk.ASTText()),
+						tk.ASTPara(
+							tk.ASTText("b"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: start number preserved",
+			input: "3. alpha\n4. beta",
+			want: tk.ASTDoc(
+				tk.ASTOrderedList(
+					true,
+					3,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+					),
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: paren delimiter still lowers as ordered list",
+			input: "1) alpha\n2) beta",
+			want: tk.ASTDoc(
+				tk.ASTOrderedList(
+					true,
+					1,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+					),
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "list item: indented code block child",
+			input: "- alpha\n\n      beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					false,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+						tk.ASTIndentedCodeBlock(
+							tk.ASTText("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "list item: block quote child",
+			input: "- alpha\n  > beta",
+			want: tk.ASTDoc(
+				tk.ASTUnorderedList(
+					true,
+					tk.ASTListItem(
+						tk.ASTPara(
+							tk.ASTText("alpha"),
+						),
+						tk.ASTBlockQuote(
+							tk.ASTPara(
+								tk.ASTText("beta"),
+							),
+						),
 					),
 				),
 			),
@@ -314,7 +500,35 @@ func TestLowerDocument(t *testing.T) {
 			name:  "indented code block",
 			input: "    code",
 			want: tk.ASTDoc(
-				tk.ASTIndentedCodeBlock(tk.ASTText()),
+				tk.ASTIndentedCodeBlock(
+					tk.ASTText("code"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: two lines preserves internal newline",
+			input: "    alpha\n    beta",
+			want: tk.ASTDoc(
+				tk.ASTIndentedCodeBlock(
+					tk.ASTText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTText("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "indented code block: blank line inside payload",
+			input: "    alpha\n\n    beta",
+			want: tk.ASTDoc(
+				tk.ASTIndentedCodeBlock(
+					tk.ASTText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTText(""),
+					tk.ASTNewline(),
+					tk.ASTText("beta"),
+				),
 			),
 			wantErr: nil,
 		},
@@ -322,7 +536,35 @@ func TestLowerDocument(t *testing.T) {
 			name:  "fenced code block",
 			input: "```\ncode\n```",
 			want: tk.ASTDoc(
-				tk.ASTFencedCodeBlock(tk.ASTText()),
+				tk.ASTFencedCodeBlock(
+					tk.ASTText("code"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block: two payload lines preserves internal newline",
+			input: "```\nalpha\nbeta\n```",
+			want: tk.ASTDoc(
+				tk.ASTFencedCodeBlock(
+					tk.ASTText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTText("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block: blank line inside payload",
+			input: "```\nalpha\n\nbeta\n```",
+			want: tk.ASTDoc(
+				tk.ASTFencedCodeBlock(
+					tk.ASTText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTText(""),
+					tk.ASTNewline(),
+					tk.ASTText("beta"),
+				),
 			),
 			wantErr: nil,
 		},
@@ -332,7 +574,11 @@ func TestLowerDocument(t *testing.T) {
 			name:  "emphasis",
 			input: "*abc*",
 			want: tk.ASTDoc(
-				tk.ASTPara(tk.ASTEm(tk.ASTText())),
+				tk.ASTPara(
+					tk.ASTEm(
+						tk.ASTText("abc"),
+					),
+				),
 			),
 			wantErr: nil,
 		},
@@ -340,7 +586,11 @@ func TestLowerDocument(t *testing.T) {
 			name:  "strong",
 			input: "**abc**",
 			want: tk.ASTDoc(
-				tk.ASTPara(tk.ASTStrong(tk.ASTText())),
+				tk.ASTPara(
+					tk.ASTStrong(
+						tk.ASTText("abc"),
+					),
+				),
 			),
 			wantErr: nil,
 		},
@@ -348,7 +598,77 @@ func TestLowerDocument(t *testing.T) {
 			name:  "code span",
 			input: "`abc`",
 			want: tk.ASTDoc(
-				tk.ASTPara(tk.ASTCodeSpan()),
+				tk.ASTPara(
+					tk.ASTCodeSpan("abc"),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// HTML
+		{
+			name:  "html block: multi-line comment preserves internal newline",
+			input: "<!--\nalpha\n-->",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<!--"),
+					tk.ASTNewline(),
+					tk.ASTRawText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTRawText("-->"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag block preserves multiple raw lines",
+			input: "<div>\nalpha\n</div>",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<div>"),
+					tk.ASTNewline(),
+					tk.ASTRawText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTRawText("</div>"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: processing instruction",
+			input: "<?php\necho $a;\n?>",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<?php"),
+					tk.ASTNewline(),
+					tk.ASTRawText("echo $a;"),
+					tk.ASTNewline(),
+					tk.ASTRawText("?>"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: cdata section",
+			input: "<![CDATA[\nalpha\n]]>",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<![CDATA["),
+					tk.ASTNewline(),
+					tk.ASTRawText("alpha"),
+					tk.ASTNewline(),
+					tk.ASTRawText("]]>"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: declaration",
+			input: "<!DOCTYPE html>",
+			want: tk.ASTDoc(
+				tk.ASTHTMLBlock(
+					tk.ASTRawText("<!DOCTYPE html>"),
+				),
 			),
 			wantErr: nil,
 		},

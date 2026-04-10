@@ -18,9 +18,7 @@ func TestBuild(t *testing.T) {
 		want    ir.Document
 		wantErr error
 	}{
-		// ---------------------------------------------------------------------
 		// Empty input and paragraph formation
-		// ---------------------------------------------------------------------
 		{
 			name:    "empty input",
 			input:   "",
@@ -155,9 +153,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// ATX headers
-		// ---------------------------------------------------------------------
 		{
 			name:  "header level 1",
 			input: "# header",
@@ -296,9 +292,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Thematic breaks
-		// ---------------------------------------------------------------------
 		{
 			name:  "thematic break: ---",
 			input: "---",
@@ -380,9 +374,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Block quotes
-		// ---------------------------------------------------------------------
 		{
 			name:  "block quote: plain text",
 			input: "> text",
@@ -617,9 +609,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Setext headings
-		// ---------------------------------------------------------------------
 		{
 			name:  "setext: h1 (minimum)",
 			input: "heading\n=",
@@ -823,9 +813,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Unordered lists
-		// ---------------------------------------------------------------------
 		{
 			name:  "ul: single item: single line",
 			input: "- a",
@@ -1236,9 +1224,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Ordered lists
-		// ---------------------------------------------------------------------
 		{
 			name:  "ol: single item: single line: dot delimiter",
 			input: "1. a",
@@ -1544,9 +1530,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// Indented code blocks
-		// ---------------------------------------------------------------------
 		{
 			name:  "indented code block: single line",
 			input: `	fmt.Println("hello")`,
@@ -1672,9 +1656,7 @@ func TestBuild(t *testing.T) {
 		// 	wantErr: nil,
 		// },
 
-		// ---------------------------------------------------------------------
 		// Fenced code blocks
-		// ---------------------------------------------------------------------
 		{
 			name: "fenced code block: backtick: single line",
 			input: strings.Join([]string{
@@ -2032,9 +2014,7 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// ---------------------------------------------------------------------
 		// HTML blocks
-		// ---------------------------------------------------------------------
 		{
 			name:  "html block: comment",
 			input: "<!-- comment -->",

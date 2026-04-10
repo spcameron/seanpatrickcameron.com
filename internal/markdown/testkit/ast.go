@@ -94,12 +94,6 @@ func ASTPara(inlines ...ast.Inline) ast.Paragraph {
 
 // inline level nodes
 
-func ASTCodeSpan() ast.CodeSpan {
-	return ast.CodeSpan{
-		Span: source.ByteSpan{},
-	}
-}
-
 func ASTLink(inlines ...ast.Inline) ast.Link {
 	return ast.Link{
 		Span:        source.ByteSpan{},
@@ -124,22 +118,44 @@ func ASTStrong(inlines ...ast.Inline) ast.Strong {
 	}
 }
 
-func ASTText() ast.Text {
+// ASTText constructs a text node for structural AST comparisons.
+// Optional samples are ignored and exist only to improve test readability.
+func ASTText(_ ...string) ast.Text {
 	return ast.Text{
 		Span: source.ByteSpan{},
 	}
 }
 
-func ASTTextAt(start, end int) ast.Text {
-	span := Span(start, end)
-
-	return ast.Text{
-		Span: span,
+// ASTRawText constructs a text node for structural AST comparisons.
+// Optional samples are ignored and exist only to improve test readability.
+func ASTRawText(_ ...string) ast.RawText {
+	return ast.RawText{
+		Span: source.ByteSpan{},
 	}
 }
 
-func ASTRawText() ast.RawText {
-	return ast.RawText{
+// ASTCodeSpan constructs a text node for structural AST comparisons.
+// Optional samples are ignored and exist only to improve test readability.
+func ASTCodeSpan(_ ...string) ast.CodeSpan {
+	return ast.CodeSpan{
+		Span: source.ByteSpan{},
+	}
+}
+
+func ASTSoftBreak() ast.SoftBreak {
+	return ast.SoftBreak{
+		Span: source.ByteSpan{},
+	}
+}
+
+func ASTHardBreak() ast.HardBreak {
+	return ast.HardBreak{
+		Span: source.ByteSpan{},
+	}
+}
+
+func ASTNewline() ast.Newline {
+	return ast.Newline{
 		Span: source.ByteSpan{},
 	}
 }
