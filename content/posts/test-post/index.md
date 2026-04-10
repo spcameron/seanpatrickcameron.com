@@ -20,7 +20,21 @@ This is a paragraph.
 
 This line has *emphasis* and **strong** text, and even ***strong emphasis***.
 
+This line has _underscore emphasis_ and __underscore strong__ text.
+
+This line has mixed delimiters like **strong *nested emphasis*** inside.
+
 This line has a [link to Google.](https://google.com "link to google")
+
+This line has an image: ![alt text](image.png "image title")
+
+This line has an autolink: <https://google.com>
+
+This line has an email autolink: <test@example.com>
+
+This line has a code span: `inline code`
+
+This line has a longer code span: `` code with `backticks` inside ``
 
 This is a paragraph
 with a soft break (\n).

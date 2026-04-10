@@ -1683,9 +1683,48 @@ func tryHTMLSelfClosingSuffix(s string, idx, last int) (int, bool) {
 }
 
 func tryHTMLAttribute(s string, idx, last int) (int, bool) {
-	// TODO: extract to tryHTMLAttributeName
+	// parse the attribute name
+	var ok bool
+	idx, ok = tryHTMLAttributeName(s, idx, last)
+	if !ok {
+		return 0, false
+	}
 
-	// validate the attribute name
+	// if attribute name advances up to the closing angle bracket,
+	// the attribute is a bare name with no value specification
+	if idx == last {
+		return idx, true
+	}
+
+	// after the name, only spaces, tabs, or '=' may appear
+	if s[idx] != ' ' && s[idx] != '\t' && s[idx] != '=' {
+		return 0, false
+	}
+
+	// scan ahead for an attribute value specification
+	//
+	// consume any spaces or tabs after the name:
+	// - if no '=' follows, the attribute is a bare name and trailing
+	//   whitespace is left for the outer parser
+	// - if '=' follows, continue into value parsing
+	probe := consumeSpacesTabs(s, idx, last)
+	if probe == last || s[probe] != '=' {
+		return idx, true
+	}
+
+	// consume spaces or tabs after '=' and position idx
+	// at the first byte of the attribute value
+	idx = consumeSpacesTabs(s, probe+1, last)
+
+	// an '=' must be followed by an attribute value
+	if idx == last {
+		return 0, false
+	}
+
+	return tryHTMLAttributeValue(s, idx, last)
+}
+
+func tryHTMLAttributeName(s string, idx, last int) (int, bool) {
 	// the first character must be an ASCII letter, '_', or ':'
 	if !isAlpha(s[idx]) && s[idx] != '_' && s[idx] != ':' {
 		return 0, false
@@ -1708,43 +1747,10 @@ func tryHTMLAttribute(s string, idx, last int) (int, bool) {
 		break
 	}
 
-	// if attribute name advances up to the closing angle bracket,
-	// the attribute is a bare name with no value specification
-	if idx == last {
-		return idx, true
-	}
+	return idx, true
+}
 
-	// after the name, only spaces, tabs, or '=' may appear
-	if s[idx] != ' ' && s[idx] != '\t' && s[idx] != '=' {
-		return 0, false
-	}
-
-	// TODO: leave this as-is within function, probing for '='
-
-	// scan ahead for an attribute value specification
-	//
-	// consume any spaces or tabs after the name:
-	// - if no '=' follows, the attribute is a bare name and trailing
-	//   whitespace is left for the outer parser
-	// - if '=' follows, continue into value parsing
-	probe := consumeSpacesTabs(s, idx, last)
-	if probe == last || s[probe] != '=' {
-		return idx, true
-	}
-
-	// consume spaces or tabs after '=' and position idx
-	// at the first byte of the attribute value
-	idx = consumeSpacesTabs(s, probe+1, last)
-
-	// an '=' must by followed by an attribute value
-	if idx == last {
-		return 0, false
-	}
-
-	// TODO: extract to tryHTMLAttributeValue
-
-	// parse one of the three attribute value forms:
-	// single-quoted, double-quoted, or unquoted
+func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 	switch s[idx] {
 	case '\'':
 		// single-quoted value
@@ -1764,6 +1770,7 @@ func tryHTMLAttribute(s string, idx, last int) (int, bool) {
 
 		// consume the closing quote
 		idx++
+		return idx, true
 
 	case '"':
 		// double-quoted value
@@ -1783,6 +1790,7 @@ func tryHTMLAttribute(s string, idx, last int) (int, bool) {
 
 		// consume the closing quote
 		idx++
+		return idx, true
 
 	default:
 		// unquoted value
@@ -1807,16 +1815,10 @@ func tryHTMLAttribute(s string, idx, last int) (int, bool) {
 		if idx == start {
 			return 0, false
 		}
+
+		return idx, true
 	}
-
-	return idx, true
 }
-
-// TODO:
-func tryHTMLAttributeName() {}
-
-// TODO:
-func tryHTMLAttributeValue() {}
 
 func tryHTMLDelimited(s, opener, terminator string) (int, bool) {
 	if !strings.HasPrefix(s, opener) {

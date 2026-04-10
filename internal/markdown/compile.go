@@ -8,6 +8,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Tree compiles Markdown into an HTML node tree.
 func Tree(md string) (html.Node, error) {
 	src := source.NewSource(md)
 
@@ -29,6 +30,7 @@ func Tree(md string) (html.Node, error) {
 	return tree, nil
 }
 
+// HTML compiles Markdown and renders the result as an HTML string.
 func HTML(md string) (string, error) {
 	tree, err := Tree(md)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/lower"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
@@ -20,26 +21,15 @@ func TestGenerateHTML(t *testing.T) {
 		want    html.Node
 		wantErr error
 	}{
+		// Paragraphs and line breaks
 		{
 			name:  "paragraph with normal text",
 			input: "paragraph",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("paragraph"),
-				),
-			),
-			wantErr: nil,
-		},
-		{
-			name:  "header with normal text",
-			input: "# header",
-			want: html.FragmentNode(
-				html.ElemNode(
-					"h1",
-					nil,
-					html.TextNode("header"),
+					tk.HTMLTextNode("paragraph"),
 				),
 			),
 			wantErr: nil,
@@ -47,13 +37,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (two spaces)",
 			input: "a  \nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a"),
-					html.VoidNode("br", nil),
-					html.TextNode("b"),
+					tk.HTMLTextNode("a"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("b"),
 				),
 			),
 			wantErr: nil,
@@ -61,13 +51,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (backslash)",
 			input: "a\\\nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a"),
-					html.VoidNode("br", nil),
-					html.TextNode("b"),
+					tk.HTMLTextNode("a"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("b"),
 				),
 			),
 			wantErr: nil,
@@ -75,11 +65,74 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "soft break renders as whitespace (space)",
 			input: "a\nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a b"),
+					tk.HTMLTextNode("a b"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: mixed soft and hard breaks across three lines",
+			input: "alpha\nbeta  \ngamma",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLTextNode("alpha beta"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("gamma"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: emphasis around hard break",
+			input: "*alpha*  \nbeta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"em",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("beta"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "paragraph: code span adjacent to soft break",
+			input: "`alpha`\nbeta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLTextNode(" beta"),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Headings and simple block forms
+		{
+			name:  "header with normal text",
+			input: "# header",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"h1",
+					nil,
+					tk.HTMLTextNode("header"),
 				),
 			),
 			wantErr: nil,
@@ -87,80 +140,374 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "thematic break",
 			input: "---",
-			want: html.FragmentNode(
-				html.VoidNode("hr", nil),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLVoidNode("hr", nil),
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "html block",
+			input: "<!-- comment -->",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<!-- comment -->"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header: strong and emphasis",
+			input: "# **alpha** *beta*",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"h1",
+					nil,
+					tk.HTMLElemNode(
+						"strong",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLTextNode(" "),
+					tk.HTMLElemNode(
+						"em",
+						nil,
+						tk.HTMLTextNode("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "setext header: emphasis",
+			input: "*alpha*\n---",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"h2",
+					nil,
+					tk.HTMLElemNode(
+						"em",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Containers
 		{
 			name:  "block quote: plain text",
 			input: "> quote",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"blockquote",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"p",
 						nil,
-						html.TextNode("quote"),
+						tk.HTMLTextNode("quote"),
 					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "ul: two items",
+			name:  "block quote: two paragraphs",
+			input: "> alpha\n>\n> beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"blockquote",
+					nil,
+					tk.HTMLElemNode(
+						"p",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLElemNode(
+						"p",
+						nil,
+						tk.HTMLTextNode("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: nested block quote",
+			input: "> outer\n> > inner",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"blockquote",
+					nil,
+					tk.HTMLElemNode(
+						"p",
+						nil,
+						tk.HTMLTextNode("outer"),
+					),
+					tk.HTMLElemNode(
+						"blockquote",
+						nil,
+						tk.HTMLElemNode(
+							"p",
+							nil,
+							tk.HTMLTextNode("inner"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "block quote: contains list",
+			input: "> - alpha\n> - beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"blockquote",
+					nil,
+					tk.HTMLElemNode(
+						"ul",
+						nil,
+						tk.HTMLElemNode(
+							"li",
+							nil,
+							tk.HTMLTextNode("alpha"),
+						),
+						tk.HTMLElemNode(
+							"li",
+							nil,
+							tk.HTMLTextNode("beta"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "unordered list: two items",
 			input: "- a\n- b",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("a"),
+						tk.HTMLTextNode("a"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("b"),
+						tk.HTMLTextNode("b"),
 					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "ol: two items",
-			input: "1. a\n2. b",
-			want: html.FragmentNode(
-				html.ElemNode(
-					"ol",
+			name:  "unordered list: loose list retains paragraph wrappers",
+			input: "- alpha\n\n- beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("a"),
+						tk.HTMLElemNode(
+							"p",
+							nil,
+							tk.HTMLTextNode("alpha"),
+						),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("b"),
+						tk.HTMLElemNode(
+							"p",
+							nil,
+							tk.HTMLTextNode("beta"),
+						),
 					),
 				),
 			),
 			wantErr: nil,
 		},
+		{
+			name:  "unordered list: tight list unwraps single paragraph children",
+			input: "- alpha\n- beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ul",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "unordered list: item with paragraph and nested list",
+			input: "- alpha\n  - beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ul",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("alpha"),
+						tk.HTMLElemNode(
+							"ul",
+							nil,
+							tk.HTMLElemNode(
+								"li",
+								nil,
+								tk.HTMLTextNode("beta"),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: two items",
+			input: "1. a\n2. b",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ol",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("a"),
+					),
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("b"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: non-1 start emits start attribute",
+			input: "3. alpha\n4. beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ol",
+					html.Attributes{"start": "3"},
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: paren delimiter still renders as ol",
+			input: "1) alpha\n2) beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ol",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("alpha"),
+					),
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("beta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "list item: indented code block child",
+			input: "- alpha\n\n      beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ul",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLElemNode(
+							"p",
+							nil,
+							tk.HTMLTextNode("alpha"),
+						),
+						tk.HTMLElemNode(
+							"pre",
+							nil,
+							tk.HTMLElemNode(
+								"code",
+								nil,
+								tk.HTMLTextNode("beta"),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "list item: block quote child",
+			input: "- alpha\n  > beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"ul",
+					nil,
+					tk.HTMLElemNode(
+						"li",
+						nil,
+						tk.HTMLTextNode("alpha"),
+						tk.HTMLElemNode(
+							"blockquote",
+							nil,
+							tk.HTMLElemNode(
+								"p",
+								nil,
+								tk.HTMLTextNode("beta"),
+							),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Code blocks
 		{
 			name:  "indented code block",
 			input: `    fmt.Println("hello")`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode(`fmt.Println("hello")`),
+						tk.HTMLTextNode(`fmt.Println("hello")`),
 					),
 				),
 			),
@@ -173,40 +520,156 @@ func TestGenerateHTML(t *testing.T) {
 				`fmt.Println("hello")`,
 				"```",
 			}, "\n"),
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode(`fmt.Println("hello")`),
+						tk.HTMLTextNode(`fmt.Println("hello")`),
 					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "html block",
-			input: "<!-- comment -->",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<!-- comment -->"),
+			name:  "indented code block: multiple lines",
+			input: "    alpha\n    beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"pre",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						nil,
+						tk.HTMLTextNode("alpha\nbeta"),
+					),
 				),
 			),
 			wantErr: nil,
 		},
 		{
-			name:  "code span",
-			input: "`abc`",
-			want: html.FragmentNode(
-				html.ElemNode(
-					"p",
+			name:  "indented code block: blank line in payload",
+			input: "    alpha\n\n    beta",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("alpha\n\nbeta"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block: language class emitted",
+			input: "```go\nalpha\n```",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"pre",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						html.Attributes{"class": "language-go"},
+						tk.HTMLTextNode("alpha"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block: info string ignores trailing words in class emission",
+			input: "```go linenos\nalpha\n```",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"pre",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						html.Attributes{"class": "language-go"},
+						tk.HTMLTextNode("alpha"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "fenced code block: payload preserves leading spaces after indent stripping",
+			input: "```\n  alpha\n```",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"pre",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						nil,
+						tk.HTMLTextNode("  alpha"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// HTML blocks
+		{
+			name:  "html block: multi-line comment",
+			input: "<!--\nalpha\n-->",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<!--"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("alpha"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("-->"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: named tag block",
+			input: "<div>\nalpha\n</div>",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<div>"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("alpha"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("</div>"),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "html block: processing instruction",
+			input: "<?php\necho $a;\n?>",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<?php"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("echo $a;"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("?>"),
+				),
+			),
+			wantErr: nil,
+		},
+
+		// Inline rendering through paragraphs
+		{
+			name:  "code span",
+			input: "`abc`",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"code",
+						nil,
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
@@ -215,14 +678,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "emphasis",
 			input: "*abc*",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"em",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
@@ -231,32 +694,34 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "strong",
 			input: "**abc**",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"strong",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
 			wantErr: nil,
 		},
+
+		// Links and autolinks
 		{
 			name:  "simple link",
 			input: `[x](dest)`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "dest",
 						},
-						html.TextNode("x"),
+						tk.HTMLTextNode("x"),
 					),
 				),
 			),
@@ -265,17 +730,17 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "link with title",
 			input: `[x](dest "title")`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href":  "dest",
 							"title": "title",
 						},
-						html.TextNode("x"),
+						tk.HTMLTextNode("x"),
 					),
 				),
 			),
@@ -284,16 +749,16 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "autolink URI",
 			input: "<https://google.com>",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "https://google.com",
 						},
-						html.TextNode("https://google.com"),
+						tk.HTMLTextNode("https://google.com"),
 					),
 				),
 			),
@@ -302,16 +767,118 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "autolink email",
 			input: "<local@domain.com>",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "mailto:local@domain.com",
 						},
-						html.TextNode("local@domain.com"),
+						tk.HTMLTextNode("local@domain.com"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "link with emphasis in label",
+			input: "[*x*](dest)",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"a",
+						html.Attributes{"href": "dest"},
+						tk.HTMLElemNode(
+							"em",
+							nil,
+							tk.HTMLTextNode("x"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "link with title and nested strong label",
+			input: "[**x**](dest \"title\")",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"a",
+						html.Attributes{
+							"href":  "dest",
+							"title": "title",
+						},
+						tk.HTMLElemNode(
+							"strong",
+							nil,
+							tk.HTMLTextNode("x"),
+						),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "image",
+			input: "![alt](img.png)",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLVoidNode(
+						"img",
+						html.Attributes{
+							"alt": "alt",
+							"src": "img.png",
+						},
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "image with title",
+			input: "![alt](img.png \"title\")",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLVoidNode(
+						"img",
+						html.Attributes{
+							"alt":   "alt",
+							"src":   "img.png",
+							"title": "title",
+						},
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "autolink email and URI in one paragraph",
+			input: "<local@domain.com> <https://google.com>",
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
+					"p",
+					nil,
+					tk.HTMLElemNode(
+						"a",
+						html.Attributes{"href": "mailto:local@domain.com"},
+						tk.HTMLTextNode("local@domain.com"),
+					),
+					tk.HTMLTextNode(" "),
+					tk.HTMLElemNode(
+						"a",
+						html.Attributes{"href": "https://google.com"},
+						tk.HTMLTextNode("https://google.com"),
 					),
 				),
 			),

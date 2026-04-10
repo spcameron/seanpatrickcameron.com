@@ -18,7 +18,7 @@ type BlockQuote struct {
 func (BlockQuote) isBlock() {}
 
 func (bq BlockQuote) String() string {
-	return fmt.Sprintf("[BlockQuote] (Children = %d)", len(bq.Children))
+	return fmt.Sprintf("BlockQuote(children=%s)", summarizeBlocks(bq.Children))
 }
 
 type Header struct {
@@ -30,7 +30,7 @@ type Header struct {
 func (Header) isBlock() {}
 
 func (h Header) String() string {
-	return fmt.Sprintf("[Header] (Level = %d)", h.Level)
+	return fmt.Sprintf("Header(level=%d,inlines=%s)", h.Level, summarizeInlines(h.Inlines))
 }
 
 type ThematicBreak struct {
@@ -40,7 +40,7 @@ type ThematicBreak struct {
 func (ThematicBreak) isBlock() {}
 
 func (tb ThematicBreak) String() string {
-	return "[Thematic Break]"
+	return "ThematicBreak"
 }
 
 type OrderedList struct {
@@ -53,7 +53,12 @@ type OrderedList struct {
 func (OrderedList) isBlock() {}
 
 func (ol OrderedList) String() string {
-	return fmt.Sprintf("[OrderedList] (Items = %d)", len(ol.Items))
+	return fmt.Sprintf(
+		"OrderedList(start=%d,tight=%t,items=%s)",
+		ol.Start,
+		ol.Tight,
+		summarizeListItems(ol.Items),
+	)
 }
 
 type UnorderedList struct {
@@ -65,7 +70,11 @@ type UnorderedList struct {
 func (UnorderedList) isBlock() {}
 
 func (ul UnorderedList) String() string {
-	return fmt.Sprintf("[UnorderedList] (Items = %d)", len(ul.Items))
+	return fmt.Sprintf(
+		"UnorderedList(tight=%t,items=%s)",
+		ul.Tight,
+		summarizeListItems(ul.Items),
+	)
 }
 
 type ListItem struct {
@@ -76,7 +85,7 @@ type ListItem struct {
 func (ListItem) isBlock() {}
 
 func (li ListItem) String() string {
-	return fmt.Sprintf("[ListItem] (Children = %d)", len(li.Children))
+	return fmt.Sprintf("ListItem(children=%s)", summarizeBlocks(li.Children))
 }
 
 type CodeBlockKind int
@@ -108,7 +117,7 @@ type CodeBlock struct {
 func (CodeBlock) isBlock() {}
 
 func (cb CodeBlock) String() string {
-	return fmt.Sprintf("[%sCodeBlock] (Lines = %d)", cb.Kind, len(cb.Payload))
+	return fmt.Sprintf("%sCodeBlock(payload=%s)", cb.Kind, summarizeInlines(cb.Payload))
 }
 
 type HTMLBlock struct {
@@ -119,7 +128,7 @@ type HTMLBlock struct {
 func (HTMLBlock) isBlock() {}
 
 func (hb HTMLBlock) String() string {
-	return fmt.Sprintf("[HTMLBlock] (Lines = %d)", len(hb.Payload))
+	return fmt.Sprintf("HTMLBlock(payload=%s)", summarizeInlines(hb.Payload))
 }
 
 type Paragraph struct {
@@ -130,5 +139,5 @@ type Paragraph struct {
 func (Paragraph) isBlock() {}
 
 func (p Paragraph) String() string {
-	return fmt.Sprintf("[Paragraph] (Lines = %d)", len(p.Inlines))
+	return fmt.Sprintf("Paragraph(inlines=%s)", summarizeInlines(p.Inlines))
 }
