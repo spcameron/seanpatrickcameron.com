@@ -9,6 +9,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/lower"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
+	tk "github.com/spcameron/seanpatrickcameron.com/internal/markdown/testkit"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
 )
@@ -24,11 +25,11 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "paragraph with normal text",
 			input: "paragraph",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("paragraph"),
+					tk.HTMLTextNode("paragraph"),
 				),
 			),
 			wantErr: nil,
@@ -36,13 +37,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (two spaces)",
 			input: "a  \nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a"),
-					html.VoidNode("br", nil),
-					html.TextNode("b"),
+					tk.HTMLTextNode("a"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("b"),
 				),
 			),
 			wantErr: nil,
@@ -50,13 +51,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "hard break renders (backslash)",
 			input: "a\\\nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a"),
-					html.VoidNode("br", nil),
-					html.TextNode("b"),
+					tk.HTMLTextNode("a"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("b"),
 				),
 			),
 			wantErr: nil,
@@ -64,11 +65,11 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "soft break renders as whitespace (space)",
 			input: "a\nb",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("a b"),
+					tk.HTMLTextNode("a b"),
 				),
 			),
 			wantErr: nil,
@@ -76,13 +77,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "paragraph: mixed soft and hard breaks across three lines",
 			input: "alpha\nbeta  \ngamma",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.TextNode("alpha beta"),
-					html.VoidNode("br", nil),
-					html.TextNode("gamma"),
+					tk.HTMLTextNode("alpha beta"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("gamma"),
 				),
 			),
 			wantErr: nil,
@@ -90,17 +91,17 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "paragraph: emphasis around hard break",
 			input: "*alpha*  \nbeta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"em",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.VoidNode("br", nil),
-					html.TextNode("beta"),
+					tk.HTMLVoidNode("br", nil),
+					tk.HTMLTextNode("beta"),
 				),
 			),
 			wantErr: nil,
@@ -108,16 +109,16 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "paragraph: code span adjacent to soft break",
 			input: "`alpha`\nbeta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.TextNode(" beta"),
+					tk.HTMLTextNode(" beta"),
 				),
 			),
 			wantErr: nil,
@@ -127,11 +128,11 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "header with normal text",
 			input: "# header",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"h1",
 					nil,
-					html.TextNode("header"),
+					tk.HTMLTextNode("header"),
 				),
 			),
 			wantErr: nil,
@@ -139,17 +140,17 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "thematic break",
 			input: "---",
-			want: html.FragmentNode(
-				html.VoidNode("hr", nil),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLVoidNode("hr", nil),
 			),
 			wantErr: nil,
 		},
 		{
 			name:  "html block",
 			input: "<!-- comment -->",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<!-- comment -->"),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<!-- comment -->"),
 				),
 			),
 			wantErr: nil,
@@ -157,20 +158,20 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "header: strong and emphasis",
 			input: "# **alpha** *beta*",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"h1",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"strong",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.TextNode(" "),
-					html.ElemNode(
+					tk.HTMLTextNode(" "),
+					tk.HTMLElemNode(
 						"em",
 						nil,
-						html.TextNode("beta"),
+						tk.HTMLTextNode("beta"),
 					),
 				),
 			),
@@ -179,14 +180,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "setext header: emphasis",
 			input: "*alpha*\n---",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"h2",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"em",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
 				),
 			),
@@ -197,14 +198,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "block quote: plain text",
 			input: "> quote",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"blockquote",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"p",
 						nil,
-						html.TextNode("quote"),
+						tk.HTMLTextNode("quote"),
 					),
 				),
 			),
@@ -213,19 +214,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "block quote: two paragraphs",
 			input: "> alpha\n>\n> beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"blockquote",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"p",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"p",
 						nil,
-						html.TextNode("beta"),
+						tk.HTMLTextNode("beta"),
 					),
 				),
 			),
@@ -234,22 +235,22 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "block quote: nested block quote",
 			input: "> outer\n> > inner",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"blockquote",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"p",
 						nil,
-						html.TextNode("outer"),
+						tk.HTMLTextNode("outer"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"blockquote",
 						nil,
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"p",
 							nil,
-							html.TextNode("inner"),
+							tk.HTMLTextNode("inner"),
 						),
 					),
 				),
@@ -259,22 +260,22 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "block quote: contains list",
 			input: "> - alpha\n> - beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"blockquote",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"ul",
 						nil,
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"li",
 							nil,
-							html.TextNode("alpha"),
+							tk.HTMLTextNode("alpha"),
 						),
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"li",
 							nil,
-							html.TextNode("beta"),
+							tk.HTMLTextNode("beta"),
 						),
 					),
 				),
@@ -284,19 +285,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "unordered list: two items",
 			input: "- a\n- b",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("a"),
+						tk.HTMLTextNode("a"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("b"),
+						tk.HTMLTextNode("b"),
 					),
 				),
 			),
@@ -305,26 +306,26 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "unordered list: loose list retains paragraph wrappers",
 			input: "- alpha\n\n- beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"p",
 							nil,
-							html.TextNode("alpha"),
+							tk.HTMLTextNode("alpha"),
 						),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"p",
 							nil,
-							html.TextNode("beta"),
+							tk.HTMLTextNode("beta"),
 						),
 					),
 				),
@@ -334,19 +335,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "unordered list: tight list unwraps single paragraph children",
 			input: "- alpha\n- beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("beta"),
+						tk.HTMLTextNode("beta"),
 					),
 				),
 			),
@@ -355,21 +356,21 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "unordered list: item with paragraph and nested list",
 			input: "- alpha\n  - beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("alpha"),
-						html.ElemNode(
+						tk.HTMLTextNode("alpha"),
+						tk.HTMLElemNode(
 							"ul",
 							nil,
-							html.ElemNode(
+							tk.HTMLElemNode(
 								"li",
 								nil,
-								html.TextNode("beta"),
+								tk.HTMLTextNode("beta"),
 							),
 						),
 					),
@@ -380,19 +381,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "ordered list: two items",
 			input: "1. a\n2. b",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ol",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("a"),
+						tk.HTMLTextNode("a"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("b"),
+						tk.HTMLTextNode("b"),
 					),
 				),
 			),
@@ -401,19 +402,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "ordered list: non-1 start emits start attribute",
 			input: "3. alpha\n4. beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ol",
 					html.Attributes{"start": "3"},
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("beta"),
+						tk.HTMLTextNode("beta"),
 					),
 				),
 			),
@@ -422,19 +423,19 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "ordered list: paren delimiter still renders as ol",
 			input: "1) alpha\n2) beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ol",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("beta"),
+						tk.HTMLTextNode("beta"),
 					),
 				),
 			),
@@ -443,25 +444,25 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "list item: indented code block child",
 			input: "- alpha\n\n      beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"p",
 							nil,
-							html.TextNode("alpha"),
+							tk.HTMLTextNode("alpha"),
 						),
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"pre",
 							nil,
-							html.ElemNode(
+							tk.HTMLElemNode(
 								"code",
 								nil,
-								html.TextNode("beta"),
+								tk.HTMLTextNode("beta"),
 							),
 						),
 					),
@@ -472,21 +473,21 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "list item: block quote child",
 			input: "- alpha\n  > beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"ul",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"li",
 						nil,
-						html.TextNode("alpha"),
-						html.ElemNode(
+						tk.HTMLTextNode("alpha"),
+						tk.HTMLElemNode(
 							"blockquote",
 							nil,
-							html.ElemNode(
+							tk.HTMLElemNode(
 								"p",
 								nil,
-								html.TextNode("beta"),
+								tk.HTMLTextNode("beta"),
 							),
 						),
 					),
@@ -499,14 +500,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "indented code block",
 			input: `    fmt.Println("hello")`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode(`fmt.Println("hello")`),
+						tk.HTMLTextNode(`fmt.Println("hello")`),
 					),
 				),
 			),
@@ -519,14 +520,14 @@ func TestGenerateHTML(t *testing.T) {
 				`fmt.Println("hello")`,
 				"```",
 			}, "\n"),
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode(`fmt.Println("hello")`),
+						tk.HTMLTextNode(`fmt.Println("hello")`),
 					),
 				),
 			),
@@ -535,14 +536,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "indented code block: multiple lines",
 			input: "    alpha\n    beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("alpha\nbeta"),
+						tk.HTMLTextNode("alpha\nbeta"),
 					),
 				),
 			),
@@ -551,14 +552,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "indented code block: blank line in payload",
 			input: "    alpha\n\n    beta",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("alpha\n\nbeta"),
+						tk.HTMLTextNode("alpha\n\nbeta"),
 					),
 				),
 			),
@@ -567,14 +568,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "fenced code block: language class emitted",
 			input: "```go\nalpha\n```",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						html.Attributes{"class": "language-go"},
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
 				),
 			),
@@ -583,14 +584,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "fenced code block: info string ignores trailing words in class emission",
 			input: "```go linenos\nalpha\n```",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						html.Attributes{"class": "language-go"},
-						html.TextNode("alpha"),
+						tk.HTMLTextNode("alpha"),
 					),
 				),
 			),
@@ -599,14 +600,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "fenced code block: payload preserves leading spaces after indent stripping",
 			input: "```\n  alpha\n```",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"pre",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("  alpha"),
+						tk.HTMLTextNode("  alpha"),
 					),
 				),
 			),
@@ -617,13 +618,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "html block: multi-line comment",
 			input: "<!--\nalpha\n-->",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<!--"),
-					html.TextNode("\n"),
-					html.RawNode("alpha"),
-					html.TextNode("\n"),
-					html.RawNode("-->"),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<!--"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("alpha"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("-->"),
 				),
 			),
 			wantErr: nil,
@@ -631,13 +632,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "html block: named tag block",
 			input: "<div>\nalpha\n</div>",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<div>"),
-					html.TextNode("\n"),
-					html.RawNode("alpha"),
-					html.TextNode("\n"),
-					html.RawNode("</div>"),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<div>"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("alpha"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("</div>"),
 				),
 			),
 			wantErr: nil,
@@ -645,13 +646,13 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "html block: processing instruction",
 			input: "<?php\necho $a;\n?>",
-			want: html.FragmentNode(
-				html.FragmentNode(
-					html.RawNode("<?php"),
-					html.TextNode("\n"),
-					html.RawNode("echo $a;"),
-					html.TextNode("\n"),
-					html.RawNode("?>"),
+			want: tk.HTMLFragmentNode(
+				tk.HTMLFragmentNode(
+					tk.HTMLRawNode("<?php"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("echo $a;"),
+					tk.HTMLTextNode("\n"),
+					tk.HTMLRawNode("?>"),
 				),
 			),
 			wantErr: nil,
@@ -661,14 +662,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "code span",
 			input: "`abc`",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"code",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
@@ -677,14 +678,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "emphasis",
 			input: "*abc*",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"em",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
@@ -693,14 +694,14 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "strong",
 			input: "**abc**",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"strong",
 						nil,
-						html.TextNode("abc"),
+						tk.HTMLTextNode("abc"),
 					),
 				),
 			),
@@ -711,16 +712,16 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "simple link",
 			input: `[x](dest)`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "dest",
 						},
-						html.TextNode("x"),
+						tk.HTMLTextNode("x"),
 					),
 				),
 			),
@@ -729,17 +730,17 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "link with title",
 			input: `[x](dest "title")`,
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href":  "dest",
 							"title": "title",
 						},
-						html.TextNode("x"),
+						tk.HTMLTextNode("x"),
 					),
 				),
 			),
@@ -748,16 +749,16 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "autolink URI",
 			input: "<https://google.com>",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "https://google.com",
 						},
-						html.TextNode("https://google.com"),
+						tk.HTMLTextNode("https://google.com"),
 					),
 				),
 			),
@@ -766,16 +767,16 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "autolink email",
 			input: "<local@domain.com>",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href": "mailto:local@domain.com",
 						},
-						html.TextNode("local@domain.com"),
+						tk.HTMLTextNode("local@domain.com"),
 					),
 				),
 			),
@@ -784,17 +785,17 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "link with emphasis in label",
 			input: "[*x*](dest)",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{"href": "dest"},
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"em",
 							nil,
-							html.TextNode("x"),
+							tk.HTMLTextNode("x"),
 						),
 					),
 				),
@@ -804,20 +805,20 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "link with title and nested strong label",
 			input: "[**x**](dest \"title\")",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{
 							"href":  "dest",
 							"title": "title",
 						},
-						html.ElemNode(
+						tk.HTMLElemNode(
 							"strong",
 							nil,
-							html.TextNode("x"),
+							tk.HTMLTextNode("x"),
 						),
 					),
 				),
@@ -827,11 +828,11 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "image",
 			input: "![alt](img.png)",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.VoidNode(
+					tk.HTMLVoidNode(
 						"img",
 						html.Attributes{
 							"alt": "alt",
@@ -845,11 +846,11 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "image with title",
 			input: "![alt](img.png \"title\")",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.VoidNode(
+					tk.HTMLVoidNode(
 						"img",
 						html.Attributes{
 							"alt":   "alt",
@@ -864,20 +865,20 @@ func TestGenerateHTML(t *testing.T) {
 		{
 			name:  "autolink email and URI in one paragraph",
 			input: "<local@domain.com> <https://google.com>",
-			want: html.FragmentNode(
-				html.ElemNode(
+			want: tk.HTMLFragmentNode(
+				tk.HTMLElemNode(
 					"p",
 					nil,
-					html.ElemNode(
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{"href": "mailto:local@domain.com"},
-						html.TextNode("local@domain.com"),
+						tk.HTMLTextNode("local@domain.com"),
 					),
-					html.TextNode(" "),
-					html.ElemNode(
+					tk.HTMLTextNode(" "),
+					tk.HTMLElemNode(
 						"a",
 						html.Attributes{"href": "https://google.com"},
-						html.TextNode("https://google.com"),
+						tk.HTMLTextNode("https://google.com"),
 					),
 				),
 			),
