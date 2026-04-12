@@ -11,15 +11,17 @@ type Cursor struct {
 	Source       *source.Source
 	Rules        []BuildRule
 	Lines        []Line
+	Metadata     *BuildMetadata
 	Index        int
 	BaselineCols int
 }
 
-func NewCursor(src *source.Source, rules []BuildRule, lines []Line, baselineCols int) *Cursor {
+func NewCursor(src *source.Source, rules []BuildRule, lines []Line, baselineCols int, state *BuildMetadata) *Cursor {
 	return &Cursor{
 		Source:       src,
 		Rules:        rules,
 		Lines:        lines,
+		Metadata:     state,
 		Index:        0,
 		BaselineCols: 0,
 	}

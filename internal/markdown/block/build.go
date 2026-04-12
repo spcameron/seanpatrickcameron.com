@@ -14,22 +14,31 @@ var (
 	ErrNoRuleMatched         = errors.New("no build rule could be applied")
 )
 
+type BuildMetadata struct {
+	Definitions map[string]ir.ReferenceDefinition
+}
+
 func Build(src *source.Source, lines []Line) (ir.Document, error) {
-	blocks, err := buildBlocks(src, defaultRules(), lines, 0)
+	metadata := &BuildMetadata{
+		Definitions: map[string]ir.ReferenceDefinition{},
+	}
+
+	blocks, err := buildBlocks(src, defaultRules(), lines, 0, metadata)
 	if err != nil {
 		return ir.Document{}, err
 	}
 
 	irDoc := ir.Document{
-		Source: src,
-		Blocks: blocks,
+		Source:      src,
+		Blocks:      blocks,
+		Definitions: metadata.Definitions,
 	}
 
 	return irDoc, nil
 }
 
-func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCols int) ([]ir.Block, error) {
-	c := NewCursor(src, rules, lines, baselineCols)
+func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCols int, state *BuildMetadata) ([]ir.Block, error) {
+	c := NewCursor(src, rules, lines, baselineCols, state)
 	blocks := []ir.Block{}
 
 	for {
@@ -57,7 +66,11 @@ func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCo
 			}
 
 			matched = true
-			blocks = append(blocks, applied)
+
+			if applied != nil {
+				blocks = append(blocks, applied)
+			}
+
 			break
 		}
 
@@ -79,6 +92,7 @@ func defaultRules() []BuildRule {
 		FencedCodeBlockRule{},
 		IndentedCodeBlockRule{},
 		HTMLBlockRule{},
+		ReferenceDefinitionRule{},
 		ParagraphRule{},
 	}
 }

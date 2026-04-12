@@ -2409,6 +2409,217 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
+
+		// Reference link definitions
+		{
+			name:  "reference definition: bare destination, no title",
+			input: "[foo]: /url",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: angle destination, no title",
+			input: "[foo]: <https://example.com>",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: quoted title with double quotes",
+			input: `[foo]: /url "title"`,
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", true),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: quoted title with single quotes",
+			input: "[foo]: /url 'title'",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", true),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: paren title",
+			input: "[foo]: /url (title)",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", true),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: up to three spaces indentation allowed",
+			input: "   [foo]: /url",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: four spaces indentation rejected",
+			input: "    [foo]: /url",
+			want: tk.IRDoc(
+				tk.IRIndentedCodeBlock("[foo]: /url"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: label whitespace normalizes in key",
+			input: "[  Foo  Bar  ]: /url",
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo bar": tk.IRRefDef("foo bar", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "reference definition: duplicate key accumulates only one definition",
+			input: strings.Join([]string{
+				"[Foo]: /one",
+				"[ foo ]: /two",
+			}, "\n"),
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo": tk.IRRefDef("foo", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "reference definition: multiple definitions accumulate",
+			input: strings.Join([]string{
+				"[foo]: /one",
+				`[bar]: /two "title"`,
+				"[baz qux]: <https://example.com>",
+			}, "\n"),
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo":     tk.IRRefDef("foo", false),
+					"bar":     tk.IRRefDef("bar", true),
+					"baz qux": tk.IRRefDef("baz qux", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: escaped opening bracket normalizes without backslash",
+			input: `[foo\[]: /url`,
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo[": tk.IRRefDef("foo[", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: escaped closing bracket normalizes without backslash",
+			input: `[foo\]]: /url`,
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo]": tk.IRRefDef("foo]", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: escaped whitespace in label is preserved",
+			input: `[foo\ bar]: /url`,
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo bar": tk.IRRefDef("foo bar", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: collapsed whitespace before escaped whitespace is preserved separately",
+			input: `[foo   \ bar]: /url`,
+			want: ir.Document{
+				Definitions: map[string]ir.ReferenceDefinition{
+					"foo  bar": tk.IRRefDef("foo  bar", false),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: all-whitespace label is rejected",
+			input: "[   ]: /url",
+			want: tk.IRDoc(
+				tk.IRPara("[   ]: /url"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: missing colon is rejected",
+			input: "[foo] /url",
+			want: tk.IRDoc(
+				tk.IRPara("[foo] /url"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: missing destination is rejected",
+			input: "[foo]:",
+			want: tk.IRDoc(
+				tk.IRPara("[foo]:"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: trailing junk after destination is rejected",
+			input: "[foo]: /url garbage",
+			want: tk.IRDoc(
+				tk.IRPara("[foo]: /url garbage"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: title requires separating space",
+			input: `[foo]: <url>"title"`,
+			want: tk.IRDoc(
+				tk.IRPara(`[foo]: <url>"title"`),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "reference definition: trailing junk after title is rejected",
+			input: `[foo]: /url "title" garbage`,
+			want: tk.IRDoc(
+				tk.IRPara(`[foo]: /url "title" garbage`),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "reference definition: cannot interrupt paragraph",
+			input: strings.Join([]string{
+				"Foo",
+				"[bar]: /url",
+				"",
+				"[bar]",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRPara("Foo", "[bar]: /url"),
+				tk.IRPara("[bar]"),
+			),
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

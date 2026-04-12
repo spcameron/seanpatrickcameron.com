@@ -1112,6 +1112,7 @@ func tryAngleLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bo
 		}
 	}
 
+	// no closing '>' was encountered, invalid angle link destination
 	return source.ByteSpan{}, 0, false
 }
 
@@ -1139,7 +1140,7 @@ func tryBareLinkDestination(s string, idx, limit int) (source.ByteSpan, int, boo
 			break
 		}
 
-		// invalid byte
+		// invalid bytes
 		if b < 0x20 || b == 0x7F {
 			return source.ByteSpan{}, 0, false
 		}
@@ -1190,8 +1191,10 @@ func tryLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	switch s[idx] {
 	case '"', '\'':
 		return tryQuotedLinkTitle(s, idx, limit, s[idx])
+
 	case '(':
 		return tryParenLinkTitle(s, idx, limit)
+
 	default:
 		return source.ByteSpan{}, 0, false
 	}
@@ -1212,7 +1215,7 @@ func tryQuotedLinkTitle(s string, idx, limit int, delim byte) (source.ByteSpan, 
 			return source.ByteSpan{}, 0, false
 
 		case delim:
-			// an unescaped closer ends the title
+			// an unescaped delimiter ends the title
 			span := source.ByteSpan{
 				Start: source.BytePos(start),
 				End:   source.BytePos(idx),
@@ -1834,13 +1837,8 @@ func tryHTMLDelimited(s, opener, terminator string) (int, bool) {
 }
 
 func consumeSpacesTabs(s string, idx, last int) int {
-	for idx < last {
-		b := s[idx]
-		if b == ' ' || b == '\t' {
-			idx++
-			continue
-		}
-		break
+	for idx < last && (s[idx] == ' ' || s[idx] == '\t') {
+		idx++
 	}
 
 	return idx
