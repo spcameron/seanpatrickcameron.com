@@ -3,6 +3,7 @@ package inline
 import (
 	"testing"
 
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/require"
@@ -12,6 +13,8 @@ func TestBuild(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
+		span    source.ByteSpan
+		defs    map[string]ir.ReferenceDefinition
 		want    []InlineSummary
 		wantErr error
 	}{
@@ -730,6 +733,82 @@ func TestBuild(t *testing.T) {
 			},
 		},
 
+		// Reference links
+		{
+			name:  "reference link: full reference",
+			input: "/url [foo][bar]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   15,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"bar": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "bar",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[foo][bar]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference link: collapsed reference",
+			input: "/url [foo][]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   12,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"foo": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "foo",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[foo][]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference link: shortcut reference",
+			input: "/url [foo]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   10,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"foo": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "foo",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: "[foo]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+
+		// TODO: reference image forms, matching the three cases above
+
 		// Escapes
 		{
 			name:  "escape: star becomes text",
@@ -857,15 +936,24 @@ func TestBuild(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			src := source.NewSource(tc.input)
-			span := source.ByteSpan{
-				Start: 0,
-				End:   src.EOF(),
+
+			span := tc.span
+			if span == (source.ByteSpan{}) {
+				span = source.ByteSpan{
+					Start: 0,
+					End:   src.EOF(),
+				}
 			}
 
 			tokens, err := Scan(src, span)
 			require.NoError(t, err)
 
-			inlines, err := Build(src, span, tokens)
+			defs := tc.defs
+			if defs == nil {
+				defs = map[string]ir.ReferenceDefinition{}
+			}
+
+			inlines, err := Build(src, defs, span, tokens)
 			got := summarizeInlines(src, inlines)
 
 			assert.Equal(t, got, tc.want)

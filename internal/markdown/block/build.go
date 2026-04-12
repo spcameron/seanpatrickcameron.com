@@ -38,7 +38,7 @@ func Build(src *source.Source, lines []Line) (ir.Document, error) {
 }
 
 func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCols int, state *BuildMetadata) ([]ir.Block, error) {
-	c := NewCursor(src, rules, lines, baselineCols, state)
+	c := NewCursor(src, state, rules, lines, baselineCols)
 	blocks := []ir.Block{}
 
 	for {

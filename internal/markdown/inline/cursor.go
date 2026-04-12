@@ -7,26 +7,29 @@ import (
 	"unicode/utf8"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ast"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
 type Cursor struct {
-	Source     *source.Source
-	Span       source.ByteSpan
-	Tokens     []Token
-	Index      int
-	Items      *ItemList
-	Delimiters *DelimiterList
+	Source      *source.Source
+	Definitions map[string]ir.ReferenceDefinition
+	Span        source.ByteSpan
+	Tokens      []Token
+	Index       int
+	Items       *ItemList
+	Delimiters  *DelimiterList
 }
 
-func NewCursor(src *source.Source, span source.ByteSpan, tokens []Token) *Cursor {
+func NewCursor(src *source.Source, defs map[string]ir.ReferenceDefinition, span source.ByteSpan, tokens []Token) *Cursor {
 	return &Cursor{
-		Source:     src,
-		Span:       span,
-		Tokens:     tokens,
-		Index:      0,
-		Items:      NewItemList(),
-		Delimiters: NewDelimiterList(),
+		Source:      src,
+		Definitions: defs,
+		Span:        span,
+		Tokens:      tokens,
+		Index:       0,
+		Items:       NewItemList(),
+		Delimiters:  NewDelimiterList(),
 	}
 }
 
