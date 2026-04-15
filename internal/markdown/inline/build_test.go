@@ -807,7 +807,79 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// TODO: reference image forms, matching the three cases above
+		// Reference images
+		{
+			name:  "reference image: full reference",
+			input: "/url ![foo][bar]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   16,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"bar": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "bar",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![foo][bar]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference image: collapsed reference",
+			input: "/url ![foo][]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   13,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"foo": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "foo",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![foo][]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "reference image: shortcut reference",
+			input: "/url ![foo]",
+			span: source.ByteSpan{
+				Start: 5,
+				End:   11,
+			},
+			defs: map[string]ir.ReferenceDefinition{
+				"foo": {
+					DestinationSpan: source.ByteSpan{Start: 0, End: 4},
+					NormalizedKey:   "foo",
+				},
+			},
+			want: []InlineSummary{
+				{
+					Kind:   "image",
+					Lexeme: "![foo]",
+					Children: []InlineSummary{
+						{Kind: "text", Lexeme: "foo"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
 
 		// Escapes
 		{

@@ -2,9 +2,9 @@ package block
 
 import (
 	"strings"
-	"unicode"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/reference"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
@@ -90,12 +90,12 @@ func (r ReferenceDefinitionRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	labelContent := c.Source.Slice(contentSpan)
 
 	// validate the link label
-	if ok := validateReferenceDefinitionLabel(labelContent); !ok {
+	if ok := reference.ValidateLabel(labelContent); !ok {
 		return nil, false, nil
 	}
 
 	// normalize the link label for use as key in definitions map
-	normalizedLabel := normalizeReferenceLabel(labelContent)
+	normalizedLabel := reference.NormalizeLabel(labelContent)
 
 	// validate that the link label is immediately followed by a colon
 	if s[pos] != ':' {
@@ -196,94 +196,6 @@ func (r ReferenceDefinitionRule) Apply(c *Cursor) (ir.Block, bool, error) {
 
 	// trailing non-title content after destination makes this not a valid definition
 	return nil, false, nil
-}
-
-func validateReferenceDefinitionLabel(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-
-	seenContent := false
-	escaped := false
-	charCount := 0
-
-	for _, r := range s {
-		charCount++
-		if charCount > 999 {
-			return false
-		}
-
-		if !isReferenceLabelWhitespace(r) {
-			seenContent = true
-		}
-
-		if escaped {
-			escaped = false
-			continue
-		}
-
-		if r == '\\' {
-			escaped = true
-			continue
-		}
-
-		if r == '[' || r == ']' {
-			return false
-		}
-	}
-
-	return seenContent
-}
-
-func normalizeReferenceLabel(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-
-	var sb strings.Builder
-	sb.Grow(len(s))
-
-	seenContent := false
-	pendingSpace := false
-	escaped := false
-
-	for _, r := range s {
-		if escaped {
-			// this rune is literal content
-			if pendingSpace {
-				sb.WriteByte(' ')
-				pendingSpace = false
-			}
-
-			sb.WriteRune(unicode.ToLower(r))
-			seenContent = true
-			escaped = false
-			continue
-		}
-
-		if r == '\\' {
-			escaped = true
-			continue
-		}
-
-		if isReferenceLabelWhitespace(r) {
-			if seenContent {
-				pendingSpace = true
-			}
-			continue
-		}
-
-		// normal content rune
-		if pendingSpace {
-			sb.WriteByte(' ')
-			pendingSpace = false
-		}
-
-		sb.WriteRune(unicode.ToLower(r))
-		seenContent = true
-	}
-
-	return sb.String()
 }
 
 func tryLinkDestination(s string, pos int) (source.ByteSpan, int, bool) {
@@ -528,10 +440,6 @@ func consumeSpacesTabs(s string, pos int) int {
 	}
 
 	return pos
-}
-
-func isReferenceLabelWhitespace(r rune) bool {
-	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
 type BlockQuoteRule struct{}
