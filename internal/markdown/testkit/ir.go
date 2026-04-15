@@ -13,6 +13,17 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 	}
 }
 
+func IRRefDef(key string, hasTitle bool) ir.ReferenceDefinition {
+	return ir.ReferenceDefinition{
+		FullSpan:        source.ByteSpan{},
+		LabelSpan:       source.ByteSpan{},
+		DestinationSpan: source.ByteSpan{},
+		TitleSpan:       source.ByteSpan{},
+		HasTitle:        hasTitle,
+		NormalizedKey:   key,
+	}
+}
+
 func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
 	return ir.BlockQuote{
 		Span:     source.ByteSpan{},
@@ -98,11 +109,16 @@ func IRPara(input ...string) ir.Paragraph {
 
 func NormalizeIR(doc ir.Document) ir.Document {
 	doc.Source = nil
+
 	if doc.Blocks == nil {
 		doc.Blocks = []ir.Block{}
 	}
-
 	doc.Blocks = NormalizeIRBLocks(doc.Blocks)
+
+	if doc.Definitions == nil {
+		doc.Definitions = map[string]ir.ReferenceDefinition{}
+	}
+	doc.Definitions = NormalizeIRDefinitions(doc.Definitions)
 
 	return doc
 }
@@ -214,4 +230,20 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 	}
 
 	return blocks
+}
+
+func NormalizeIRDefinitions(defs map[string]ir.ReferenceDefinition) map[string]ir.ReferenceDefinition {
+	if defs == nil {
+		return map[string]ir.ReferenceDefinition{}
+	}
+
+	out := make(map[string]ir.ReferenceDefinition, len(defs))
+	for k, def := range defs {
+		out[k] = ir.ReferenceDefinition{
+			HasTitle:      def.HasTitle,
+			NormalizedKey: def.NormalizedKey,
+		}
+	}
+
+	return out
 }

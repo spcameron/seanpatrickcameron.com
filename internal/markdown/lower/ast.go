@@ -11,14 +11,24 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+type Context struct {
+	Source      *source.Source
+	Definitions map[string]ir.ReferenceDefinition
+}
+
 func Document(irDoc ir.Document) (ast.Document, error) {
+	ctx := &Context{
+		Source:      irDoc.Source,
+		Definitions: irDoc.Definitions,
+	}
+
 	astDoc := ast.Document{
 		Source: irDoc.Source,
 		Blocks: make([]ast.Block, 0, len(irDoc.Blocks)),
 	}
 
 	for _, v := range irDoc.Blocks {
-		block, err := buildBlock(astDoc.Source, v)
+		block, err := buildBlock(ctx, v)
 		if err != nil {
 			return ast.Document{}, err
 		}
@@ -29,48 +39,48 @@ func Document(irDoc ir.Document) (ast.Document, error) {
 	return astDoc, nil
 }
 
-func buildBlock(src *source.Source, block ir.Block) (ast.Block, error) {
+func buildBlock(ctx *Context, block ir.Block) (ast.Block, error) {
 	switch v := block.(type) {
 	case ir.BlockQuote:
-		return buildBlockQuote(src, v)
+		return buildBlockQuote(ctx, v)
 
 	case ir.Header:
-		return buildHeader(src, v)
+		return buildHeader(ctx, v)
 
 	case ir.ThematicBreak:
 		return buildThematicBreak(v)
 
 	case ir.OrderedList:
-		return buildOrderedList(src, v)
+		return buildOrderedList(ctx, v)
 
 	case ir.UnorderedList:
-		return buildUnorderedList(src, v)
+		return buildUnorderedList(ctx, v)
 
 	case ir.ListItem:
-		return buildListItem(src, v)
+		return buildListItem(ctx, v)
 
 	case ir.IndentedCodeBlock:
-		return buildIndentedCodeBlock(src, v)
+		return buildIndentedCodeBlock(ctx, v)
 
 	case ir.FencedCodeBlock:
-		return buildFencedCodeBlock(src, v)
+		return buildFencedCodeBlock(ctx, v)
 
 	case ir.HTMLBlock:
 		return buildHTMLBlock(v)
 
 	case ir.Paragraph:
-		return buildParagraph(src, v)
+		return buildParagraph(ctx, v)
 
 	default:
 		return nil, fmt.Errorf("unrecognized block type: %T", block)
 	}
 }
 
-func buildBlockQuote(src *source.Source, bq ir.BlockQuote) (ast.Block, error) {
+func buildBlockQuote(ctx *Context, bq ir.BlockQuote) (ast.Block, error) {
 	astChildren := make([]ast.Block, 0, len(bq.Children))
 
 	for _, bqChild := range bq.Children {
-		astChild, err := buildBlock(src, bqChild)
+		astChild, err := buildBlock(ctx, bqChild)
 		if err != nil {
 			return nil, err
 		}
@@ -86,8 +96,8 @@ func buildBlockQuote(src *source.Source, bq ir.BlockQuote) (ast.Block, error) {
 	return block, nil
 }
 
-func buildHeader(src *source.Source, h ir.Header) (ast.Block, error) {
-	inlines, err := inline.Parse(src, h.ContentSpan)
+func buildHeader(ctx *Context, h ir.Header) (ast.Block, error) {
+	inlines, err := inline.Parse(ctx.Source, ctx.Definitions, h.ContentSpan)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +119,11 @@ func buildThematicBreak(tb ir.ThematicBreak) (ast.Block, error) {
 	return block, nil
 }
 
-func buildUnorderedList(src *source.Source, ul ir.UnorderedList) (ast.Block, error) {
+func buildUnorderedList(ctx *Context, ul ir.UnorderedList) (ast.Block, error) {
 	astItems := make([]ast.ListItem, 0, len(ul.Items))
 
 	for _, ulItem := range ul.Items {
-		astBlock, err := buildBlock(src, ulItem)
+		astBlock, err := buildBlock(ctx, ulItem)
 		if err != nil {
 			return nil, err
 		}
@@ -135,11 +145,11 @@ func buildUnorderedList(src *source.Source, ul ir.UnorderedList) (ast.Block, err
 	return block, nil
 }
 
-func buildOrderedList(src *source.Source, ol ir.OrderedList) (ast.Block, error) {
+func buildOrderedList(ctx *Context, ol ir.OrderedList) (ast.Block, error) {
 	astItems := make([]ast.ListItem, 0, len(ol.Items))
 
 	for _, olItem := range ol.Items {
-		astBlock, err := buildBlock(src, olItem)
+		astBlock, err := buildBlock(ctx, olItem)
 		if err != nil {
 			return nil, err
 		}
@@ -162,11 +172,11 @@ func buildOrderedList(src *source.Source, ol ir.OrderedList) (ast.Block, error) 
 	return block, nil
 }
 
-func buildListItem(src *source.Source, li ir.ListItem) (ast.Block, error) {
+func buildListItem(ctx *Context, li ir.ListItem) (ast.Block, error) {
 	astChildren := make([]ast.Block, 0, len(li.Children))
 
 	for _, liChild := range li.Children {
-		astChild, err := buildBlock(src, liChild)
+		astChild, err := buildBlock(ctx, liChild)
 		if err != nil {
 			return nil, err
 		}
@@ -182,8 +192,8 @@ func buildListItem(src *source.Source, li ir.ListItem) (ast.Block, error) {
 	return block, nil
 }
 
-func buildIndentedCodeBlock(src *source.Source, cb ir.IndentedCodeBlock) (ast.Block, error) {
-	payload := normalizeCodeBlockPayload(src, cb.Lines, block.MinValidCodeBlockIndentation)
+func buildIndentedCodeBlock(ctx *Context, cb ir.IndentedCodeBlock) (ast.Block, error) {
+	payload := normalizeCodeBlockPayload(ctx.Source, cb.Lines, block.MinValidCodeBlockIndentation)
 
 	block := ast.CodeBlock{
 		Span:              cb.Span,
@@ -195,9 +205,9 @@ func buildIndentedCodeBlock(src *source.Source, cb ir.IndentedCodeBlock) (ast.Bl
 	return block, nil
 }
 
-func buildFencedCodeBlock(src *source.Source, cb ir.FencedCodeBlock) (ast.Block, error) {
-	payload := normalizeCodeBlockPayload(src, cb.Lines, cb.OpenIndentCols)
-	languageString := extractLanguageString(src, cb.InfoStringSpan)
+func buildFencedCodeBlock(ctx *Context, cb ir.FencedCodeBlock) (ast.Block, error) {
+	payload := normalizeCodeBlockPayload(ctx.Source, cb.Lines, cb.OpenIndentCols)
+	languageString := extractLanguageString(ctx.Source, cb.InfoStringSpan)
 
 	block := ast.CodeBlock{
 		Span:              cb.Span,
@@ -305,7 +315,7 @@ func buildHTMLBlock(hb ir.HTMLBlock) (ast.Block, error) {
 	return block, nil
 }
 
-func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {
+func buildParagraph(ctx *Context, p ir.Paragraph) (ast.Block, error) {
 	inlines := []ast.Inline{}
 	last := len(p.Lines) - 1
 
@@ -314,7 +324,7 @@ func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {
 		hardBreak := false
 
 		if i < last {
-			s := src.Slice(ls)
+			s := ctx.Source.Slice(ls)
 			if strings.HasSuffix(s, "  ") {
 				hardBreak = true
 				ps.End = ps.End - 2
@@ -324,7 +334,7 @@ func buildParagraph(src *source.Source, p ir.Paragraph) (ast.Block, error) {
 			}
 		}
 
-		lineInlines, err := inline.Parse(src, ps)
+		lineInlines, err := inline.Parse(ctx.Source, ctx.Definitions, ps)
 		if err != nil {
 			return nil, err
 		}

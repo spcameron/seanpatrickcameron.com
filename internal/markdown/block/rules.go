@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/ir"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/reference"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
@@ -16,6 +17,429 @@ type ParagraphTransparentRuleMarker interface {
 
 type BuildRule interface {
 	Apply(c *Cursor) (ir.Block, bool, error)
+}
+
+type ReferenceDefinitionRule struct{}
+
+func (r ReferenceDefinitionRule) isParagraphTransparent() {}
+
+func (r ReferenceDefinitionRule) Apply(c *Cursor) (ir.Block, bool, error) {
+	// peek next line, reject if EOF or blank
+	line, ok := c.Peek()
+	if !ok || line.IsBlankLine(c.Source) {
+		return nil, false, nil
+	}
+
+	// count the leading indentation, reject if greater than 3 visual columns
+	indentCols, indentBytes, ok := c.RelBlockIndent(line)
+	if !ok || indentCols > MaxValidIndentation {
+		return nil, false, nil
+	}
+
+	s := c.Source.Slice(line.Span)
+	pos := indentBytes
+	lineBase := line.Span.Start
+
+	if pos >= len(s) {
+		return nil, false, nil
+	}
+
+	// validate the first byte is an opening square bracket
+	if s[pos] != '[' {
+		return nil, false, nil
+	}
+
+	labelSpanStart := pos
+	pos++
+
+	// probe ahead for an unescaped closing square bracket
+	for pos < len(s) {
+		if s[pos] == '\\' {
+			if pos+1 < len(s) {
+				pos += 2
+			} else {
+				pos++
+			}
+			continue
+		}
+
+		if s[pos] == ']' {
+			pos++
+			break
+		}
+
+		pos++
+	}
+
+	if pos >= len(s) {
+		return nil, false, nil
+	}
+
+	labelSpanEnd := pos
+
+	labelSpan := source.ByteSpan{
+		Start: lineBase + source.BytePos(labelSpanStart),
+		End:   lineBase + source.BytePos(labelSpanEnd),
+	}
+
+	contentSpan := source.ByteSpan{
+		Start: labelSpan.Start + 1,
+		End:   labelSpan.End - 1,
+	}
+
+	labelContent := c.Source.Slice(contentSpan)
+
+	// validate the link label
+	if ok := reference.ValidateLabel(labelContent); !ok {
+		return nil, false, nil
+	}
+
+	// normalize the link label for use as key in definitions map
+	normalizedLabel := reference.NormalizeLabel(labelContent)
+
+	// validate that the link label is immediately followed by a colon
+	if s[pos] != ':' {
+		return nil, false, nil
+	}
+	pos++
+
+	// consume any optional spaces or tabs
+	pos = consumeSpacesTabs(s, pos)
+	if pos >= len(s) {
+		return nil, false, nil
+	}
+
+	// validate the link destination
+	destinationSpanRel, pos, ok := tryLinkDestination(s, pos)
+	if !ok {
+		return nil, false, nil
+	}
+
+	destinationSpan := source.ByteSpan{
+		Start: lineBase + destinationSpanRel.Start,
+		End:   lineBase + destinationSpanRel.End,
+	}
+
+	// mark the position and consume any spaces or tabs
+	sepStart := pos
+	pos = consumeSpacesTabs(s, pos)
+	sepPresent := pos > sepStart
+
+	if pos >= len(s) {
+		fullSpan := source.ByteSpan{
+			Start: lineBase + source.BytePos(indentBytes),
+			End:   lineBase + source.BytePos(pos),
+		}
+
+		def := ir.ReferenceDefinition{
+			FullSpan:        fullSpan,
+			LabelSpan:       labelSpan,
+			DestinationSpan: destinationSpan,
+			NormalizedKey:   normalizedLabel,
+		}
+
+		if _, exists := c.Metadata.Definitions[normalizedLabel]; !exists {
+			c.Metadata.Definitions[normalizedLabel] = def
+		}
+
+		c.MustNext()
+		return nil, true, nil
+	}
+
+	// attempt to validate and parse an (optional) link title
+	if s[pos] == '"' || s[pos] == '\'' || s[pos] == '(' {
+		// if no separator exists between destination and title, the definition is invalid
+		if !sepPresent {
+			return nil, false, nil
+		}
+
+		// try to parse the link title
+		titleSpanRel, pos, ok := tryLinkTitle(s, pos)
+		if !ok {
+			return nil, false, nil
+		}
+
+		titleSpan := source.ByteSpan{
+			Start: lineBase + titleSpanRel.Start,
+			End:   lineBase + titleSpanRel.End,
+		}
+
+		// consume any spaces or tabs
+		pos = consumeSpacesTabs(s, pos)
+
+		// if any non-space/tab byte encountered before reaching end of line, the definition is invalid
+		if pos < len(s) {
+			return nil, false, nil
+		}
+
+		fullSpan := source.ByteSpan{
+			Start: lineBase + source.BytePos(indentBytes),
+			End:   lineBase + source.BytePos(pos),
+		}
+
+		def := ir.ReferenceDefinition{
+			FullSpan:        fullSpan,
+			LabelSpan:       labelSpan,
+			DestinationSpan: destinationSpan,
+			TitleSpan:       titleSpan,
+			HasTitle:        true,
+			NormalizedKey:   normalizedLabel,
+		}
+
+		if _, exists := c.Metadata.Definitions[normalizedLabel]; !exists {
+			c.Metadata.Definitions[normalizedLabel] = def
+		}
+
+		c.MustNext()
+		return nil, true, nil
+	}
+
+	// trailing non-title content after destination makes this not a valid definition
+	return nil, false, nil
+}
+
+func tryLinkDestination(s string, pos int) (source.ByteSpan, int, bool) {
+	if pos >= len(s) {
+		return source.ByteSpan{}, 0, false
+	}
+
+	if s[pos] == '<' {
+		return tryAngleLinkDestination(s, pos)
+	}
+	return tryBareLinkDestination(s, pos)
+}
+
+func tryAngleLinkDestination(s string, pos int) (source.ByteSpan, int, bool) {
+	// validate that the byte at pos is '<'
+	if pos >= len(s) || s[pos] != '<' {
+		return source.ByteSpan{}, 0, false
+	}
+
+	// advance past the opening angle bracket
+	pos++
+	start := pos
+
+	for pos < len(s) {
+		switch s[pos] {
+		case '\n', '\r':
+			// newlines are not permitted inside the destination
+			return source.ByteSpan{}, 0, false
+
+		case '<':
+			// an unescaped '<' is an invalid destination
+			return source.ByteSpan{}, 0, false
+
+		case '>':
+			// an unescaped '>' is the end of the destination
+			span := source.ByteSpan{
+				Start: source.BytePos(start),
+				End:   source.BytePos(pos),
+			}
+
+			return span, pos + 1, true
+
+		case '\\':
+			// on a backslash, advance two bytes if within span limit
+			if pos+1 < len(s) {
+				pos += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			pos++
+
+		default:
+			pos++
+		}
+	}
+
+	// no closing '>' was encountered, invalid angle link destination
+	return source.ByteSpan{}, 0, false
+}
+
+func tryBareLinkDestination(s string, pos int) (source.ByteSpan, int, bool) {
+	if pos >= len(s) {
+		return source.ByteSpan{}, 0, false
+	}
+
+	// must not start with '<'
+	if s[pos] == '<' {
+		return source.ByteSpan{}, 0, false
+	}
+
+	start := pos
+	depth := 0
+
+	for pos < len(s) {
+		b := s[pos]
+
+		// termination conditions (do not consume)
+		if b == ' ' || b == '\t' || b == '\n' || b == '\r' {
+			break
+		}
+
+		// invalid bytes
+		if b < 0x20 || b == 0x7F {
+			return source.ByteSpan{}, 0, false
+		}
+
+		switch b {
+		case '\\':
+			// escaped byte
+			if pos+1 < len(s) {
+				pos += 2
+			} else {
+				pos++
+			}
+
+		case '(':
+			depth++
+			pos++
+
+		case ')':
+			if depth == 0 {
+				return source.ByteSpan{}, 0, false
+			}
+			depth--
+			pos++
+
+		default:
+			pos++
+		}
+	}
+
+	if pos == start {
+		return source.ByteSpan{}, 0, false
+	}
+
+	if depth != 0 {
+		return source.ByteSpan{}, 0, false
+	}
+
+	span := source.ByteSpan{
+		Start: source.BytePos(start),
+		End:   source.BytePos(pos),
+	}
+
+	// do not advance the pos, leave trailing whitespace for consumption upstream
+	return span, pos, true
+}
+
+func tryLinkTitle(s string, pos int) (source.ByteSpan, int, bool) {
+	if pos >= len(s) {
+		return source.ByteSpan{}, 0, false
+	}
+
+	switch s[pos] {
+	case '"', '\'':
+		return tryQuotedLinkTitle(s, pos, s[pos])
+
+	case '(':
+		return tryParenLinkTitle(s, pos)
+
+	default:
+		return source.ByteSpan{}, 0, false
+	}
+}
+
+func tryQuotedLinkTitle(s string, pos int, delim byte) (source.ByteSpan, int, bool) {
+	if pos >= len(s) || s[pos] != delim {
+		return source.ByteSpan{}, 0, false
+	}
+
+	pos++
+	start := pos
+
+	for pos < len(s) {
+		switch s[pos] {
+		case '\n', '\r':
+			// newlines are not permitted inside the title
+			return source.ByteSpan{}, 0, false
+
+		case delim:
+			// an unescaped delimiter ends the title
+			span := source.ByteSpan{
+				Start: source.BytePos(start),
+				End:   source.BytePos(pos),
+			}
+
+			return span, pos + 1, true
+
+		case '\\':
+			// on a backslash, advance two bytes if possible
+			if pos+1 < len(s) {
+				pos += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			pos++
+
+		default:
+			pos++
+		}
+	}
+
+	return source.ByteSpan{}, 0, false
+}
+
+func tryParenLinkTitle(s string, pos int) (source.ByteSpan, int, bool) {
+	if pos >= len(s) || s[pos] != '(' {
+		return source.ByteSpan{}, 0, false
+	}
+
+	pos++
+	start := pos
+	depth := 1
+
+	for pos < len(s) {
+		switch s[pos] {
+		case '\n', '\r':
+			// newlines are not permitted inside the title
+			return source.ByteSpan{}, 0, false
+
+		case '(':
+			// an unescaped open paren increases the paren depth
+			depth++
+			pos++
+
+		case ')':
+			// an unescaped close paren decreases the paren depth
+			depth--
+
+			// reaching depth 0 ends the title
+			if depth == 0 {
+				span := source.ByteSpan{
+					Start: source.BytePos(start),
+					End:   source.BytePos(pos),
+				}
+
+				return span, pos + 1, true
+			}
+
+			pos++
+
+		case '\\':
+			// on a backslash, advance two bytes if possible
+			if pos+1 < len(s) {
+				pos += 2
+				continue
+			}
+			// otherwise, trailing backslash is just ordinary content
+			pos++
+
+		default:
+			pos++
+		}
+	}
+
+	return source.ByteSpan{}, 0, false
+}
+
+func consumeSpacesTabs(s string, pos int) int {
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	return pos
 }
 
 type BlockQuoteRule struct{}
@@ -45,7 +469,7 @@ func (r BlockQuoteRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	}
 
 	// call recursive build with trimmed lines
-	innerBlocks, err := buildBlocks(c.Source, c.Rules, trimmedLines, c.BaselineCols)
+	innerBlocks, err := buildBlocks(c.Source, c.Rules, trimmedLines, c.BaselineCols, c.Metadata)
 	if err != nil {
 		return nil, false, err
 	}
@@ -141,7 +565,7 @@ func (r OrderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			tight = false
 		}
 
-		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols)
+		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols, c.Metadata)
 		if err != nil {
 			return nil, false, err
 		}
@@ -471,7 +895,7 @@ func (r UnorderedListRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			tight = false
 		}
 
-		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols)
+		children, err := buildBlocks(c.Source, c.Rules, lines, result.ItemContentCols, c.Metadata)
 		if err != nil {
 			return nil, false, err
 		}
