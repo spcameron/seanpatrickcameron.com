@@ -129,7 +129,9 @@ The parser consumes tokens in a single pass, initially treating recognized synta
 
 This approach avoids premature interpretation while allowing nested and overlapping constructs to be resolved incrementally. Unmatched candidates remain literal text.
 
-## Block Elements
+--- 
+
+## Block Parsing Model
 
 Block parsing in this compiler is intentionally conservative and structurally driven. Rather than re-specifying CommonMark in full, this section describes the subset of constructs supported and the principles used to recognize them.
 
@@ -217,6 +219,8 @@ This implementation intentionally diverges from CommonMark in a small number of 
 * **Simplified ambiguity resolution**: In edge cases, precedence rules favor structural clarity over exhaustive spec compliance.
 
 These deviations are chosen to preserve a clear separation between structural parsing and inline semantics, and to keep the parser mechanically predictable.
+
+--- 
 
 ## Inline Parsing Model
 
@@ -420,19 +424,94 @@ This model avoids premature interpretation and keeps parsing decisions local:
 
 The result is a parser that can handle nested and overlapping inline constructs while preserving a direct correspondence to the original source.
 
+--- 
+
+## Reference Definitions and Reference Links
+
+Reference-style links and images are supported through a two-phase mechanism: definitions are collected during block parsing, and references are resolved during inline parsing.
+
+This design preserves the separation between structural parsing and semantic resolution while allowing reference definitions to be declared independently of their use.
+
+### Reference Definitions
+
+A reference definitions has the form:
+
+```
+[label]: destination "optional title"
+```
+
+and is recognized as a block-level construct.
+
+A valid definition:
+
+* begins with a bracketd label (`[label]`)
+* is followed immediately by a colon (`:`)
+* includes a link destination
+* may include an optional title, separated from the destination by whitespace
+* must occupy a single line (multi-line forms are not supported)
+
+If a definition is valid, it is not emitted as a block. Instead, it is recorded in a document-level map keyed by a normalized form of the label.
+
+Normalization:
+
+* is case-insensitive
+* collapses consecutive whitespace into a single space
+* ignores leading and trailing whitespace
+* resolves escaped sequences before comparison
+
+If multiple definitions normalize to the same key, the first definition wins and subsequent definitions are ignored.
+
+Reference definitions do not interrupt paragraphs. If a line resembles a definition but appears within paragraph content, it is treated as literal text.
+
+### Reference Resolution
+
+Reference links and images are resolved during inline parsing when a closing bracket (`]`) is encountered.
+
+The parser attempts to interpret the bracketed construct in the following order:
+
+1. inline link/image
+2. full reference
+3. collapsed reference
+4. shortcut reference
+
+The first successful interpretation is accepted. If no interpretation succeeds, the brackets are treated as literal text.
+
+### Reference Link Forms
+
+Three reference forms are supported:
+
+* Full Reference: `[label][ref]`
+* Collapsed Reference: `[label][]`
+* Shortcut Reference: `[label]`
+
+Image references follow the same forms, prefixed by `!`.
+
+### Resolution Semantics
+
+When resolving a reference:
+
+* the lookup label is validated and normalized using the same rules as definitions
+* the normalized key is used to query the document's definitoion map
+* if a matching definition is found, its destination and title are applied
+* if no matching definition exists, the construct is treated as literal text
+
+The visible label content is parsed as inline content and becomes the children of the resulting link or image node.
+
+---
+
 ## Diagnostics
 
 Because all nodes carry spans into a single `Source`, the compiler can produce precise, location-aware diagnostics. That being said, the program does not currently take advantage of this capability.
 
 `Source` provides:
-- `LineCol(BytePos) (line, column)`
-- Span slicing with bounds validation
+* `LineCol(BytePos) (line, column)`
+* Span slicing with bounds validation
 
 Diagnostics may be emitted during:
-- Block parsing
-- Inline parsing
-- Lowering
-- Code generation
+* Block parsing
+* Inline parsing
+* Lowering
+* Code generation
 
 Example diagnostic output:
 
@@ -442,6 +521,8 @@ invalid header delimiter at 3:7
 3 | ###Header
   |       ^
 ```
+
+---
 
 ## Extending the Compiler
 
@@ -455,17 +536,19 @@ New Markdown features are added by expanding rule sets within existing layers:
 
 *The shape of the compiler is stable.*
 
+---
+
 ## Philosophy
 
 This project treats Markdown as a small language and HTML as its target language.
 
 The design mirrors conventional compiler structure:
 
-- Immutable source buffer
-- Span-based structural nodes
-- Staged transformations
-- Explicit lowering
-- Target-language code generation
+* Immutable source buffer
+* Span-based structural nodes
+* Staged transformations
+* Explicit lowering
+* Target-language code generation
 
 Block constructs are parsed according to clear structural rules. Surface syntax is normalized early: distinct syntactic forms that represent the same semantic construct (e.g., ATX headers and Setext headers) are lowered into a single `Header` IR node. Downstream stages operate only on semantic structure, not original delimiter forms.
 
