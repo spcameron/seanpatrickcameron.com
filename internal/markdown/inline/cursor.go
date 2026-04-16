@@ -797,7 +797,7 @@ func (c *Cursor) handleTokenBackslash() {
 	// peek the next token
 	next := c.Peek()
 
-	switch classifyEscapeTarget(next) {
+	switch classifyEscapeTarget(next, c.Source) {
 	case EscapeDecompose:
 		// consume the next token
 		c.Next()
@@ -831,6 +831,23 @@ func (c *Cursor) handleTokenBackslash() {
 		// consume the next token and append as plain text
 		c.Next()
 		c.appendItemRecord(next.Span, ItemText)
+
+	case EscapeLiteralizeLeadingByte:
+		// literalize only the leading byte of the next token
+		leadingByteSpan := source.ByteSpan{
+			Start: next.Span.Start,
+			End:   next.Span.Start + 1,
+		}
+
+		// append the leading byte as plain text
+		c.appendItemRecord(leadingByteSpan, ItemText)
+
+		// consume from the actual token stream
+		if next.Span.End == leadingByteSpan.End {
+			c.Next() // whole token consumed
+		} else {
+			c.Tokens[c.Index].Span.Start = leadingByteSpan.End
+		}
 
 	case EscapeNone:
 		// append the backslash as plain text

@@ -939,6 +939,240 @@ func TestBuild(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:  "escape: exclamation mark becomes text",
+			input: `\!`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "!"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: double quote becomes text",
+			input: "\\\"",
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: `"`},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: hash becomes text",
+			input: `\#`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "#"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: dollar sign becomes text",
+			input: `\$`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "$"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: percent sign becomes text",
+			input: `\%`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "%"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: ampersand becomes text",
+			input: `\&`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "&"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: single quote becomes text",
+			input: `\'`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "'"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: open paren becomes text",
+			input: `\(`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "("},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: close paren becomes text",
+			input: `\)`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: ")"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: plus becomes text",
+			input: `\+`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "+"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: comma becomes text",
+			input: `\,`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: ","},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: hyphen becomes text",
+			input: `\-`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "-"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: period becomes text",
+			input: `\.`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "."},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: slash becomes text",
+			input: `\/`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "/"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: colon becomes text",
+			input: `\:`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: ":"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: semicolon becomes text",
+			input: `\;`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: ";"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: less-than becomes text",
+			input: `\<`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "<"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: equals becomes text",
+			input: `\=`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "="},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: greater-than becomes text",
+			input: `\>`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: ">"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: question mark becomes text",
+			input: `\?`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "?"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: at sign becomes text",
+			input: `\@`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "@"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: backslash becomes text",
+			input: `\\`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: `\`},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: caret becomes text",
+			input: `\^`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "^"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: open brace becomes text",
+			input: `\{`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "{"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: pipe becomes text",
+			input: `\|`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "|"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: close brace becomes text",
+			input: `\}`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "}"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: tilde becomes text",
+			input: `\~`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "~"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: punctuation at start of text token is literalized and remaining text continues",
+			input: `\#hello`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: "#"},
+				{Kind: "text", Lexeme: "hello"},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "escape: ordinary letter at start of text token leaves backslash literal",
+			input: `\hello`,
+			want: []InlineSummary{
+				{Kind: "text", Lexeme: `\`},
+				{Kind: "text", Lexeme: "hello"},
+			},
+			wantErr: nil,
+		},
 
 		// Interaction and precedence
 		{
