@@ -22,14 +22,18 @@ func (bq BlockQuote) String() string {
 }
 
 type Header struct {
-	Span        source.ByteSpan
-	ContentSpan source.ByteSpan
-	Level       int
+	Span         source.ByteSpan
+	ContentSpan  source.ByteSpan
+	ContentLines []source.ByteSpan
+	Level        int
 }
 
 func (Header) isBlock() {}
 
 func (h Header) String() string {
+	if len(h.ContentLines) > 0 {
+		return fmt.Sprintf("[Header] (Level = %d, Lines = %d)", h.Level, len(h.ContentLines))
+	}
 	return fmt.Sprintf("[Header] (Level = %d)", h.Level)
 }
 

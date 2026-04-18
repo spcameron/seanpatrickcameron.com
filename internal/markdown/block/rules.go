@@ -1179,9 +1179,10 @@ func (r HeaderRule) Apply(c *Cursor) (ir.Block, bool, error) {
 	line := c.MustNext()
 
 	applied := ir.Header{
-		Level:       level,
-		Span:        line.Span,
-		ContentSpan: contentSpan,
+		Span:         line.Span,
+		ContentSpan:  contentSpan,
+		ContentLines: []source.ByteSpan{contentSpan},
+		Level:        level,
 	}
 
 	return applied, true, nil
@@ -1862,9 +1863,10 @@ func (r ParagraphRule) Apply(c *Cursor) (ir.Block, bool, error) {
 			}
 
 			applied := ir.Header{
-				Level:       level,
-				Span:        headerSpan,
-				ContentSpan: contentSpan,
+				Span:         headerSpan,
+				ContentSpan:  contentSpan,
+				ContentLines: lineSpans,
+				Level:        level,
 			}
 
 			return applied, true, nil

@@ -97,8 +97,7 @@ func buildBlockQuote(ctx *Context, bq ir.BlockQuote) (ast.Block, error) {
 }
 
 func buildHeader(ctx *Context, h ir.Header) (ast.Block, error) {
-	lines := ctx.Source.LineSpansWithin(h.ContentSpan)
-	inlines, err := lowerLineSpans(ctx, lines)
+	inlines, err := lowerLineSpans(ctx, h.ContentLines)
 	if err != nil {
 		return nil, err
 	}
