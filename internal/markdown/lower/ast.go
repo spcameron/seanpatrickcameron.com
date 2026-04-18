@@ -97,7 +97,8 @@ func buildBlockQuote(ctx *Context, bq ir.BlockQuote) (ast.Block, error) {
 }
 
 func buildHeader(ctx *Context, h ir.Header) (ast.Block, error) {
-	inlines, err := inline.Parse(ctx.Source, ctx.Definitions, h.ContentSpan)
+	lines := ctx.Source.LineSpansWithin(h.ContentSpan)
+	inlines, err := lowerLineSpans(ctx, lines)
 	if err != nil {
 		return nil, err
 	}
@@ -316,10 +317,28 @@ func buildHTMLBlock(hb ir.HTMLBlock) (ast.Block, error) {
 }
 
 func buildParagraph(ctx *Context, p ir.Paragraph) (ast.Block, error) {
-	inlines := []ast.Inline{}
-	last := len(p.Lines) - 1
+	inlines, err := lowerLineSpans(ctx, p.Lines)
+	if err != nil {
+		return nil, err
+	}
 
-	for i, ls := range p.Lines {
+	block := ast.Paragraph{
+		Span:    p.Span,
+		Inlines: inlines,
+	}
+
+	return block, nil
+}
+
+func lowerLineSpans(ctx *Context, spans []source.ByteSpan) ([]ast.Inline, error) {
+	if len(spans) == 0 {
+		return []ast.Inline{}, nil
+	}
+
+	inlines := []ast.Inline{}
+	last := len(spans) - 1
+
+	for i, ls := range spans {
 		ps := ls
 		hardBreak := false
 
@@ -353,13 +372,7 @@ func buildParagraph(ctx *Context, p ir.Paragraph) (ast.Block, error) {
 				inlines = append(inlines, ast.SoftBreak{Span: anchor})
 			}
 		}
-
 	}
 
-	block := ast.Paragraph{
-		Span:    p.Span,
-		Inlines: inlines,
-	}
-
-	return block, nil
+	return inlines, nil
 }

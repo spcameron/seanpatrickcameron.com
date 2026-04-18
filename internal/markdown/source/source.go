@@ -75,6 +75,30 @@ func (src *Source) LineSpan(line int) ByteSpan {
 	}
 }
 
+func (src *Source) LineSpansWithin(span ByteSpan) []ByteSpan {
+	if span.Start >= span.End {
+		return []ByteSpan{}
+	}
+
+	firstLine, _ := src.LineColumn(span.Start)
+	lastLine, _ := src.LineColumn(span.End - 1)
+
+	spans := make([]ByteSpan, 0, lastLine-firstLine+1)
+	for i := firstLine; i <= lastLine; i++ {
+		lineSpan := src.LineSpan(i)
+		clamped := ByteSpan{
+			Start: max(lineSpan.Start, span.Start),
+			End:   min(lineSpan.End, span.End),
+		}
+
+		if clamped.Start < clamped.End {
+			spans = append(spans, clamped)
+		}
+	}
+
+	return spans
+}
+
 func (src *Source) validateSpan(span ByteSpan) bool {
 	if 0 <= span.Start &&
 		span.Start <= span.End &&
