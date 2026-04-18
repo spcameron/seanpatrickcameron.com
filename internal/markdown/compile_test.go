@@ -943,9 +943,666 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// unordered lists
 
+		{
+			name:    "unordered list: single hyphen item",
+			input:   "- item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: single asterisk item",
+			input:   "* item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: single plus item",
+			input:   "+ item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: multiple sibling hyphen items",
+			input: md(
+				"- one",
+				"- two",
+				"- three",
+			),
+			want:    `<ul><li>one</li><li>two</li><li>three</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: multiple sibling asterisk items",
+			input: md(
+				"* one",
+				"* two",
+				"* three",
+			),
+			want:    `<ul><li>one</li><li>two</li><li>three</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: multiple sibling plus items",
+			input: md(
+				"+ one",
+				"+ two",
+				"+ three",
+			),
+			want:    `<ul><li>one</li><li>two</li><li>three</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: marker requires following tab or space",
+			input:   "-item",
+			want:    `<p>-item</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: tab after marker allowed",
+			input:   "-\titem",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: multiple spaces after marker allowed",
+			input:   "-   item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: multiple tabs and spaces after marker allowed",
+			input:   "- \t  item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: empty item content after required delimiter",
+			input:   "- ",
+			want:    `<ul><li></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: leading indentation of one space allowed",
+			input:   " - item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: leading indentation of two spaces allowed",
+			input:   "  - item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: leading indentation of three spaces allowed",
+			input:   "   - item",
+			want:    `<ul><li>item</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: leading indentation of four spaces is not a list",
+			input:   "    - item",
+			want:    `<pre><code>- item</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: continuation line at content baseline stays in item",
+			input: md(
+				"- one",
+				"  two",
+			),
+			want:    `<ul><li>one two</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: continuation line beyond content baseline stays in item",
+			input: md(
+				"- one",
+				"    two",
+			),
+			want:    `<ul><li>one   two</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: dedented nonblank line ends list",
+			input: md(
+				"- one",
+				"two",
+			),
+			want:    `<ul><li>one</li></ul><p>two</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: two sibling items form tight list",
+			input: md(
+				"- one",
+				"- two",
+			),
+			want:    `<ul><li>one</li><li>two</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: blank line between siblings makes loose list",
+			input: md(
+				"- one",
+				"",
+				"- two",
+			),
+			want:    `<ul><li><p>one</p></li><li><p>two</p></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: blank line within item followed by continuation makes loose list",
+			input: md(
+				"- one",
+				"",
+				"  two",
+			),
+			want:    `<ul><li><p>one</p><p>two</p></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: trailing blank line after final item does not become loose by rollback",
+			input: md(
+				"- one",
+				"",
+			),
+			want:    `<ul><li>one</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: blank line after item followed by dedented line rolls back blank",
+			input: md(
+				"- one",
+				"",
+				"two",
+			),
+			want:    `<ul><li>one</li></ul><p>two</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: continuation line may contain emphasis",
+			input: md(
+				"- one",
+				"  *two*",
+			),
+			want:    `<ul><li>one <em>two</em></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: item may contain atx heading in body",
+			input: md(
+				"- one",
+				"  # two",
+			),
+			want:    `<ul><li>one<h1>two</h1></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: item body may contain single-line setext heading",
+			input: md(
+				"- one",
+				"  ---",
+			),
+			want:    `<ul><li><h2>one</h2></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: item body may contain multiline setext heading",
+			input: md(
+				"- one",
+				"  two",
+				"  ---",
+			),
+			want:    `<ul><li><h2>one two</h2></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: item may contain thematic break after blank line",
+			input: md(
+				"- one",
+				"",
+				"  ---",
+			),
+			want:    `<ul><li><p>one</p><hr></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: item may contain fenced code block in body",
+			input: md(
+				"- one",
+				"  ```",
+				"  code",
+				"  ```",
+			),
+			want:    `<ul><li>one<pre><code>code</code></pre></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: sibling item at different absolute indent does not join list",
+			input: md(
+				"- one",
+				" - two",
+			),
+			want:    `<ul><li>one</li></ul><ul><li>two</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: mixed unordered marker families may still form sibling items",
+			input: md(
+				"- one",
+				"* two",
+				"+ three",
+			),
+			want:    `<ul><li>one</li><li>two</li><li>three</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "unordered list: marker line with only spaces after marker creates empty item",
+			input:   "-    ",
+			want:    `<ul><li></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: continuation line trimmed to item baseline before recursive parsing",
+			input: md(
+				"- one",
+				"    > two",
+			),
+			want:    `<ul><li>one   &gt; two</li></ul>`,
+			wantErr: nil,
+		},
+
 		// ordered lists
 
-		// nested lists
+		// 		{
+		// 	name: "ordered list: single item with period delimiter",
+		// 	md: `1. item`,
+		// },
+		// {
+		// 	name: "ordered list: single item with right paren delimiter",
+		// 	md: `1) item`,
+		// },
+		// {
+		// 	name: "ordered list: multiple sibling items with period delimiter",
+		// 	md: md(
+		// 		"1. one",
+		// 		"2. two",
+		// 		"3. three",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: multiple sibling items with right paren delimiter",
+		// 	md: md(
+		// 		"1) one",
+		// 		"2) two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: start number preserved from first marker",
+		// 	md: md(
+		// 		"3. one",
+		// 		"4. two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: zero start number allowed",
+		// 	md: `0. item`,
+		// },
+		// {
+		// 	name: "ordered list: multi-digit marker allowed",
+		// 	md: `12. item`,
+		// },
+		// {
+		// 	name: "ordered list: absurdly high marker rejected",
+		// 	md: `1000000001. item`,
+		// },
+		// {
+		// 	name: "ordered list: delimiter requires following space",
+		// 	md: `1.item`,
+		// },
+		// {
+		// 	name: "ordered list: right paren delimiter requires following space",
+		// 	md: `1)item`,
+		// },
+		// {
+		// 	name: "ordered list: tab after delimiter allowed",
+		// 	md: "1.\titem",
+		// },
+		// {
+		// 	name: "ordered list: multiple spaces after delimiter allowed",
+		// 	md: `1.   item`,
+		// },
+		// {
+		// 	name: "ordered list: multiple tabs and spaces after delimiter allowed",
+		// 	md: "1. \t  item",
+		// },
+		// {
+		// 	name: "ordered list: empty item content after required delimiter",
+		// 	md: `1. `,
+		// },
+		// {
+		// 	name: "ordered list: leading indentation of one space allowed",
+		// 	md: ` 1. item`,
+		// },
+		// {
+		// 	name: "ordered list: leading indentation of two spaces allowed",
+		// 	md: `  1. item`,
+		// },
+		// {
+		// 	name: "ordered list: leading indentation of three spaces allowed",
+		// 	md: `   1. item`,
+		// },
+		// {
+		// 	name: "ordered list: leading indentation of four spaces is not a list",
+		// 	md: `    1. item`,
+		// },
+		// {
+		// 	name: "ordered list: continuation line at content baseline stays in item",
+		// 	md: md(
+		// 		"1. one",
+		// 		"   two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: continuation line beyond content baseline stays in item",
+		// 	md: md(
+		// 		"1. one",
+		// 		"     two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: dedented nonblank line ends list",
+		// 	md: md(
+		// 		"1. one",
+		// 		"two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: blank line between siblings makes loose list",
+		// 	md: md(
+		// 		"1. one",
+		// 		"",
+		// 		"2. two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: blank line within item followed by continuation makes loose list",
+		// 	md: md(
+		// 		"1. one",
+		// 		"",
+		// 		"   two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: trailing blank line after final item rolls back",
+		// 	md: md(
+		// 		"1. one",
+		// 		"",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: sibling item must match period delimiter family",
+		// 	md: md(
+		// 		"1. one",
+		// 		"2) two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: sibling item must match right paren delimiter family",
+		// 	md: md(
+		// 		"1) one",
+		// 		"2. two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: item may contain atx heading in body",
+		// 	md: md(
+		// 		"1. one",
+		// 		"   # two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: item may contain setext heading in body",
+		// 	md: md(
+		// 		"1. one",
+		// 		"   two",
+		// 		"   ---",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: item may contain thematic break in body",
+		// 	md: md(
+		// 		"1. one",
+		// 		"   ---",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: item may contain fenced code block in body",
+		// 	md: md(
+		// 		"1. one",
+		// 		"   ```",
+		// 		"   code",
+		// 		"   ```",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: marker line with only spaces after delimiter creates empty item",
+		// 	md: `1.    `,
+		// },
+		// {
+		// 	name: "ordered list: nonnumeric marker is not ordered list",
+		// 	md: `x. item`,
+		// },
+		// {
+		// 	name: "ordered list: missing delimiter punctuation is not ordered list",
+		// 	md: `1 item`,
+		// },
+
+		// nested lists and list interactions
+
+		// 		{
+		// 	name: "unordered list: nested unordered list in second line of item",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  - inner",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested ordered list in second line of item",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  1. inner",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested unordered list in second line of item",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   - inner",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested ordered list in second line of item",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested sibling list items under one parent item",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  - inner one",
+		// 		"  - inner two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested sibling list items under one parent item",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner one",
+		// 		"   2. inner two",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested list followed by parent continuation",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  - inner",
+		// 		"  tail",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested list followed by parent continuation",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner",
+		// 		"   tail",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: two top-level items each with nested list",
+		// 	md: md(
+		// 		"- outer one",
+		// 		"  - inner one",
+		// 		"- outer two",
+		// 		"  - inner two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: two top-level items each with nested list",
+		// 	md: md(
+		// 		"1. outer one",
+		// 		"   1. inner one",
+		// 		"2. outer two",
+		// 		"   1. inner two",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested list separated by blank line makes parent loose",
+		// 	md: md(
+		// 		"- outer",
+		// 		"",
+		// 		"  - inner",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested list separated by blank line makes parent loose",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"",
+		// 		"   1. inner",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: block quote nested inside item",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  > quote",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: block quote nested inside item",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   > quote",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: fenced code block nested inside item",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  ```",
+		// 		"  code",
+		// 		"  ```",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: fenced code block nested inside item",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   ```",
+		// 		"   code",
+		// 		"   ```",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested list item may itself contain continuation paragraph",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  - inner",
+		// 		"    tail",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested list item may itself contain continuation paragraph",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner",
+		// 		"      tail",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: child item not meeting parent content baseline does not nest",
+		// 	md: md(
+		// 		"- outer",
+		// 		" - inner",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: child item not meeting parent content baseline does not nest",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"  1. inner",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: top-level sibling resumes after nested list",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  - inner",
+		// 		"- next outer",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: top-level sibling resumes after nested list",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner",
+		// 		"2. next outer",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: nested ordered list preserves start number",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  3. inner",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested ordered list with right paren delimiter",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1) inner",
+		// 	),
+		// },
+		// {
+		// 	name: "unordered list: mixed nested unordered marker families are allowed",
+		// 	md: md(
+		// 		"- outer",
+		// 		"  * inner",
+		// 		"  + inner two",
+		// 	),
+		// },
+		// {
+		// 	name: "ordered list: nested ordered sibling delimiter mismatch splits structure",
+		// 	md: md(
+		// 		"1. outer",
+		// 		"   1. inner one",
+		// 		"   2) inner two",
+		// 	),
+		// },
 
 		// fenced code blocks
 
