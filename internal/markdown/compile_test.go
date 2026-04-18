@@ -634,75 +634,312 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// thematic breaks
 
-		// 		{
-		// 	name: "thematic break: three hyphens",
-		// 	md: `---`,
-		// },
-		// {
-		// 	name: "thematic break: three asterisks",
-		// 	md: `***`,
-		// },
-		// {
-		// 	name: "thematic break: three underscores",
-		// 	md: `___`,
-		// },
-		// {
-		// 	name: "thematic break: spaces between markers allowed",
-		// 	md: `- - -`,
-		// },
-		// {
-		// 	name: "thematic break: tabs between markers allowed",
-		// 	md: "-\t-\t-",
-		// },
-		// {
-		// 	name: "thematic break: trailing spaces allowed",
-		// 	md: `---   `,
-		// },
-		// {
-		// 	name: "thematic break: leading indentation of three spaces allowed",
-		// 	md: `   ---`,
-		// },
-		// {
-		// 	name: "thematic break: leading indentation of four spaces is not thematic break",
-		// 	md: `    ---`,
-		// },
-		// {
-		// 	name: "thematic break: exactly two markers is not thematic break",
-		// 	md: `--`,
-		// },
-		// {
-		// 	name: "thematic break: mixed marker families are not allowed",
-		// 	md: `-*-`,
-		// },
-		// {
-		// 	name: "thematic break: internal non-whitespace invalidates line",
-		// 	md: `--x--`,
-		// },
-		// {
-		// 	name: "thematic break: leading text invalidates line",
-		// 	md: `x---`,
-		// },
-		// {
-		// 	name: "thematic break: between paragraphs",
-		// 	md: `hello
-		//
-		// ---
-		//
-		// world`,
-		// },
-		// {
-		// 	name: "thematic break: dash line after paragraph text becomes setext heading not thematic break",
-		// 	md: `hello
-		// ---`,
-		// },
-		// {
-		// 	name: "thematic break: dash line after multiline paragraph text becomes setext heading not thematic break",
-		// 	md: `hello
-		// world
-		// ---`,
-		// },
+		{
+			name:    "thematic break: three hyphens",
+			input:   "---",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: three asterisks",
+			input:   "***",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: three underscores",
+			input:   "___",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: spaces between markers allowed",
+			input:   "- - -",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: tabs between markers allowed",
+			input:   "-\t-\t-",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: trailing spaces allowed",
+			input:   "---   ",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: leading indentation of three spaces allowed",
+			input:   "   ---",
+			want:    `<hr>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: leading indentation of four spaces is not thematic break",
+			input:   "    ---",
+			want:    `<pre><code>---</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: exactly two markers is not thematic break",
+			input:   "--",
+			want:    `<p>--</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: mixed marker families are not allowed",
+			input:   "-*-",
+			want:    `<p>-*-</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: internal non-whitespace invalidates line",
+			input:   "--x--",
+			want:    `<p>--x--</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "thematic break: leading text invalidates line",
+			input:   "x---",
+			want:    `<p>x---</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "thematic break: between paragraphs",
+			input: md(
+				"hello",
+				"",
+				"---",
+				"",
+				"world",
+			),
+			want:    `<p>hello</p><hr><p>world</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "thematic break: dash line after paragraph text becomes setext heading not thematic break",
+			input: md(
+				"hello",
+				"---",
+			),
+			want:    `<h2>hello</h2>`,
+			wantErr: nil,
+		},
+		{
+			name: "thematic break: dash line after multiline paragraph text becomes setext heading not thematic break",
+			input: md(
+				"hello",
+				"world",
+				"---",
+			),
+			want:    `<h2>hello world</h2>`,
+			wantErr: nil,
+		},
 
 		// block quotes
+
+		{
+			name:    "block quote: single quoted paragraph line",
+			input:   "> hello",
+			want:    `<blockquote><p>hello</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: multiple quoted lines form one paragraph",
+			input: md(
+				"> hello",
+				"> world",
+			),
+			want:    `<blockquote><p>hello world</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: marker without following space is allowed",
+			input:   ">hello",
+			want:    `<blockquote><p>hello</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: marker with following tab is allowed",
+			input:   ">\thello",
+			want:    `<blockquote><p>hello</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: leading indentation of two spaces allowed",
+			input:   `  > hello`,
+			want:    `<blockquote><p>hello</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: leading indentation of three spaces allowed",
+			input:   `   > hello`,
+			want:    `<blockquote><p>hello</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: leading indentation of four spaces is not a block quote",
+			input:   `    > hello`,
+			want:    `<pre><code>&gt; hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: empty quoted line is allowed",
+			input:   ">",
+			want:    `<blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: quoted blank line separates inner paragraphs",
+			input: md(
+				"> hello",
+				">",
+				"> world",
+			),
+			want:    `<blockquote><p>hello</p><p>world</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: non-quoted following line ends block quote",
+			input: md(
+				"> hello",
+				"world",
+			),
+			want:    `<blockquote><p>hello</p></blockquote><p>world</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: blank physical line ends block quote",
+			input: md(
+				"> hello",
+				"",
+				"> world",
+			),
+			want:    `<blockquote><p>hello</p></blockquote><blockquote><p>world</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: nested quote with double marker",
+			input:   ">> hello",
+			want:    `<blockquote><blockquote><p>hello</p></blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: nested quote with space between markers",
+			input:   "> > hello",
+			want:    `<blockquote><blockquote><p>hello</p></blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: nested quote across multiple lines",
+			input: md(
+				"> > hello",
+				"> > world",
+			),
+			want: `<blockquote><blockquote><p>hello world</p></blockquote></blockquote>`,
+		},
+		{
+			name: "block quote: mixed nesting depths across lines",
+			input: md(
+				"> outer",
+				"> > inner",
+				"> outer again",
+			),
+			want:    `<blockquote><p>outer</p><blockquote><p>inner</p></blockquote><p>outer again</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: triple nesting",
+			input:   "> > > hello",
+			want:    `<blockquote><blockquote><blockquote><p>hello</p></blockquote></blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: inner paragraph after nested blank line",
+			input: md(
+				"> > hello",
+				"> >",
+				"> > world",
+			),
+			want:    `<blockquote><blockquote><p>hello</p><p>world</p></blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: quoted atx heading",
+			input:   "> # hello",
+			want:    `<blockquote><h1>hello</h1></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: quoted setext heading",
+			input: md(
+				"> hello",
+				"> -----",
+			),
+			want:    `<blockquote><h2>hello</h2></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: quoted thematic break",
+			input:   "> ---",
+			want:    `<blockquote><hr></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: quoted unordered list item",
+			input:   "> - item",
+			want:    `<blockquote><ul><li>item</li></ul></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: quoted ordered list item",
+			input:   "> 1. item",
+			want:    "<blockquote><ol><li>item</li></ol></blockquote>",
+			wantErr: nil,
+		},
+		{
+			name: "block quote: quoted fenced code block",
+			input: md(
+				"> ```",
+				"> code",
+				"> ```",
+			),
+			want:    `<blockquote><pre><code>code</code></pre></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: quoted indented code block after quoted blank line",
+			input: md(
+				">",
+				">     code",
+			),
+			want:    `<blockquote><pre><code>code</code></pre></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name: "block quote: nested block quote contains heading and paragraph",
+			input: md(
+				"> # title",
+				">",
+				"> body",
+			),
+			want:    `<blockquote><h1>title</h1><p>body</p></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: line with only marker and delimiter is empty quote line",
+			input:   "> ",
+			want:    `<blockquote></blockquote>`,
+			wantErr: nil,
+		},
+		{
+			name:    "block quote: line with only marker and tab delimiter is empty quote line",
+			input:   ">\t",
+			want:    `<blockquote></blockquote>`,
+			wantErr: nil,
+		},
 
 		// unordered lists
 
