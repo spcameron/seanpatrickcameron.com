@@ -365,9 +365,9 @@ If a valid tail is parsed:
 * the opener item is transformed into a link or image node
 * prior link delimiters are deactivated (to prevent nested links)
 
-If parsing fails, the closing bracket is emitted as literal text and the opener remains inactive.
+If inline tail parsing fails, the parser attempts to validate and lookup a full reference, collapsed reference, or shortcut reference form.
 
-Reference-style links are not currently implemented.
+If all reference parse attempts fail, the closing bracket is emitted as literal text and the opener remains inactive.
 
 ### Autolinks and Inline HTML
 
