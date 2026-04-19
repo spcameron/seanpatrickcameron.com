@@ -1215,189 +1215,256 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// ordered lists
 
-		// 		{
-		// 	name: "ordered list: single item with period delimiter",
-		// 	md: `1. item`,
-		// },
-		// {
-		// 	name: "ordered list: single item with right paren delimiter",
-		// 	md: `1) item`,
-		// },
-		// {
-		// 	name: "ordered list: multiple sibling items with period delimiter",
-		// 	md: md(
-		// 		"1. one",
-		// 		"2. two",
-		// 		"3. three",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: multiple sibling items with right paren delimiter",
-		// 	md: md(
-		// 		"1) one",
-		// 		"2) two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: start number preserved from first marker",
-		// 	md: md(
-		// 		"3. one",
-		// 		"4. two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: zero start number allowed",
-		// 	md: `0. item`,
-		// },
-		// {
-		// 	name: "ordered list: multi-digit marker allowed",
-		// 	md: `12. item`,
-		// },
-		// {
-		// 	name: "ordered list: absurdly high marker rejected",
-		// 	md: `1000000001. item`,
-		// },
-		// {
-		// 	name: "ordered list: delimiter requires following space",
-		// 	md: `1.item`,
-		// },
-		// {
-		// 	name: "ordered list: right paren delimiter requires following space",
-		// 	md: `1)item`,
-		// },
-		// {
-		// 	name: "ordered list: tab after delimiter allowed",
-		// 	md: "1.\titem",
-		// },
-		// {
-		// 	name: "ordered list: multiple spaces after delimiter allowed",
-		// 	md: `1.   item`,
-		// },
-		// {
-		// 	name: "ordered list: multiple tabs and spaces after delimiter allowed",
-		// 	md: "1. \t  item",
-		// },
-		// {
-		// 	name: "ordered list: empty item content after required delimiter",
-		// 	md: `1. `,
-		// },
-		// {
-		// 	name: "ordered list: leading indentation of one space allowed",
-		// 	md: ` 1. item`,
-		// },
-		// {
-		// 	name: "ordered list: leading indentation of two spaces allowed",
-		// 	md: `  1. item`,
-		// },
-		// {
-		// 	name: "ordered list: leading indentation of three spaces allowed",
-		// 	md: `   1. item`,
-		// },
-		// {
-		// 	name: "ordered list: leading indentation of four spaces is not a list",
-		// 	md: `    1. item`,
-		// },
-		// {
-		// 	name: "ordered list: continuation line at content baseline stays in item",
-		// 	md: md(
-		// 		"1. one",
-		// 		"   two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: continuation line beyond content baseline stays in item",
-		// 	md: md(
-		// 		"1. one",
-		// 		"     two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: dedented nonblank line ends list",
-		// 	md: md(
-		// 		"1. one",
-		// 		"two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: blank line between siblings makes loose list",
-		// 	md: md(
-		// 		"1. one",
-		// 		"",
-		// 		"2. two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: blank line within item followed by continuation makes loose list",
-		// 	md: md(
-		// 		"1. one",
-		// 		"",
-		// 		"   two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: trailing blank line after final item rolls back",
-		// 	md: md(
-		// 		"1. one",
-		// 		"",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: sibling item must match period delimiter family",
-		// 	md: md(
-		// 		"1. one",
-		// 		"2) two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: sibling item must match right paren delimiter family",
-		// 	md: md(
-		// 		"1) one",
-		// 		"2. two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: item may contain atx heading in body",
-		// 	md: md(
-		// 		"1. one",
-		// 		"   # two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: item may contain setext heading in body",
-		// 	md: md(
-		// 		"1. one",
-		// 		"   two",
-		// 		"   ---",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: item may contain thematic break in body",
-		// 	md: md(
-		// 		"1. one",
-		// 		"   ---",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: item may contain fenced code block in body",
-		// 	md: md(
-		// 		"1. one",
-		// 		"   ```",
-		// 		"   code",
-		// 		"   ```",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: marker line with only spaces after delimiter creates empty item",
-		// 	md: `1.    `,
-		// },
-		// {
-		// 	name: "ordered list: nonnumeric marker is not ordered list",
-		// 	md: `x. item`,
-		// },
-		// {
-		// 	name: "ordered list: missing delimiter punctuation is not ordered list",
-		// 	md: `1 item`,
-		// },
+		{
+			name:    "ordered list: single item with period delimiter",
+			input:   "1. item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: single item with right paren delimiter",
+			input:   "1) item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: multiple sibling items with period delimiter",
+			input: md(
+				"1. one",
+				"2. two",
+				"3. three",
+			),
+			want:    `<ol><li>one</li><li>two</li><li>three</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: multiple sibling items with right paren delimiter",
+			input: md(
+				"1) one",
+				"2) two",
+				"3) three",
+			),
+			want:    `<ol><li>one</li><li>two</li><li>three</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: start number preserved from first marker",
+			input: md(
+				"3. one",
+				"4. two",
+			),
+			want:    `<ol start="3"><li>one</li><li>two</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: zero start number allowed",
+			input:   "0. item",
+			want:    `<ol start="0"><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: multi-digit marker allowed",
+			input:   "12. item",
+			want:    `<ol start="12"><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: absurdly high marker rejected",
+			input:   "1000000001. item",
+			want:    `<p>1000000001. item</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: delimiter requires following space",
+			input:   "1.item",
+			want:    `<p>1.item</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: right paren delimiter requires following space",
+			input:   "1)item",
+			want:    `<p>1)item</p>`,
+			wantErr: nil,
+		},
+		{
+			name:  "ordered list: tab after delimiter allowed",
+			input: "1.\titem",
+			want:  `<ol><li>item</li></ol>`,
+		},
+		{
+			name:    "ordered list: multiple spaces after delimiter allowed",
+			input:   "1.    item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: multiple tabs and spaces after delimiter allowed",
+			input:   "1. \t  item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: empty item content after required delimiter",
+			input:   "1. ",
+			want:    `<ol><li></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: leading indentation of one space allowed",
+			input:   " 1. item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: leading indentation of two spaces allowed",
+			input:   "  1. item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: leading indentation of three spaces allowed",
+			input:   "   1. item",
+			want:    `<ol><li>item</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: leading indentation of four spaces is not a list",
+			input:   "    1. item",
+			want:    `<pre><code>1. item</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: continuation line at content baseline stays in item",
+			input: md(
+				"1. one",
+				"   two",
+			),
+			want:    `<ol><li>one two</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: continuation line beyond content baseline stays in item",
+			input: md(
+				"1. one",
+				"     two",
+			),
+			want:    `<ol><li>one   two</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: dedented nonblank line ends list",
+			input: md(
+				"1. one",
+				"two",
+			),
+			want:    `<ol><li>one</li></ol><p>two</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: blank line between siblings makes loose list",
+			input: md(
+				"1. one",
+				"",
+				"2. two",
+			),
+			want:    `<ol><li><p>one</p></li><li><p>two</p></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: blank line within item followed by continuation makes loose list",
+			input: md(
+				"1. one",
+				"",
+				"   two",
+			),
+			want:    `<ol><li><p>one</p><p>two</p></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: trailing blank line after final item rolls back",
+			input: md(
+				"1. one",
+				"",
+			),
+			want:    `<ol><li>one</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: sibling item must match period delimiter family",
+			input: md(
+				"1. one",
+				"2) two",
+			),
+			want:    `<ol><li>one</li></ol><ol start="2"><li>two</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: sibling item must match right paren delimiter family",
+			input: md(
+				"1) one",
+				"2. two",
+			),
+			want:    `<ol><li>one</li></ol><ol start="2"><li>two</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: item may contain atx heading in body",
+			input: md(
+				"1. one",
+				"   # two",
+			),
+			want:    `<ol><li>one<h1>two</h1></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: item may contain setext heading in body",
+			input: md(
+				"1. one",
+				"   two",
+				"   ---",
+			),
+			want:    `<ol><li><h2>one two</h2></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: item may contain thematic break after blank line",
+			input: md(
+				"1. one",
+				"",
+				"   ---",
+			),
+			want:    `<ol><li><p>one</p><hr></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: item may contain fenced code block in body",
+			input: md(
+				"1. one",
+				"   ```",
+				"   code",
+				"   ```",
+			),
+			want:    `<ol><li>one<pre><code>code</code></pre></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: marker line with only spaces after delimiter creates empty item",
+			input:   "1.      ",
+			want:    `<ol><li></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: nonnumeric marker is not ordered list",
+			input:   "x. item",
+			want:    `<p>x. item</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "ordered list: missing delimiter punctuation is not ordered list",
+			input:   "1 item",
+			want:    `<p>1 item</p>`,
+			wantErr: nil,
+		},
 
 		// nested lists and list interactions
 
