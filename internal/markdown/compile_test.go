@@ -2060,120 +2060,156 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// indented code blocks
 
-		// {
-		// 	name:  "indented code: single line with four spaces",
-		// 	input: `    code`,
-		// },
-		// {
-		// 	name:  "indented code: single line with more than four spaces preserves remainder",
-		// 	input: `      code`,
-		// },
-		// {
-		// 	name: "indented code: multiple indented lines",
-		// 	input: md(
-		// 		"    one",
-		// 		"    two",
-		// 	),
-		// },
-		// {
-		// 	name: "indented code: blank line inside block",
-		// 	input: md(
-		// 		"    one",
-		// 		"",
-		// 		"    two",
-		// 	),
-		// },
-		// {
-		// 	name: "indented code: trailing blank lines rolled back before dedented line",
-		// 	input: md(
-		// 		"    one",
-		// 		"",
-		// 		"two",
-		// 	),
-		// },
-		// {
-		// 	name: "indented code: trailing blank lines at eof",
-		// 	input: md(
-		// 		"    one",
-		// 		"",
-		// 	),
-		// },
-		// {
-		// 	name:  "indented code: line with three leading spaces is not code block",
-		// 	input: `   code`,
-		// },
-		// {
-		// 	name:  "indented code: tab reaching four columns",
-		// 	input: "\tcode",
-		// },
-		// {
-		// 	name:  "indented code: mixed indentation reaching four columns",
-		// 	input: "  \tcode",
-		// },
-		// {
-		// 	name:  "indented code: mixed indentation below four columns",
-		// 	input: " \tcode",
-		// },
-		// {
-		// 	name: "indented code: paragraph transparency with continuation line",
-		// 	input: md(
-		// 		"one",
-		// 		"    two",
-		// 	),
-		// },
-		// {
-		// 	name: "indented code: begins after blank line following paragraph",
-		// 	input: md(
-		// 		"one",
-		// 		"",
-		// 		"    two",
-		// 	),
-		// },
-		// {
-		// 	name: "indented code: dedented nonblank line ends block",
-		// 	input: md(
-		// 		"    one",
-		// 		"    two",
-		// 		"three",
-		// 	),
-		// },
-		// {
-		// 	name:  "indented code: thematic-break-looking content is literal",
-		// 	input: `    ---`,
-		// },
-		// {
-		// 	name:  "indented code: block-quote-looking content is literal",
-		// 	input: `    > hello`,
-		// },
-		// {
-		// 	name:  "indented code: list-looking content is literal",
-		// 	input: `    - hello`,
-		// },
-		// {
-		// 	name:  "indented code: atx-heading-looking content is literal",
-		// 	input: `    # hello`,
-		// },
-		//	{
-		//		name: "indented code: fenced-opener-looking content is literal",
-		//		input: `    ````,
-		//	},
-		// {
-		// 	name: "indented code: multiple blank lines inside block",
-		// 	input: md(
-		// 		"    one",
-		// 		"",
-		// 		"",
-		// 		"    two",
-		// 	),
-		// },
-		// {
-		// 	name:  "indented code: trailing spaces in content line preserved",
-		// 	input: "    code  ",
-		// },
-		// {
-		// 	name:  "indented code: html-looking content escaped",
-		// 	input: `    <div>`,
-		// },
+		{
+			name:    "indented code: single line with four spaces",
+			input:   `    code`,
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: single line with more than four spaces preserves remainder",
+			input:   `      code`,
+			want:    `<pre><code>  code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: multiple indented lines",
+			input: md(
+				"    one",
+				"    two",
+			),
+			want:    "<pre><code>one\ntwo</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "indented code: blank line inside block",
+			input: md(
+				"    one",
+				"",
+				"    two",
+			),
+			want:    "<pre><code>one\n\ntwo</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "indented code: trailing blank lines rolled back before dedented line",
+			input: md(
+				"    one",
+				"",
+				"two",
+			),
+			want:    `<pre><code>one</code></pre><p>two</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: trailing blank lines at eof",
+			input: md(
+				"    one",
+				"",
+			),
+			want:    "<pre><code>one\n</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: line with three leading spaces is not code block",
+			input:   `   code`,
+			want:    `<p>   code</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: tab reaching four columns",
+			input:   "\tcode",
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: mixed indentation reaching four columns",
+			input:   "  \tcode",
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: paragraph transparency with continuation line",
+			input: md(
+				"one",
+				"    two",
+			),
+			want:    `<p>one     two</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: begins after blank line following paragraph",
+			input: md(
+				"one",
+				"",
+				"    two",
+			),
+			want:    `<p>one</p><pre><code>two</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: dedented nonblank line ends block",
+			input: md(
+				"    one",
+				"    two",
+				"three",
+			),
+			want:    "<pre><code>one\ntwo</code></pre><p>three</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: thematic-break-looking content is literal",
+			input:   `    ---`,
+			want:    `<pre><code>---</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: block-quote-looking content is literal",
+			input:   `    > hello`,
+			want:    `<pre><code>&gt; hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: list-looking content is literal",
+			input:   `    - hello`,
+			want:    `<pre><code>- hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: atx-heading-looking content is literal",
+			input:   `    # hello`,
+			want:    `<pre><code># hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: fenced-opener-looking content is literal",
+			input:   `    ~~~`,
+			want:    `<pre><code>~~~</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "indented code: multiple blank lines inside block",
+			input: md(
+				"    one",
+				"",
+				"",
+				"    two",
+			),
+			want:    "<pre><code>one\n\n\ntwo</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: trailing spaces in content line preserved",
+			input:   "    code  ",
+			want:    `<pre><code>code  </code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name:    "indented code: html-looking content escaped",
+			input:   `    <div>`,
+			want:    `<pre><code>&lt;div&gt;</code></pre>`,
+			wantErr: nil,
+		},
 
 		// inline emphasis
 
