@@ -371,3 +371,115 @@ func TestLineSpan(t *testing.T) {
 		})
 	}
 }
+
+func TestLineSpansWithin(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+		span  ByteSpan
+		want  []ByteSpan
+	}{
+		{
+			name:  "empty span returns empty slice",
+			input: "abc",
+			span:  ByteSpan{1, 1},
+			want:  []ByteSpan{},
+		},
+		{
+			name:  "inverted span returns empty slice",
+			input: "abc",
+			span:  ByteSpan{2, 1},
+			want:  []ByteSpan{},
+		},
+		{
+			name:  "single line partial span returns one clipped line span",
+			input: "hello world",
+			span:  ByteSpan{3, 8},
+			want:  []ByteSpan{{3, 8}},
+		},
+		{
+			name:  "single line full span returns full line span",
+			input: "hello",
+			span:  ByteSpan{0, 5},
+			want:  []ByteSpan{{0, 5}},
+		},
+		{
+			name:  "single line span at start of line",
+			input: "hello",
+			span:  ByteSpan{0, 2},
+			want:  []ByteSpan{{0, 2}},
+		},
+		{
+			name:  "single line span at end of line",
+			input: "hello",
+			span:  ByteSpan{3, 5},
+			want:  []ByteSpan{{3, 5}},
+		},
+		{
+			name:  "multiline span returns one span per covered line",
+			input: "ab\ncd\nef",
+			span:  ByteSpan{1, 7},
+			want: []ByteSpan{
+				{1, 2},
+				{3, 5},
+				{6, 7},
+			},
+		},
+		{
+			name:  "multiline span starting at line boundary begins on that line",
+			input: "ab\ncd\nef",
+			span:  ByteSpan{3, 7},
+			want: []ByteSpan{
+				{3, 5},
+				{6, 7},
+			},
+		},
+		{
+			name:  "multiline span ending at line boundary excludes following line",
+			input: "ab\ncd\nef",
+			span:  ByteSpan{1, 6},
+			want: []ByteSpan{
+				{1, 2},
+				{3, 5},
+			},
+		},
+		{
+			name:  "multiline span covering full middle lines preserves those spans",
+			input: "ab\ncd\nef\ngh",
+			span:  ByteSpan{1, 10},
+			want: []ByteSpan{
+				{1, 2},
+				{3, 5},
+				{6, 8},
+				{9, 10},
+			},
+		},
+		{
+			name:  "span on final line returns final clipped line span",
+			input: "ab\ncd\nef",
+			span:  ByteSpan{6, 8},
+			want:  []ByteSpan{{6, 8}},
+		},
+		{
+			name:  "span ending at EOF on input with trailing newline does not append empty final line",
+			input: "ab\n",
+			span:  ByteSpan{1, 3},
+			want:  []ByteSpan{{1, 2}},
+		},
+		{
+			name:  "span exactly covering trailing empty line returns empty slice",
+			input: "ab\n",
+			span:  ByteSpan{3, 3},
+			want:  []ByteSpan{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := NewSource(tc.input)
+			got := src.LineSpansWithin(tc.span)
+
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
