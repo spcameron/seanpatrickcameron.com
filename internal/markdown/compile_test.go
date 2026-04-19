@@ -2225,9 +2225,450 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// autolinks
 
-		// raw html
+		// raw HTML
 
-		// html blocks
+		// HTML blocks
+
+		{
+			name:    "html block: single line comment block",
+			input:   "<!-- hello -->",
+			want:    "<!-- hello -->",
+			wantErr: nil,
+		},
+		{
+			name: "html block: multiline comment block",
+			input: md(
+				"<!--",
+				"hello",
+				"-->",
+			),
+			want:    "<!--\nhello\n-->",
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment terminator on opening line closes block immediately",
+			input: md(
+				"<!-- hello -->",
+				"tail",
+			),
+			want:    "<!-- hello --><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment block runs to eof when unterminated",
+			input: md(
+				"<!--",
+				"hello",
+			),
+			want:    "<!--\nhello",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: single line cdata block",
+			input:   "<![CDATA[hello]]>",
+			want:    "<![CDATA[hello]]>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: multiline cdata block",
+			input: md(
+				"<![CDATA[",
+				"hello",
+				"]]>",
+			),
+			want:    "<![CDATA[\nhello\n]]>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: cdata terminator on opening line closes block immediately",
+			input: md(
+				"<![CDATA[hello]]>",
+				"tail",
+			),
+			want:    "<![CDATA[hello]]><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: cdata block runs to eof when unterminated",
+			input: md(
+				"<![CDATA[",
+				"hello",
+			),
+			want:    "<![CDATA[\nhello",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: single line processing instruction block",
+			input:   "<?php?>",
+			want:    "<?php?>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: multiline processing instruction block",
+			input: md(
+				"<?",
+				"hello",
+				"?>",
+			),
+			want:    "<?\nhello\n?>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: processing instruction terminator on opening line closes block immediately",
+			input: md(
+				"<?hello?>",
+				"tail",
+			),
+			want:    "<?hello?><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: processing instruction block runs to eof when unterminated",
+			input: md(
+				"<?",
+				"hello",
+			),
+			want:    "<?\nhello",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: single line declaration block",
+			input:   "<!DOCTYPE html>",
+			want:    "<!DOCTYPE html>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: multiline declaration block terminates on first greater-than",
+			input: md(
+				"<!DOCTYPE",
+				"html>",
+				"tail",
+			),
+			want:    "<!DOCTYPE\nhtml><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: declaration terminator on opening line closes block immediately",
+			input: md(
+				"<!DOCTYPE html>",
+				"tail",
+			),
+			want:    "<!DOCTYPE html><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: declaration block runs to eof when unterminated",
+			input: md(
+				"<!DOCTYPE",
+				"html",
+			),
+			want:    "<!DOCTYPE\nhtml",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named opening tag alone starts block",
+			input:   "<div>",
+			want:    "<div>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named closing tag alone starts block",
+			input:   "</div>",
+			want:    "</div>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named self-closing tag starts block",
+			input:   "<div/>",
+			want:    "<div/>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named self-closing tag with space before closer starts block",
+			input:   "<div / >",
+			want:    "<div / >",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with attributes starts block",
+			input:   `<div class="x">`,
+			want:    `<div class="x">`,
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with trailing text on same line still starts block",
+			input:   "<div>hello",
+			want:    "<div>hello",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag block continues until blank line",
+			input: md(
+				"<div>",
+				"hello",
+				"world",
+				"",
+				"tail",
+			),
+			want:    "<div>\nhello\nworld<p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag block runs to eof without blank line",
+			input: md(
+				"<div>",
+				"hello",
+			),
+			want:    "<div>\nhello",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag block does not terminate on another tag line alone",
+			input: md(
+				"<div>",
+				"</div>",
+				"tail",
+			),
+			want:    "<div>\n</div>\ntail",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with one leading space allowed",
+			input:   " <div>",
+			want:    " <div>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with two leading spaces allowed",
+			input:   "  <div>",
+			want:    "  <div>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with three leading spaces allowed",
+			input:   "   <div>",
+			want:    "   <div>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with four leading spaces is not html block",
+			input:   "    <div>",
+			want:    "<pre><code>&lt;div&gt;</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: comment with three leading spaces allowed",
+			input:   "   <!-- hello -->",
+			want:    "   <!-- hello -->",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: comment with four leading spaces is not html block",
+			input:   "    <!-- hello -->",
+			want:    "<pre><code>&lt;!-- hello --&gt;</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: cdata with three leading spaces allowed",
+			input:   "   <![CDATA[hello]]>",
+			want:    "   <![CDATA[hello]]>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: processing instruction with three leading spaces allowed",
+			input:   "    <?hello?>",
+			want:    "<pre><code>&lt;?hello?&gt;</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: declaration with three leading spaces allowed",
+			input:   "   <!DOCTYPE html>",
+			want:    "   <!DOCTYPE html>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: unknown named tag is not recognized as block html",
+			input:   "<not-a-tag>",
+			want:    "<p><not-a-tag></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: non-alpha tag opener is not recognized as block html",
+			input:   "<1div>",
+			want:    "<p>&lt;1div&gt;</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: non-alpha tag name is not recognized as block html",
+			input:   "</1div>",
+			want:    "<p>&lt;/1div&gt;</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag without closing angle bracket is not html block",
+			input:   "<div",
+			want:    "<p>&lt;div</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named closing tag without closing angle bracket is not html block",
+			input:   "</div",
+			want:    "<p>&lt;/div</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with invalid punctuation in head is not html block",
+			input:   "<div!>",
+			want:    "<p>&lt;div!&gt;</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with slash not followed by optional whitespace and closer is not html block",
+			input:   "<div/x>",
+			want:    "<p>&lt;div/x&gt;</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: named tag with attributes but no closing angle bracket is not html block",
+			input:   `<div class="x"`,
+			want:    `<p>&lt;div class=&#34;x&#34;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "html block: non-html less-than text is not html block",
+			input:   "< hello",
+			want:    "<p>&lt; hello</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: bare less-than is not html block",
+			input:   "<",
+			want:    "<p>&lt;</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: less-than followed by question mark without terminator still starts processing instruction block",
+			input: md(
+				"<?hello",
+				"tail",
+			),
+			want:    "<?hello\ntail",
+			wantErr: nil,
+		},
+		{
+			name: "html block: less-than bang without greater-than still starts declaration block",
+			input: md(
+				"<!hello",
+				"tail",
+			),
+			want:    "<!hello\ntail",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag interrupted by blank line then paragraph",
+			input: md(
+				"<div>",
+				"hello",
+				"",
+				"world",
+			),
+			want:    "<div>\nhello<p>world</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: comment block may contain blank lines before terminator",
+			input: md(
+				"<!--",
+				"",
+				"hello",
+				"-->",
+				"tail",
+			),
+			want:    "<!--\n\nhello\n--><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: cdata block may contain blank lines before terminator",
+			input: md(
+				"<![CDATA[",
+				"",
+				"hello",
+				"]]>",
+				"tail",
+			),
+			want:    "<![CDATA[\n\nhello\n]]><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: processing instruction block may contain blank lines before terminator",
+			input: md(
+				"<?",
+				"",
+				"hello",
+				"?>",
+				"tail",
+			),
+			want:    "<?\n\nhello\n?><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: declaration block may contain blank lines before terminator",
+			input: md(
+				"<!DOCTYPE",
+				"",
+				"html>",
+				"tail",
+			),
+			want:    "<!DOCTYPE\n\nhtml><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named tag block may contain html-looking lines until blank line",
+			input: md(
+				"<div>",
+				"<span>",
+				"</span>",
+				"",
+				"tail",
+			),
+			want:    "<div>\n<span>\n</span><p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name: "html block: named closing tag block continues until blank line",
+			input: md(
+				"</div>",
+				"hello",
+				"",
+				"tail",
+			),
+			want:    "</div>\nhello<p>tail</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: whitelisted tag name is case-insensitive",
+			input:   "<DIV>",
+			want:    "<DIV>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: closing whitelisted tag name is case-insensitive",
+			input:   "</DIV>",
+			want:    "</DIV>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: alphanumeric tag name allowed when whitelisted",
+			input:   "<h1>",
+			want:    "<h1>",
+			wantErr: nil,
+		},
+		{
+			name:    "html block: non-whitelisted alphanumeric tag name rejected",
+			input:   "<x1>",
+			want:    "<p><x1></p>",
+			wantErr: nil,
+		},
 
 		// escapes
 
