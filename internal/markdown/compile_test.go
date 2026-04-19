@@ -2211,11 +2211,218 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// inline emphasis
+		// strong & emphasis
 
-		// strong emphasis
-
-		// mixed emphasis
+		{
+			name:    "emphasis: single delimiter produces emphasis",
+			input:   "*a*",
+			want:    `<p><em>a</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: double delimiter produces strong emphasis",
+			input:   "**a**",
+			want:    `<p><strong>a</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: underscore produces emphasis",
+			input:   "_a_",
+			want:    `<p><em>a</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: underscore produces strong emphasis",
+			input:   "__a__",
+			want:    `<p><strong>a</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter must be left and right flanking",
+			input:   "a *b* c",
+			want:    `<p>a <em>b</em> c</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: opening delimiter cannot be followed by whitespace",
+			input:   "* b*",
+			want:    `<ul><li>b*</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: closing delimiter cannot be preceded by whitespace",
+			input:   "*b *",
+			want:    `<p>*b *</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter adjacent to punctuation can open",
+			input:   "(*a*)",
+			want:    `<p>(<em>a</em>)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter adjacent to punctuation can close",
+			input:   "(*a*)",
+			want:    `<p>(<em>a</em>)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "underscore: intraword emphasis is disallowed",
+			input:   "foo_bar_baz",
+			want:    `<p>foo_bar_baz</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "underscore: emphasis allowed when separated by punctuation",
+			input:   "foo _bar_ baz",
+			want:    `<p>foo <em>bar</em> baz</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "underscore: can open when preceded by punctuation",
+			input:   "(_a_)",
+			want:    `<p>(<em>a</em>)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "underscore: can close when followed by punctuation",
+			input:   "(_a_)",
+			want:    `<p>(<em>a</em>)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: triple delimiter can resolve to emphasis and strong nesting",
+			input:   "***a***",
+			want:    `<p><em><strong>a</strong></em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: unmatched extra delimiter remains as literal text",
+			input:   "**a*",
+			want:    `<p>*<em>a</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: unmatched closing delimiter remains as literal text",
+			input:   "*a**",
+			want:    `<p><em>a</em>*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter pairing blocked by multiple of three rule",
+			input:   "***a**",
+			want:    `<p>*<strong>a</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: mod-3 rule prevents pairing across runs",
+			input:   "**a***",
+			want:    `<p><strong>a</strong>*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: nested emphasis resolves inside outer emphasis",
+			input:   "*a *b* c*",
+			want:    `<p><em>a <em>b</em> c</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: nested strong inside emphasis",
+			input:   "*a **b** c*",
+			want:    `<p><em>a <strong>b</strong> c</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: nested emphasis inside strong",
+			input:   "**a *b* c**",
+			want:    `<p><strong>a <em>b</em> c</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: nested strong resolves correctly",
+			input:   "**a **b** c**",
+			want:    `<p><strong>a <strong>b</strong> c</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: crossing delimiters do not form valid nesting",
+			input:   "*a **b* c**",
+			want:    `<p><em>a <em><em>b</em> c</em></em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: multiple independent emphasis runs",
+			input:   "*a* *b*",
+			want:    `<p><em>a</em> <em>b</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: multiple independent strong runs",
+			input:   "**a** **b**",
+			want:    `<p><strong>a</strong> <strong>b</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: mixed delimiter kinds do not match",
+			input:   "*a_",
+			want:    `<p>*a_</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: mixed delimiter kinds do not match",
+			input:   "_a*",
+			want:    `<p>_a*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter at start of input",
+			input:   "*a*",
+			want:    `<p><em>a</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: delimiter at end of input",
+			input:   "a *b*",
+			want:    `<p>a <em>b</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: isolated delimiter produces literal text",
+			input:   "*",
+			want:    `<p>*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: isolated double delimiter produces literal text",
+			input:   "**",
+			want:    `<p>**</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: empty content does not form emphasis",
+			input:   "**",
+			want:    `<p>**</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: empty content between delimiters is ignored",
+			input:   "* *",
+			want:    `<ul><li>*</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name:    "emphasis: emphasis spans do not consume surrounding text",
+			input:   "a *b* c",
+			want:    `<p>a <em>b</em> c</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "strong: strong spans do not consume surrounding text",
+			input:   "a **b** c",
+			want:    `<p>a <strong>b</strong> c</p>`,
+			wantErr: nil,
+		},
 
 		// code spans
 
