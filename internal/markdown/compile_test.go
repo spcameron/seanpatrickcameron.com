@@ -1168,6 +1168,15 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "unordered list: block quote nested inside item",
+			input: md(
+				"- outer",
+				"  > quote",
+			),
+			want:    `<ul><li>outer<blockquote><p>quote</p></blockquote></li></ul>`,
+			wantErr: nil,
+		},
+		{
 			name: "unordered list: item may contain fenced code block in body",
 			input: md(
 				"- one",
@@ -1437,6 +1446,15 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "ordered list: block quote nested inside item",
+			input: md(
+				"1. outer",
+				"   > quote",
+			),
+			want:    `<ol><li>outer<blockquote><p>quote</p></blockquote></li></ol>`,
+			wantErr: nil,
+		},
+		{
 			name: "ordered list: item may contain fenced code block in body",
 			input: md(
 				"1. one",
@@ -1468,208 +1486,220 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// nested lists and list interactions
 
-		// 		{
-		// 	name: "unordered list: nested unordered list in second line of item",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  - inner",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested ordered list in second line of item",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  1. inner",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested unordered list in second line of item",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   - inner",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested ordered list in second line of item",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested sibling list items under one parent item",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  - inner one",
-		// 		"  - inner two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested sibling list items under one parent item",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner one",
-		// 		"   2. inner two",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested list followed by parent continuation",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  - inner",
-		// 		"  tail",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested list followed by parent continuation",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner",
-		// 		"   tail",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: two top-level items each with nested list",
-		// 	md: md(
-		// 		"- outer one",
-		// 		"  - inner one",
-		// 		"- outer two",
-		// 		"  - inner two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: two top-level items each with nested list",
-		// 	md: md(
-		// 		"1. outer one",
-		// 		"   1. inner one",
-		// 		"2. outer two",
-		// 		"   1. inner two",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested list separated by blank line makes parent loose",
-		// 	md: md(
-		// 		"- outer",
-		// 		"",
-		// 		"  - inner",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested list separated by blank line makes parent loose",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"",
-		// 		"   1. inner",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: block quote nested inside item",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  > quote",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: block quote nested inside item",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   > quote",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: fenced code block nested inside item",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  ```",
-		// 		"  code",
-		// 		"  ```",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: fenced code block nested inside item",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   ```",
-		// 		"   code",
-		// 		"   ```",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested list item may itself contain continuation paragraph",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  - inner",
-		// 		"    tail",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested list item may itself contain continuation paragraph",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner",
-		// 		"      tail",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: child item not meeting parent content baseline does not nest",
-		// 	md: md(
-		// 		"- outer",
-		// 		" - inner",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: child item not meeting parent content baseline does not nest",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"  1. inner",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: top-level sibling resumes after nested list",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  - inner",
-		// 		"- next outer",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: top-level sibling resumes after nested list",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner",
-		// 		"2. next outer",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: nested ordered list preserves start number",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  3. inner",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested ordered list with right paren delimiter",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1) inner",
-		// 	),
-		// },
-		// {
-		// 	name: "unordered list: mixed nested unordered marker families are allowed",
-		// 	md: md(
-		// 		"- outer",
-		// 		"  * inner",
-		// 		"  + inner two",
-		// 	),
-		// },
-		// {
-		// 	name: "ordered list: nested ordered sibling delimiter mismatch splits structure",
-		// 	md: md(
-		// 		"1. outer",
-		// 		"   1. inner one",
-		// 		"   2) inner two",
-		// 	),
-		// },
+		{
+			name: "unordered list: nested unordered list in second line of item",
+			input: md(
+				"- outer",
+				"  - inner",
+			),
+			want:    `<ul><li>outer<ul><li>inner</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested ordered list in second line of item",
+			input: md(
+				"- outer",
+				"  1. inner",
+			),
+			want:    `<ul><li>outer<ol><li>inner</li></ol></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested unordered list in second line of item",
+			input: md(
+				"1. outer",
+				"   - inner",
+			),
+			want:    `<ol><li>outer<ul><li>inner</li></ul></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested ordered list in second line of item",
+			input: md(
+				"1. outer",
+				"   1. inner",
+			),
+			want:    `<ol><li>outer<ol><li>inner</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested sibling list items under one parent item",
+			input: md(
+				"- outer",
+				"  - inner one",
+				"  - inner two",
+			),
+			want:    `<ul><li>outer<ul><li>inner one</li><li>inner two</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested sibling list items under one parent item",
+			input: md(
+				"1. outer",
+				"   1. inner one",
+				"   2. inner two",
+			),
+			want:    `<ol><li>outer<ol><li>inner one</li><li>inner two</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested list followed by parent continuation",
+			input: md(
+				"- outer",
+				"  - inner",
+				"  tail",
+			),
+			want:    `<ul><li>outer<ul><li>inner</li></ul>tail</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested list followed by parent continuation",
+			input: md(
+				"1. outer",
+				"   1. inner",
+				"   tail",
+			),
+			want:    `<ol><li>outer<ol><li>inner</li></ol>tail</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: two top-level items each with nested list",
+			input: md(
+				"- outer one",
+				"  - inner one",
+				"- outer two",
+				"  - inner two",
+			),
+			want:    `<ul><li>outer one<ul><li>inner one</li></ul></li><li>outer two<ul><li>inner two</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: two top-level items each with nested list",
+			input: md(
+				"1. outer one",
+				"   1. inner one",
+				"2. outer two",
+				"   1. inner two",
+			),
+			want:    `<ol><li>outer one<ol><li>inner one</li></ol></li><li>outer two<ol><li>inner two</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested list separated by blank line makes parent loose",
+			input: md(
+				"- outer",
+				"",
+				"  - inner",
+			),
+			want:    `<ul><li><p>outer</p><ul><li>inner</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested list separated by blank line makes parent loose",
+			input: md(
+				"1. outer",
+				"",
+				"   1. inner",
+			),
+			want:    `<ol><li><p>outer</p><ol><li>inner</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested list item may itself contain continuation paragraph",
+			input: md(
+				"- outer",
+				"  - inner",
+				"    tail",
+			),
+			want:    `<ul><li>outer<ul><li>inner tail</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested list item may itself contain continuation paragraph",
+			input: md(
+				"1. outer",
+				"   1. inner",
+				"      tail",
+			),
+			want:    `<ol><li>outer<ol><li>inner tail</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: child item not meeting parent content baseline does not nest",
+			input: md(
+				"- outer",
+				" - inner",
+			),
+			want:    `<ul><li>outer</li></ul><ul><li>inner</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: child item not meeting parent content baseline does not nest",
+			input: md(
+				"1. outer",
+				"  1. inner",
+			),
+			want:    `<ol><li>outer</li></ol><ol><li>inner</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: top-level sibling resumes after nested list",
+			input: md(
+				"- outer",
+				"  - inner",
+				"- next outer",
+			),
+			want:    `<ul><li>outer<ul><li>inner</li></ul></li><li>next outer</li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: top-level sibling resumes after nested list",
+			input: md(
+				"1. outer",
+				"   1. inner",
+				"2. next outer",
+			),
+			want:    `<ol><li>outer<ol><li>inner</li></ol></li><li>next outer</li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: nested ordered list preserves start number",
+			input: md(
+				"- outer",
+				"  3. inner",
+			),
+			want:    `<ul><li>outer<ol start="3"><li>inner</li></ol></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested ordered list with right paren delimiter",
+			input: md(
+				"1. outer",
+				"   1) inner",
+			),
+			want:    `<ol><li>outer<ol><li>inner</li></ol></li></ol>`,
+			wantErr: nil,
+		},
+		{
+			name: "unordered list: mixed nested unordered marker families are allowed",
+			input: md(
+				"- outer",
+				"  * inner",
+				"  + inner two",
+			),
+			want:    `<ul><li>outer<ul><li>inner</li><li>inner two</li></ul></li></ul>`,
+			wantErr: nil,
+		},
+		{
+			name: "ordered list: nested ordered sibling delimiter mismatch splits structure",
+			input: md(
+				"1. outer",
+				"   1. inner one",
+				"   2) inner two",
+			),
+			want:    `<ol><li>outer<ol><li>inner one</li></ol><ol start="2"><li>inner two</li></ol></li></ol>`,
+			wantErr: nil,
+		},
 
 		// fenced code blocks
 
