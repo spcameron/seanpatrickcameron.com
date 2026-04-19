@@ -1703,7 +1703,477 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// fenced code blocks
 
+		{
+			name: "fenced code: backtick fence minimum opener and closer",
+			input: md(
+				"```",
+				"code",
+				"```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: tilde fence minimum opener and closer",
+			input: md(
+				"~~~",
+				"code",
+				"~~~",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: longer backtick opener and matching closer",
+			input: md(
+				"````",
+				"code",
+				"````",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: longer tilde opener and matching closer",
+			input: md(
+				"~~~~",
+				"code",
+				"~~~~",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer longer than opener",
+			input: md(
+				"```",
+				"code",
+				"````",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer shorter than opener does not close",
+			input: md(
+				"````",
+				"code",
+				"```",
+			),
+			want:    "<pre><code>code\n```</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with one leading space",
+			input: md(
+				" ```",
+				"code",
+				" ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with two leading spaces",
+			input: md(
+				"  ```",
+				"code",
+				"  ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with three leading spaces",
+			input: md(
+				"   ```",
+				"code",
+				"   ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with four leading spaces is not fenced code",
+			input: md(
+				"    ```",
+				"    code",
+				"    ```",
+			),
+			want:    "<pre><code>```\ncode\n```</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer with one leading space",
+			input: md(
+				"```",
+				"code",
+				" ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer with two leading spaces",
+			input: md(
+				"```",
+				"code",
+				"  ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer with three leading spaces",
+			input: md(
+				"```",
+				"code",
+				"   ```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closer with four leading spaces is not closing fence",
+			input: md(
+				"```",
+				"code",
+				"    ```",
+				"```",
+			),
+			want:    "<pre><code>code\n    ```</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: blank line inside block",
+			input: md(
+				"```",
+				"one",
+				"",
+				"two",
+				"```",
+			),
+			want:    "<pre><code>one\n\ntwo</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: empty fenced block",
+			input: md(
+				"```",
+				"```",
+			),
+			want:    `<pre><code></code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: unclosed backtick fence runs to eof",
+			input: md(
+				"```",
+				"code",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: unclosed tilde fence runs to eof",
+			input: md(
+				"~~~",
+				"code",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: payload line equal to shorter fence is literal content",
+			input: md(
+				"````",
+				"```",
+				"````",
+			),
+			want:    "<pre><code>```</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closing fence may have trailing spaces",
+			input: md(
+				"```",
+				"code",
+				"```   ",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closing fence may have trailing tabs",
+			input: md(
+				"```",
+				"code",
+				"```\t\t",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: closing fence with trailing nonwhitespace is not valid closer",
+			input: md(
+				"```",
+				"code",
+				"```x",
+				"```",
+			),
+			want:    "<pre><code>code\n```x</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: backtick opener with info string",
+			input: md(
+				"```go",
+				"code",
+				"```",
+			),
+			want:    `<pre><code class="language-go">code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: backtick opener with delimiter whitespace before info string",
+			input: md(
+				"```   go",
+				"code",
+				"```",
+			),
+			want:    `<pre><code class="language-go">code</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: tilde opener may contain backticks in info string",
+			input: md(
+				"~~~ ```",
+				"code",
+				"~~~",
+			),
+			want:    "<pre><code class=\"language-```\">code</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: backtick opener rejects info string containing backtick",
+			input: md(
+				"``` `",
+				"code",
+				"```",
+			),
+			want:    "<p>``` ` code</p><pre><code></code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with fewer than three markers is not fenced code",
+			input: md(
+				"``",
+				"code",
+				"``",
+			),
+			want:    "<p>`` code ``</p>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: mixed marker family does not close block",
+			input: md(
+				"```",
+				"code",
+				"~~~",
+				"```",
+			),
+			want:    "<pre><code>code\n~~~</code></pre>",
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: marker-looking content line is literal until valid closer",
+			input: md(
+				"```",
+				"~~~",
+				"```",
+			),
+			want:    `<pre><code>~~~</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: html-looking content inside block",
+			input: md(
+				"```",
+				"<div>",
+				"```",
+			),
+			want:    `<pre><code>&lt;div&gt;</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: block-quote-looking content inside block",
+			input: md(
+				"```",
+				"> hello",
+				"```",
+			),
+			want:    `<pre><code>&gt; hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: list-looking content inside block",
+			input: md(
+				"```",
+				"- hello",
+				"```",
+			),
+			want:    `<pre><code>- hello</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: fenced opener interrupts paragraph without blank line",
+			input: md(
+				"one",
+				"```",
+				"two",
+				"```",
+			),
+			want:    `<p>one</p><pre><code>two</code></pre>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: fenced block followed by paragraph",
+			input: md(
+				"```",
+				"code",
+				"```",
+				"tail",
+			),
+			want:    `<pre><code>code</code></pre><p>tail</p>`,
+			wantErr: nil,
+		},
+		{
+			name: "fenced code: opener with only delimiter whitespace and no info string",
+			input: md(
+				"```   ",
+				"code",
+				"```",
+			),
+			want:    `<pre><code>code</code></pre>`,
+			wantErr: nil,
+		},
+
 		// indented code blocks
+
+		// {
+		// 	name:  "indented code: single line with four spaces",
+		// 	input: `    code`,
+		// },
+		// {
+		// 	name:  "indented code: single line with more than four spaces preserves remainder",
+		// 	input: `      code`,
+		// },
+		// {
+		// 	name: "indented code: multiple indented lines",
+		// 	input: md(
+		// 		"    one",
+		// 		"    two",
+		// 	),
+		// },
+		// {
+		// 	name: "indented code: blank line inside block",
+		// 	input: md(
+		// 		"    one",
+		// 		"",
+		// 		"    two",
+		// 	),
+		// },
+		// {
+		// 	name: "indented code: trailing blank lines rolled back before dedented line",
+		// 	input: md(
+		// 		"    one",
+		// 		"",
+		// 		"two",
+		// 	),
+		// },
+		// {
+		// 	name: "indented code: trailing blank lines at eof",
+		// 	input: md(
+		// 		"    one",
+		// 		"",
+		// 	),
+		// },
+		// {
+		// 	name:  "indented code: line with three leading spaces is not code block",
+		// 	input: `   code`,
+		// },
+		// {
+		// 	name:  "indented code: tab reaching four columns",
+		// 	input: "\tcode",
+		// },
+		// {
+		// 	name:  "indented code: mixed indentation reaching four columns",
+		// 	input: "  \tcode",
+		// },
+		// {
+		// 	name:  "indented code: mixed indentation below four columns",
+		// 	input: " \tcode",
+		// },
+		// {
+		// 	name: "indented code: paragraph transparency with continuation line",
+		// 	input: md(
+		// 		"one",
+		// 		"    two",
+		// 	),
+		// },
+		// {
+		// 	name: "indented code: begins after blank line following paragraph",
+		// 	input: md(
+		// 		"one",
+		// 		"",
+		// 		"    two",
+		// 	),
+		// },
+		// {
+		// 	name: "indented code: dedented nonblank line ends block",
+		// 	input: md(
+		// 		"    one",
+		// 		"    two",
+		// 		"three",
+		// 	),
+		// },
+		// {
+		// 	name:  "indented code: thematic-break-looking content is literal",
+		// 	input: `    ---`,
+		// },
+		// {
+		// 	name:  "indented code: block-quote-looking content is literal",
+		// 	input: `    > hello`,
+		// },
+		// {
+		// 	name:  "indented code: list-looking content is literal",
+		// 	input: `    - hello`,
+		// },
+		// {
+		// 	name:  "indented code: atx-heading-looking content is literal",
+		// 	input: `    # hello`,
+		// },
+		//	{
+		//		name: "indented code: fenced-opener-looking content is literal",
+		//		input: `    ````,
+		//	},
+		// {
+		// 	name: "indented code: multiple blank lines inside block",
+		// 	input: md(
+		// 		"    one",
+		// 		"",
+		// 		"",
+		// 		"    two",
+		// 	),
+		// },
+		// {
+		// 	name:  "indented code: trailing spaces in content line preserved",
+		// 	input: "    code  ",
+		// },
+		// {
+		// 	name:  "indented code: html-looking content escaped",
+		// 	input: `    <div>`,
+		// },
 
 		// inline emphasis
 
