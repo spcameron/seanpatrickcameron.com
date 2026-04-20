@@ -1,14 +1,14 @@
-package markdown_test
+package markdown
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown"
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 )
 
 func TestCompile_EndToEnd(t *testing.T) {
+	// TODO: rename fields input -> md, want -> html
 	testCases := []struct {
 		name    string
 		input   string
@@ -2424,15 +2424,665 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 
+		// NOTE: pick up from here
 		// code spans
+
+		{
+			name:    "code span: matching single delimiters produce code span",
+			input:   "`code`",
+			want:    `<p><code>code</code></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "code span: matching multi-delimiters produce code span",
+			input:   "``code``",
+			want:    `<p><code>code</code></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "code span: content may contain single backticks when wrapped in wider delimiters",
+			input:   "``a ` b``",
+			want:    "<p><code>a ` b</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: content may contain double backticks when wrapped in wider delimiters",
+			input:   "```a `` b```",
+			want:    "<p><code>a `` b</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: opening delimiter without matching closer remains literal text",
+			input:   "`code",
+			want:    "<p>`code</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: closing delimiter with different width does not close span",
+			input:   "`code``",
+			want:    "<p>`code``</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: opener skips non-matching backtick runs and closes on matching width",
+			input:   "``code`more``",
+			want:    "<p><code>code`more</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: empty content is allowed",
+			input:   "````",
+			want:    "<pre><code></code></pre>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: single leading and trailing spaces are trimmed when content is not all spaces",
+			input:   "` code `",
+			want:    "<p><code>code</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: only one leading and trailing space are trimmed",
+			input:   "`  code  `",
+			want:    "<p><code> code </code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: all-space content is not trimmed",
+			input:   "`   `",
+			want:    "<p><code>   </code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: interior spaces are preserved",
+			input:   "`a  b`",
+			want:    "<p><code>a  b</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: punctuation is treated as literal content",
+			input:   "`<a>*&_[]()`",
+			want:    "<p><code>&lt;a&gt;*&amp;_[]()</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: emphasis delimiters inside span are literal content",
+			input:   "`*a*`",
+			want:    "<p><code>*a*</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: brackets and parentheses inside span are literal content",
+			input:   "`[a](b)`",
+			want:    "<p><code>[a](b)</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: span does not consume surrounding text",
+			input:   "a `code` b",
+			want:    "<p>a <code>code</code> b</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: multiple code spans may appear in one line",
+			input:   "`a` and `b`",
+			want:    "<p><code>a</code> and <code>b</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: unmatched wider opener remains literal text",
+			input:   "``code`",
+			want:    "<p>``code`</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: later matching closer forms span after earlier mismatched run",
+			input:   "```code``more```",
+			want:    "<p><code>code``more</code></p>",
+			wantErr: nil,
+		},
+		{
+			name:    "code span: lone backtick remains literal text",
+			input:   "`",
+			want:    "<p>`</p>",
+			wantErr: nil,
+		},
 
 		// inline links
 
-		// images
+		// {
+		// 	name:  "link: inline destination resolves to link",
+		// 	input: "[label](/url)",
+		// },
+		// {
+		// 	name:  "link: empty destination is allowed",
+		// 	input: "[label]()",
+		// },
+		// {
+		// 	name:  "link: empty label is allowed",
+		// 	input: "[](/url)",
+		// },
+		// {
+		// 	name:  "link: angle-delimited destination resolves to link",
+		// 	input: "[label](</url>)",
+		// },
+		// {
+		// 	name:  "link: bare destination resolves to link",
+		// 	input: "[label](/a/b)",
+		// },
+		// {
+		// 	name:  "link: bare destination may contain balanced parentheses",
+		// 	input: "[label](a(b)c)",
+		// },
+		// {
+		// 	name:  "link: bare destination may contain escaped parentheses",
+		// 	input: "[label](a\\(b\\)c)",
+		// },
+		// {
+		// 	name:  "link: destination may include a double-quoted title",
+		// 	input: "[label](/url \"title\")",
+		// },
+		// {
+		// 	name:  "link: destination may include a single-quoted title",
+		// 	input: "[label](/url 'title')",
+		// },
+		// {
+		// 	name:  "link: destination may include a parenthesized title",
+		// 	input: "[label](/url (title))",
+		// },
+		// {
+		// 	name:  "link: title may contain balanced parentheses",
+		// 	input: "[label](/url (a (b) c))",
+		// },
+		// {
+		// 	name:  "link: whitespace between destination and title is required",
+		// 	input: "[label](/url\"title\")",
+		// },
+		// {
+		// 	name:  "link: spaces and tabs around destination are allowed",
+		// 	input: "[label]( \t/url\t )",
+		// },
+		// {
+		// 	name:  "link: spaces and tabs around destination and title are allowed",
+		// 	input: "[label]( \t/url \t \"title\"\t )",
+		// },
+		// {
+		// 	name:  "link: nested inline content is allowed in label",
+		// 	input: "[a *b* c](/url)",
+		// },
+		// {
+		// 	name:  "link: code span is allowed inside label",
+		// 	input: "[a `b` c](/url)",
+		// },
+		// {
+		// 	name:  "link: image is allowed inside label",
+		// 	input: "[![alt](/img.png)](/url)",
+		// },
+		// {
+		// 	name:  "link: surrounding text is preserved",
+		// 	input: "a [label](/url) b",
+		// },
+		// {
+		// 	name:  "link: missing tail leaves brackets as literal text",
+		// 	input: "[label]",
+		// },
+		// {
+		// 	name:  "link: missing closing parenthesis leaves construct as literal text",
+		// 	input: "[label](/url",
+		// },
+		// {
+		// 	name:  "link: invalid angle destination leaves construct as literal text",
+		// 	input: "[label](<a<>)",
+		// },
+		// {
+		// 	name:  "link: unbalanced bare destination leaves construct as literal text",
+		// 	input: "[label](a(b)",
+		// },
+		// {
+		// 	name:  "link: title without destination leaves construct as literal text",
+		// 	input: "[label](\"title\")",
+		// },
+		// {
+		// 	name:  "link: newline in angle destination leaves construct as literal text",
+		// 	input: "[label](<a\nb>)",
+		// },
+		// {
+		// 	name:  "link: newline in quoted title leaves construct as literal text",
+		// 	input: "[label](/url \"a\nb\")",
+		// },
+		// {
+		// 	name:  "link: newline in parenthesized title leaves construct as literal text",
+		// 	input: "[label](/url (a\nb))",
+		// },
+		// {
+		// 	name:  "link: literal closing bracket without opener remains text",
+		// 	input: "label](/url)",
+		// },
+		// {
+		// 	name:  "link: nested links are rejected",
+		// 	input: "[outer [inner](/in)](/out)",
+		// },
+		// {
+		// 	name:  "link: inner links may still resolve when outer link is rejected",
+		// 	input: "[outer [inner](/in)]",
+		// },
 
-		// autolinks
+		// inline images
 
-		// raw HTML
+		// {
+		// 	name:  "image: inline destination resolves to image",
+		// 	input: "![alt](/img.png)",
+		// },
+		// {
+		// 	name:  "image: empty destination is allowed",
+		// 	input: "![alt]()",
+		// },
+		// {
+		// 	name:  "image: empty label is allowed",
+		// 	input: "![](/img.png)",
+		// },
+		// {
+		// 	name:  "image: angle-delimited destination resolves to image",
+		// 	input: "![alt](</img.png>)",
+		// },
+		// {
+		// 	name:  "image: bare destination resolves to image",
+		// 	input: "![alt](/a/b.png)",
+		// },
+		// {
+		// 	name:  "image: bare destination may contain balanced parentheses",
+		// 	input: "![alt](a(b)c.png)",
+		// },
+		// {
+		// 	name:  "image: bare destination may contain escaped parentheses",
+		// 	input: "![alt](a\\(b\\)c.png)",
+		// },
+		// {
+		// 	name:  "image: destination may include a double-quoted title",
+		// 	input: "![alt](/img.png \"title\")",
+		// },
+		// {
+		// 	name:  "image: destination may include a single-quoted title",
+		// 	input: "![alt](/img.png 'title')",
+		// },
+		// {
+		// 	name:  "image: destination may include a parenthesized title",
+		// 	input: "![alt](/img.png (title))",
+		// },
+		// {
+		// 	name:  "image: title may contain balanced parentheses",
+		// 	input: "![alt](/img.png (a (b) c))",
+		// },
+		// {
+		// 	name:  "image: whitespace between destination and title is required",
+		// 	input: "![alt](/img.png\"title\")",
+		// },
+		// {
+		// 	name:  "image: spaces and tabs around destination are allowed",
+		// 	input: "![alt]( \t/img.png\t )",
+		// },
+		// {
+		// 	name:  "image: spaces and tabs around destination and title are allowed",
+		// 	input: "![alt]( \t/img.png \t \"title\"\t )",
+		// },
+		// {
+		// 	name:  "image: nested inline content is allowed in label",
+		// 	input: "![a *b* c](/img.png)",
+		// },
+		// {
+		// 	name:  "image: code span is allowed inside label",
+		// 	input: "![a `b` c](/img.png)",
+		// },
+		// {
+		// 	name:  "image: link is allowed inside image label",
+		// 	input: "![see [this](/url)](/img.png)",
+		// },
+		// {
+		// 	name:  "image: surrounding text is preserved",
+		// 	input: "a ![alt](/img.png) b",
+		// },
+		// {
+		// 	name:  "image: missing tail leaves brackets as literal text",
+		// 	input: "![alt]",
+		// },
+		// {
+		// 	name:  "image: missing closing parenthesis leaves construct as literal text",
+		// 	input: "![alt](/img.png",
+		// },
+		// {
+		// 	name:  "image: invalid angle destination leaves construct as literal text",
+		// 	input: "![alt](<a<>)",
+		// },
+		// {
+		// 	name:  "image: unbalanced bare destination leaves construct as literal text",
+		// 	input: "![alt](a(b)",
+		// },
+		// {
+		// 	name:  "image: title without destination leaves construct as literal text",
+		// 	input: "![alt](\"title\")",
+		// },
+		// {
+		// 	name:  "image: newline in angle destination leaves construct as literal text",
+		// 	input: "![alt](<a\nb>)",
+		// },
+		// {
+		// 	name:  "image: newline in quoted title leaves construct as literal text",
+		// 	input: "![alt](/img.png \"a\nb\")",
+		// },
+		// {
+		// 	name:  "image: newline in parenthesized title leaves construct as literal text",
+		// 	input: "![alt](/img.png (a\nb))",
+		// },
+		// {
+		// 	name:  "image: literal closing bracket without opener remains text",
+		// 	input: "alt](/img.png)",
+		// },
+		// {
+		// 	name:  "image: nested images are allowed",
+		// 	input: "![outer ![inner](/in.png)](/out.png)",
+		// },
+
+		// inline autolinks
+
+		// 		{
+		// 	name:  "autolink: uri with alphabetic scheme resolves to link",
+		// 	input: "<https://example.com>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme may include plus period and hyphen",
+		// 	input: "<a+b.c-d:xyz>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme may include digits after the first character",
+		// 	input: "<x1:abc>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme must begin with a letter",
+		// 	input: "<1x:abc>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme must contain a colon",
+		// 	input: "<https//example.com>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme must be at least two characters",
+		// 	input: "<h:abc>",
+		// },
+		// {
+		// 	name:  "autolink: uri scheme may not exceed thirty two characters",
+		// 	input: "<abcdefghijklmnopqrstuvwxyzabcdef:abc>",
+		// },
+		// {
+		// 	name:  "autolink: uri may contain query punctuation",
+		// 	input: "<https://example.com?a=1&b=2>",
+		// },
+		// {
+		// 	name:  "autolink: uri may not contain spaces",
+		// 	input: "<https://example .com>",
+		// },
+		// {
+		// 	name:  "autolink: uri may not contain angle brackets in content",
+		// 	input: "<https://exa<mple.com>",
+		// },
+		// {
+		// 	name:  "autolink: uri without closing angle bracket remains literal text",
+		// 	input: "<https://example.com",
+		// },
+		// {
+		// 	name:  "autolink: surrounding text is preserved for uri autolink",
+		// 	input: "a <https://example.com> b",
+		// },
+		//
+		// {
+		// 	name:  "autolink: email address resolves to mail link",
+		// 	input: "<user@example.com>",
+		// },
+		// {
+		// 	name:  "autolink: email local part may contain permitted punctuation",
+		// 	input: "<a.b+c_d-test@example.com>",
+		// },
+		// {
+		// 	name:  "autolink: email domain may contain hyphen within label",
+		// 	input: "<user@exa-mple.com>",
+		// },
+		// {
+		// 	name:  "autolink: email requires exactly one at sign",
+		// 	input: "<a@b@c.com>",
+		// },
+		// {
+		// 	name:  "autolink: email requires nonempty local part",
+		// 	input: "<@example.com>",
+		// },
+		// {
+		// 	name:  "autolink: email requires nonempty domain",
+		// 	input: "<user@>",
+		// },
+		// {
+		// 	name:  "autolink: email domain labels may not begin with hyphen",
+		// 	input: "<user@-example.com>",
+		// },
+		// {
+		// 	name:  "autolink: email domain labels may not end with hyphen",
+		// 	input: "<user@example-.com>",
+		// },
+		// {
+		// 	name:  "autolink: email domain labels may not contain underscore",
+		// 	input: "<user@exa_mple.com>",
+		// },
+		// {
+		// 	name:  "autolink: email domain labels may not be empty",
+		// 	input: "<user@example..com>",
+		// },
+		// {
+		// 	name:  "autolink: email without closing angle bracket remains literal text",
+		// 	input: "<user@example.com",
+		// },
+		// {
+		// 	name:  "autolink: surrounding text is preserved for email autolink",
+		// 	input: "a <user@example.com> b",
+		// },
+		//
+		// {
+		// 	name:  "autolink: invalid angle content falls back to literal text",
+		// 	input: "<local@domain>",
+		// },
+		// {
+		// 	name:  "autolink: invalid uri content falls back to literal text",
+		// 	input: "<http:exa mple>",
+		// },
+		// {
+		// 	name:  "autolink: invalid email content falls back to literal text",
+		// 	input: "<user@exa_mple.com>",
+		// },
+		// {
+		// 	name:  "autolink: lone opening angle bracket remains literal text",
+		// 	input: "<",
+		// },
+		// {
+		// 	name:  "autolink: empty angle pair remains literal text",
+		// 	input: "<>",
+		// },
+
+		// raw inline HTML
+
+		// 		{
+		// 	name:  "inline html: comment resolves as raw html",
+		// 	input: "<!-- comment -->",
+		// },
+		// {
+		// 	name:  "inline html: empty comment resolves as raw html",
+		// 	input: "<!---->",
+		// },
+		// {
+		// 	name:  "inline html: processing instruction resolves as raw html",
+		// 	input: "<?php?>",
+		// },
+		// {
+		// 	name:  "inline html: declaration resolves as raw html",
+		// 	input: "<!DOCTYPE html>",
+		// },
+		// {
+		// 	name:  "inline html: cdata section resolves as raw html",
+		// 	input: "<![CDATA[hello]]>",
+		// },
+		// {
+		// 	name:  "inline html: opening tag resolves as raw html",
+		// 	input: "<span>",
+		// },
+		// {
+		// 	name:  "inline html: closing tag resolves as raw html",
+		// 	input: "</span>",
+		// },
+		// {
+		// 	name:  "inline html: opening tag may contain attributes",
+		// 	input: "<a href=\"/url\" title=\"x\">",
+		// },
+		// {
+		// 	name:  "inline html: opening tag may contain single quoted attributes",
+		// 	input: "<a href='/url' title='x'>",
+		// },
+		// {
+		// 	name:  "inline html: opening tag may contain unquoted attributes",
+		// 	input: "<a href=/url title=x>",
+		// },
+		// {
+		// 	name:  "inline html: opening tag may contain bare attributes",
+		// 	input: "<input disabled>",
+		// },
+		// {
+		// 	name:  "inline html: opening tag may contain spaces before attributes",
+		// 	input: "<a  href=\"/url\">",
+		// },
+		// {
+		// 	name:  "inline html: self closing tag resolves as raw html",
+		// 	input: "<br/>",
+		// },
+		// {
+		// 	name:  "inline html: self closing tag may contain spaces before slash",
+		// 	input: "<br />",
+		// },
+		// {
+		// 	name:  "inline html: self closing tag may contain attributes",
+		// 	input: "<img src=\"/img.png\" alt=\"x\" />",
+		// },
+		// {
+		// 	name:  "inline html: tag attributes may mix quoting styles",
+		// 	input: "<a href=\"/url\" data-x='y' rel=noopener>",
+		// },
+		// {
+		// 	name:  "inline html: quoted attribute values may contain closing angle brackets",
+		// 	input: "<a title=\"1 > 0\">",
+		// },
+		// {
+		// 	name:  "inline html: quoted attribute values may contain opposite quote kind",
+		// 	input: "<a title='\"x\"'>",
+		// },
+		// {
+		// 	name:  "inline html: surrounding text is preserved",
+		// 	input: "a <span> b",
+		// },
+		//
+		// {
+		// 	name:  "inline html: opening tag requires alphabetic tag name start",
+		// 	input: "<1span>",
+		// },
+		// {
+		// 	name:  "inline html: closing tag requires alphabetic tag name start",
+		// 	input: "</1span>",
+		// },
+		// {
+		// 	name:  "inline html: tag name may contain digits after the first character",
+		// 	input: "<h1>",
+		// },
+		// {
+		// 	name:  "inline html: tag name may contain hyphen",
+		// 	input: "<custom-tag>",
+		// },
+		// {
+		// 	name:  "inline html: attribute name may begin with underscore",
+		// 	input: "<a _x=\"y\">",
+		// },
+		// {
+		// 	name:  "inline html: attribute name may begin with colon",
+		// 	input: "<a :x=\"y\">",
+		// },
+		// {
+		// 	name:  "inline html: attribute name may contain punctuation",
+		// 	input: "<a data.x:y-z=\"v\">",
+		// },
+		//
+		// {
+		// 	name:  "inline html: unterminated comment remains literal text",
+		// 	input: "<!-- comment",
+		// },
+		// {
+		// 	name:  "inline html: unterminated processing instruction remains literal text",
+		// 	input: "<?php",
+		// },
+		// {
+		// 	name:  "inline html: unterminated declaration remains literal text",
+		// 	input: "<!DOCTYPE html",
+		// },
+		// {
+		// 	name:  "inline html: unterminated cdata remains literal text",
+		// 	input: "<![CDATA[hello",
+		// },
+		// {
+		// 	name:  "inline html: unterminated opening tag remains literal text",
+		// 	input: "<span",
+		// },
+		// {
+		// 	name:  "inline html: unterminated closing tag remains literal text",
+		// 	input: "</span",
+		// },
+		// {
+		// 	name:  "inline html: attribute requires separator whitespace",
+		// 	input: "<ahref=\"/url\">",
+		// },
+		// {
+		// 	name:  "inline html: attribute value requires nonempty content when unquoted",
+		// 	input: "<a href=>",
+		// },
+		// {
+		// 	name:  "inline html: attribute value requires closing quote",
+		// 	input: "<a href=\"/url>",
+		// },
+		// {
+		// 	name:  "inline html: single quoted attribute value requires closing quote",
+		// 	input: "<a href='/url>",
+		// },
+		// {
+		// 	name:  "inline html: self closing suffix must run directly to closing bracket",
+		// 	input: "<br/ x>",
+		// },
+		// {
+		// 	name:  "inline html: closing tag allows trailing spaces only",
+		// 	input: "</span >",
+		// },
+		// {
+		// 	name:  "inline html: closing tag rejects extra content",
+		// 	input: "</span x>",
+		// },
+		// {
+		// 	name:  "inline html: unquoted attribute value may not contain less than",
+		// 	input: "<a href=x<y>",
+		// },
+		// {
+		// 	name:  "inline html: unquoted attribute value may not contain greater than",
+		// 	input: "<a href=x>y>",
+		// },
+		// {
+		// 	name:  "inline html: unquoted attribute value may not contain backtick",
+		// 	input: "<a href=x`y>",
+		// },
+		// {
+		// 	name:  "inline html: lone opening angle bracket remains literal text",
+		// 	input: "<",
+		// },
+		// {
+		// 	name:  "inline html: unknown angle construct remains literal text",
+		// 	input: "<!>",
+		// },
 
 		// HTML blocks
 
@@ -2879,18 +3529,422 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// escapes
 
+		// 		{
+		// 	name:  "escape: escaped emphasis opener remains literal text",
+		// 	input: "\\*a*",
+		// },
+		// {
+		// 	name:  "escape: escaped emphasis closer remains literal text",
+		// 	input: "*a\\*",
+		// },
+		// {
+		// 	name:  "escape: escaped strong delimiter remains literal text",
+		// 	input: "\\**a**",
+		// },
+		// {
+		// 	name:  "escape: escaped underscore remains literal text",
+		// 	input: "\\_a_",
+		// },
+		// {
+		// 	name:  "escape: escaped backtick remains literal text",
+		// 	input: "\\`code`",
+		// },
+		// {
+		// 	name:  "escape: escaped opening bracket prevents link formation",
+		// 	input: "\\[label](/url)",
+		// },
+		// {
+		// 	name:  "escape: escaped closing bracket prevents link formation",
+		// 	input: "[label\\](/url)",
+		// },
+		// {
+		// 	name:  "escape: escaped opening parenthesis prevents inline link tail",
+		// 	input: "[label]\\(/url)",
+		// },
+		// {
+		// 	name:  "escape: escaped closing parenthesis remains literal text",
+		// 	input: "[label](/url\\)",
+		// },
+		// {
+		// 	name:  "escape: escaped opening angle remains literal text",
+		// 	input: "\\<span>",
+		// },
+		// {
+		// 	name:  "escape: escaped closing angle remains literal text",
+		// 	input: "<span\\>",
+		// },
+		// {
+		// 	name:  "escape: escaped bang prevents image formation",
+		// 	input: "\\![alt](/img.png)",
+		// },
+		// {
+		// 	name:  "escape: escaped image opener becomes literal punctuation",
+		// 	input: "!\\[alt](/img.png)",
+		// },
+		// {
+		// 	name:  "escape: escaped delimiter inside emphasis is literal text",
+		// 	input: "*a \\* b*",
+		// },
+		// {
+		// 	name:  "escape: escaped delimiter inside strong is literal text",
+		// 	input: "**a \\* b**",
+		// },
+		// {
+		// 	name:  "escape: escaped backticks prevent code span formation",
+		// 	input: "\\`code\\`",
+		// },
+		// {
+		// 	name:  "escape: escaped brackets are literal inside text",
+		// 	input: "\\[a\\]",
+		// },
+		// {
+		// 	name:  "escape: escaped parentheses are literal inside text",
+		// 	input: "\\(a\\)",
+		// },
+		// {
+		// 	name:  "escape: escaped angle brackets are literal inside text",
+		// 	input: "\\<a\\>",
+		// },
+		// {
+		// 	name:  "escape: escaped backslash yields literal backslash",
+		// 	input: "\\\\",
+		// },
+		// {
+		// 	name:  "escape: trailing backslash remains literal text",
+		// 	input: "\\",
+		// },
+		// {
+		// 	name:  "escape: backslash before ordinary text remains literal",
+		// 	input: "\\a",
+		// },
+		// {
+		// 	name:  "escape: escaped delimiter does not prevent later valid emphasis",
+		// 	input: "\\*a* *b*",
+		// },
+		// {
+		// 	name:  "escape: escaped opener leaves following link syntax literal",
+		// 	input: "\\[x](y)",
+		// },
+		// {
+		// 	name:  "escape: escaped bang leaves following bracket construct as link syntax",
+		// 	input: "\\![x](y)",
+		// },
+		// {
+		// 	name:  "escape: escaped punctuation is preserved in surrounding text",
+		// 	input: "a \\* b",
+		// },
+
 		// reference links and images
 
-		// tight and loose lists
+		// 		{
+		// 	name:  "reference link: full reference resolves to link",
+		// 	input: "[label][ref]\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: collapsed reference resolves to link",
+		// 	input: "[label][]\n\n[label]: /url",
+		// },
+		// {
+		// 	name:  "reference link: shortcut reference resolves to link",
+		// 	input: "[label]\n\n[label]: /url",
+		// },
+		// {
+		// 	name:  "reference link: full reference may use empty label",
+		// 	input: "[label][]\n\n[]: /url",
+		// },
+		// {
+		// 	name:  "reference link: full reference uses referenced label rather than visible label",
+		// 	input: "[visible][ref]\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: reference definition may provide title",
+		// 	input: "[label][ref]\n\n[ref]: /url \"title\"",
+		// },
+		// {
+		// 	name:  "reference link: collapsed reference may use definition title",
+		// 	input: "[label][]\n\n[label]: /url \"title\"",
+		// },
+		// {
+		// 	name:  "reference link: shortcut reference may use definition title",
+		// 	input: "[label]\n\n[label]: /url \"title\"",
+		// },
+		// {
+		// 	name:  "reference link: nested inline content is allowed in label",
+		// 	input: "[a *b* c][ref]\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: code span is allowed in label",
+		// 	input: "[a `b` c][ref]\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: image is allowed in label",
+		// 	input: "[![alt](/img.png)][ref]\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: surrounding text is preserved",
+		// 	input: "a [label][ref] b\n\n[ref]: /url",
+		// },
+		// {
+		// 	name:  "reference link: full reference falls back to literal text when definition is missing",
+		// 	input: "[label][ref]",
+		// },
+		// {
+		// 	name:  "reference link: collapsed reference falls back to literal text when definition is missing",
+		// 	input: "[label][]",
+		// },
+		// {
+		// 	name:  "reference link: shortcut reference falls back to literal text when definition is missing",
+		// 	input: "[label]",
+		// },
+		// {
+		// 	name:  "reference link: full reference falls back to literal text when closing bracket is missing",
+		// 	input: "[label][ref",
+		// },
+		// {
+		// 	name:  "reference link: full reference falls back to literal text when label is invalid",
+		// 	input: "[label][a\nb]\n\n[a b]: /url",
+		// },
+		// {
+		// 	name:  "reference link: collapsed reference takes precedence over shortcut reference",
+		// 	input: "[label][]\n\n[label]: /url",
+		// },
+		// {
+		// 	name:  "reference link: full reference takes precedence over shortcut reference",
+		// 	input: "[label][ref]\n\n[label]: /wrong\n[ref]: /right",
+		// },
+		// {
+		// 	name:  "reference link: nested links are rejected in reference form",
+		// 	input: "[outer [inner][in]][out]\n\n[in]: /in\n[out]: /out",
+		// },
+		// {
+		// 	name:  "reference link: inner reference link may still resolve when outer link is rejected",
+		// 	input: "[outer [inner][in]]\n\n[in]: /in",
+		// },
+		//
+		// {
+		// 	name:  "reference image: full reference resolves to image",
+		// 	input: "![alt][ref]\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: collapsed reference resolves to image",
+		// 	input: "![alt][]\n\n[alt]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: shortcut reference resolves to image",
+		// 	input: "![alt]\n\n[alt]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: full reference may use empty label",
+		// 	input: "![alt][]\n\n[]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: full reference uses referenced label rather than visible label",
+		// 	input: "![visible][ref]\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: reference definition may provide title",
+		// 	input: "![alt][ref]\n\n[ref]: /img.png \"title\"",
+		// },
+		// {
+		// 	name:  "reference image: collapsed reference may use definition title",
+		// 	input: "![alt][]\n\n[alt]: /img.png \"title\"",
+		// },
+		// {
+		// 	name:  "reference image: shortcut reference may use definition title",
+		// 	input: "![alt]\n\n[alt]: /img.png \"title\"",
+		// },
+		// {
+		// 	name:  "reference image: nested inline content is allowed in label",
+		// 	input: "![a *b* c][ref]\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: code span is allowed in label",
+		// 	input: "![a `b` c][ref]\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: link is allowed in image label",
+		// 	input: "![see [this](/url)][ref]\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: surrounding text is preserved",
+		// 	input: "a ![alt][ref] b\n\n[ref]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: full reference falls back to literal text when definition is missing",
+		// 	input: "![alt][ref]",
+		// },
+		// {
+		// 	name:  "reference image: collapsed reference falls back to literal text when definition is missing",
+		// 	input: "![alt][]",
+		// },
+		// {
+		// 	name:  "reference image: shortcut reference falls back to literal text when definition is missing",
+		// 	input: "![alt]",
+		// },
+		// {
+		// 	name:  "reference image: full reference falls back to literal text when closing bracket is missing",
+		// 	input: "![alt][ref",
+		// },
+		// {
+		// 	name:  "reference image: full reference falls back to literal text when label is invalid",
+		// 	input: "![alt][a\nb]\n\n[a b]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: collapsed reference takes precedence over shortcut reference",
+		// 	input: "![alt][]\n\n[alt]: /img.png",
+		// },
+		// {
+		// 	name:  "reference image: nested images are allowed in reference form",
+		// 	input: "![outer ![inner][in]][out]\n\n[in]: /in.png\n[out]: /out.png",
+		// },
+		// {
+		// 	name:  "reference image: full reference takes precedence over shortcut reference",
+		// 	input: "![alt][ref]\n\n[alt]: /wrong.png\n[ref]: /right.png",
+		// },
 
 		// precedence and ambiguity
 
-		// malformed input fallback
+		// 		{
+		// 	name:  "precedence: code span suppresses emphasis parsing",
+		// 	input: "*a `*`*",
+		// },
+		// {
+		// 	name:  "precedence: code span suppresses link parsing",
+		// 	input: "[`[x](y)`](/url)",
+		// },
+		// {
+		// 	name:  "precedence: code span suppresses image parsing",
+		// 	input: "`![alt](/img.png)`",
+		// },
+		// {
+		// 	name:  "precedence: code span suppresses raw html parsing",
+		// 	input: "`<span>`",
+		// },
+		//
+		// 		{
+		// 	name:  "precedence: uri autolink takes precedence over raw html fallback",
+		// 	input: "<https://example.com>",
+		// },
+		// {
+		// 	name:  "precedence: email autolink takes precedence over raw html fallback",
+		// 	input: "<user@example.com>",
+		// },
+		// {
+		// 	name:  "precedence: raw html resolves when angle construct is not an autolink",
+		// 	input: "<span>",
+		// },
+		// {
+		// 	name:  "precedence: invalid angle construct falls back to literal text",
+		// 	input: "<local@domain>",
+		// },
+		//
+		// 		{
+		// 	name:  "precedence: emphasis is parsed inside link label",
+		// 	input: "[a *b* c](/url)",
+		// },
+		// {
+		// 	name:  "precedence: strong emphasis is parsed inside image label",
+		// 	input: "![a **b** c](/img.png)",
+		// },
+		// {
+		// 	name:  "precedence: nested link is rejected inside link label",
+		// 	input: "[outer [inner](/in)](/out)",
+		// },
+		// {
+		// 	name:  "precedence: link is allowed inside image label",
+		// 	input: "![see [this](/url)](/img.png)",
+		// },
+		//
+		// 		{
+		// 	name:  "precedence: escape prevents emphasis from binding",
+		// 	input: "\\*a*",
+		// },
+		// {
+		// 	name:  "precedence: escape prevents link formation",
+		// 	input: "\\[x](y)",
+		// },
+		// {
+		// 	name:  "precedence: escape prevents image formation",
+		// 	input: "\\![x](y)",
+		// },
+		// {
+		// 	name:  "precedence: escape prevents html recognition from opening angle bracket",
+		// 	input: "\\<span>",
+		// },
+		//
+		// 		{
+		// 	name:  "precedence: emphasis may wrap a link",
+		// 	input: "*[x](/url)*",
+		// },
+		// {
+		// 	name:  "precedence: strong emphasis may wrap an image",
+		// 	input: "**![alt](/img.png)**",
+		// },
+		// {
+		// 	name:  "precedence: link label may contain code span and emphasis together",
+		// 	input: "[a `b` *c*](/url)",
+		// },
+		// {
+		// 	name:  "precedence: code span prevents delimiter participation inside emphasis run",
+		// 	input: "*a `*` b*",
+		// },
+		//
+		// 		{
+		// 	name:  "precedence: failed inline link falls back without preventing later emphasis",
+		// 	input: "[x](a(b) *c*",
+		// },
+		// {
+		// 	name:  "precedence: failed autolink falls back to text and allows later emphasis",
+		// 	input: "<local@domain> *x*",
+		// },
+		// {
+		// 	name:  "precedence: failed raw html falls back to text and allows later link",
+		// 	input: "<1tag> [x](/url)",
+		// },
+
+		// 		{
+		// 	name:  "composite: emphasis code span and link may coexist in one paragraph",
+		// 	input: "a *b* `c` [d](/url) e",
+		// },
+		// {
+		// 	name:  "composite: image link and autolink may coexist in one paragraph",
+		// 	input: "![alt](/img.png) [x](/url) <https://example.com>",
+		// },
+		// {
+		// 	name:  "composite: escaped punctuation does not disrupt neighboring inline constructs",
+		// 	input: "\\* a *b* [c](/url) `d`",
+		// },
+		//
+		// 		{
+		// 	name:  "adjacency: consecutive links parse independently",
+		// 	input: "[a](/x)[b](/y)",
+		// },
+		// {
+		// 	name:  "adjacency: consecutive emphasis runs parse independently",
+		// 	input: "*a**b*",
+		// },
+		// {
+		// 	name:  "adjacency: code span adjacent to link parses independently",
+		// 	input: "`a`[b](/url)",
+		// },
+		// {
+		// 	name:  "adjacency: html adjacent to autolink parses independently",
+		// 	input: "<span><https://example.com>",
+		// },
+		//
+		// 		{
+		// 	name:  "nesting: emphasis inside link inside emphasis resolves correctly",
+		// 	input: "*[a **b** c](/url)*",
+		// },
+		// {
+		// 	name:  "nesting: image inside link inside emphasis resolves correctly",
+		// 	input: "*[![alt](/img.png)](/url)*",
+		// },
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := markdown.HTML(tc.input)
+			got, err := HTML(tc.input)
 
 			assert.Equal(t, got, tc.want)
 			assert.ErrorIs(t, err, tc.wantErr)
