@@ -2735,124 +2735,180 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// inline images
 
-		// {
-		// 	name:  "image: inline destination resolves to image",
-		// 	input: "![alt](/img.png)",
-		// },
-		// {
-		// 	name:  "image: empty destination is allowed",
-		// 	input: "![alt]()",
-		// },
-		// {
-		// 	name:  "image: empty label is allowed",
-		// 	input: "![](/img.png)",
-		// },
-		// {
-		// 	name:  "image: angle-delimited destination resolves to image",
-		// 	input: "![alt](</img.png>)",
-		// },
-		// {
-		// 	name:  "image: bare destination resolves to image",
-		// 	input: "![alt](/a/b.png)",
-		// },
-		// {
-		// 	name:  "image: bare destination may contain balanced parentheses",
-		// 	input: "![alt](a(b)c.png)",
-		// },
-		// {
-		// 	name:  "image: bare destination may contain escaped parentheses",
-		// 	input: "![alt](a\\(b\\)c.png)",
-		// },
+		{
+			name:    "image: inline destination resolves to image",
+			input:   "![alt](/img.png)",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: empty destination is allowed",
+			input:   "![alt]()",
+			want:    `<p><img alt="alt" src=""></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: empty label is allowed",
+			input:   "![](/img.png)",
+			want:    `<p><img alt="" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: angle-delimited destination resolves to image",
+			input:   "![alt](</img.png>)",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: bare destination resolves to image",
+			input:   "![alt](/a/b.png)",
+			want:    `<p><img alt="alt" src="/a/b.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: bare destination may contain balanced parentheses",
+			input:   "![alt](a(b)c.png)",
+			want:    `<p><img alt="alt" src="a(b)c.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: bare destination may contain escaped parentheses",
+			input:   "![alt](a\\(b\\)c.png)",
+			want:    `<p><img alt="alt" src="a(b)c.png"></p>`,
+			wantErr: nil,
+		},
 		{
 			name:    "image: escaped punctuation is unescaped in destination and title",
 			input:   `![alt](a\(b\)c "ti\"tle")`,
 			want:    `<p><img alt="alt" src="a(b)c" title="ti&#34;tle"></p>`,
 			wantErr: nil,
 		},
-		// {
-		// 	name:  "image: destination may include a double-quoted title",
-		// 	input: "![alt](/img.png \"title\")",
-		// },
-		// {
-		// 	name:  "image: destination may include a single-quoted title",
-		// 	input: "![alt](/img.png 'title')",
-		// },
-		// {
-		// 	name:  "image: destination may include a parenthesized title",
-		// 	input: "![alt](/img.png (title))",
-		// },
-		// {
-		// 	name:  "image: title may contain balanced parentheses",
-		// 	input: "![alt](/img.png (a (b) c))",
-		// },
-		// {
-		// 	name:  "image: whitespace between destination and title is required",
-		// 	input: "![alt](/img.png\"title\")",
-		// },
-		// {
-		// 	name:  "image: spaces and tabs around destination are allowed",
-		// 	input: "![alt]( \t/img.png\t )",
-		// },
-		// {
-		// 	name:  "image: spaces and tabs around destination and title are allowed",
-		// 	input: "![alt]( \t/img.png \t \"title\"\t )",
-		// },
-		// {
-		// 	name:  "image: nested inline content is allowed in label",
-		// 	input: "![a *b* c](/img.png)",
-		// },
-		// {
-		// 	name:  "image: code span is allowed inside label",
-		// 	input: "![a `b` c](/img.png)",
-		// },
-		// {
-		// 	name:  "image: link is allowed inside image label",
-		// 	input: "![see [this](/url)](/img.png)",
-		// },
-		// {
-		// 	name:  "image: surrounding text is preserved",
-		// 	input: "a ![alt](/img.png) b",
-		// },
-		// {
-		// 	name:  "image: missing tail leaves brackets as literal text",
-		// 	input: "![alt]",
-		// },
-		// {
-		// 	name:  "image: missing closing parenthesis leaves construct as literal text",
-		// 	input: "![alt](/img.png",
-		// },
-		// {
-		// 	name:  "image: invalid angle destination leaves construct as literal text",
-		// 	input: "![alt](<a<>)",
-		// },
-		// {
-		// 	name:  "image: unbalanced bare destination leaves construct as literal text",
-		// 	input: "![alt](a(b)",
-		// },
-		// {
-		// 	name:  "image: title without destination leaves construct as literal text",
-		// 	input: "![alt](\"title\")",
-		// },
-		// {
-		// 	name:  "image: newline in angle destination leaves construct as literal text",
-		// 	input: "![alt](<a\nb>)",
-		// },
-		// {
-		// 	name:  "image: newline in quoted title leaves construct as literal text",
-		// 	input: "![alt](/img.png \"a\nb\")",
-		// },
-		// {
-		// 	name:  "image: newline in parenthesized title leaves construct as literal text",
-		// 	input: "![alt](/img.png (a\nb))",
-		// },
-		// {
-		// 	name:  "image: literal closing bracket without opener remains text",
-		// 	input: "alt](/img.png)",
-		// },
-		// {
-		// 	name:  "image: nested images are allowed",
-		// 	input: "![outer ![inner](/in.png)](/out.png)",
-		// },
+		{
+			name:    "image: destination may include a double-quoted title",
+			input:   "![alt](/img.png \"title\")",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: destination may include a single-quoted title",
+			input:   "![alt](/img.png 'title')",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: destination may include a parenthesized title",
+			input:   "![alt](/img.png (title))",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: title may contain balanced parentheses",
+			input:   "![alt](/img.png (a (b) c))",
+			want:    `<p><img alt="alt" src="/img.png" title="a (b) c"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: whitespace between destination and title is required",
+			input:   "![alt](/img.png\"title\")",
+			want:    `<p><img alt="alt" src="/img.png&#34;title&#34;"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: spaces and tabs around destination are allowed",
+			input:   "![alt]( \t/img.png\t )",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: spaces and tabs around destination and title are allowed",
+			input:   "![alt]( \t/img.png \t \"title\"\t )",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: nested inline content is allowed in label",
+			input:   "![a *b* c](/img.png)",
+			want:    `<p><img alt="a b c" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: code span is allowed inside label",
+			input:   "![a `b` c](/img.png)",
+			want:    `<p><img alt="a b c" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: link is allowed inside image label",
+			input:   "![see [this](/url)](/img.png)",
+			want:    `<p><img alt="see this" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: surrounding text is preserved",
+			input:   "a ![alt](/img.png) b",
+			want:    `<p>a <img alt="alt" src="/img.png"> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: missing tail leaves brackets as literal text",
+			input:   "![alt]",
+			want:    `<p>![alt]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: missing closing parenthesis leaves construct as literal text",
+			input:   "![alt](/img.png",
+			want:    `<p>![alt](/img.png</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: invalid angle destination leaves construct as literal text",
+			input:   "![alt](<a<>)",
+			want:    `<p>![alt](&lt;a&lt;&gt;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: unbalanced bare destination leaves construct as literal text",
+			input:   "![alt](a(b)",
+			want:    `<p>![alt](a(b)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: quoted text without separator is parsed as bare destination",
+			input:   "![alt](\"title\")",
+			want:    `<p><img alt="alt" src="&#34;title&#34;"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: newline in angle destination leaves construct as literal text",
+			input:   "![alt](<a\nb>)",
+			want:    `<p>![alt](&lt;a b&gt;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: newline in quoted title leaves construct as literal text",
+			input:   "![alt](/img.png \"a\nb\")",
+			want:    `<p>![alt](/img.png &#34;a b&#34;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: newline in parenthesized title leaves construct as literal text",
+			input:   "![alt](/img.png (a\nb))",
+			want:    `<p>![alt](/img.png (a b))</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: literal closing bracket without opener remains text",
+			input:   "alt](/img.png)",
+			want:    `<p>alt](/img.png)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "image: nested images are allowed",
+			input:   "![outer ![inner](/in.png)](/out.png)",
+			want:    `<p><img alt="outer inner" src="/out.png"></p>`,
+			wantErr: nil,
+		},
 
 		// inline autolinks
 
