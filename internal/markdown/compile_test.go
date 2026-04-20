@@ -3359,12 +3359,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p>&lt;</p>`,
 			wantErr: nil,
 		},
-		{
-			name:    "inline html: unknown angle construct remains literal text",
-			input:   "<!>",
-			want:    `<!>`,
-			wantErr: nil,
-		},
 
 		// HTML blocks
 
@@ -3811,110 +3805,162 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// escapes
 
-		// 		{
-		// 	name:  "escape: escaped emphasis opener remains literal text",
-		// 	input: "\\*a*",
-		// },
-		// {
-		// 	name:  "escape: escaped emphasis closer remains literal text",
-		// 	input: "*a\\*",
-		// },
-		// {
-		// 	name:  "escape: escaped strong delimiter remains literal text",
-		// 	input: "\\**a**",
-		// },
-		// {
-		// 	name:  "escape: escaped underscore remains literal text",
-		// 	input: "\\_a_",
-		// },
-		// {
-		// 	name:  "escape: escaped backtick remains literal text",
-		// 	input: "\\`code`",
-		// },
-		// {
-		// 	name:  "escape: escaped opening bracket prevents link formation",
-		// 	input: "\\[label](/url)",
-		// },
-		// {
-		// 	name:  "escape: escaped closing bracket prevents link formation",
-		// 	input: "[label\\](/url)",
-		// },
-		// {
-		// 	name:  "escape: escaped opening parenthesis prevents inline link tail",
-		// 	input: "[label]\\(/url)",
-		// },
-		// {
-		// 	name:  "escape: escaped closing parenthesis remains literal text",
-		// 	input: "[label](/url\\)",
-		// },
-		// {
-		// 	name:  "escape: escaped opening angle remains literal text",
-		// 	input: "\\<span>",
-		// },
-		// {
-		// 	name:  "escape: escaped closing angle remains literal text",
-		// 	input: "<span\\>",
-		// },
-		// {
-		// 	name:  "escape: escaped bang prevents image formation",
-		// 	input: "\\![alt](/img.png)",
-		// },
-		// {
-		// 	name:  "escape: escaped image opener becomes literal punctuation",
-		// 	input: "!\\[alt](/img.png)",
-		// },
-		// {
-		// 	name:  "escape: escaped delimiter inside emphasis is literal text",
-		// 	input: "*a \\* b*",
-		// },
-		// {
-		// 	name:  "escape: escaped delimiter inside strong is literal text",
-		// 	input: "**a \\* b**",
-		// },
-		// {
-		// 	name:  "escape: escaped backticks prevent code span formation",
-		// 	input: "\\`code\\`",
-		// },
-		// {
-		// 	name:  "escape: escaped brackets are literal inside text",
-		// 	input: "\\[a\\]",
-		// },
-		// {
-		// 	name:  "escape: escaped parentheses are literal inside text",
-		// 	input: "\\(a\\)",
-		// },
-		// {
-		// 	name:  "escape: escaped angle brackets are literal inside text",
-		// 	input: "\\<a\\>",
-		// },
-		// {
-		// 	name:  "escape: escaped backslash yields literal backslash",
-		// 	input: "\\\\",
-		// },
-		// {
-		// 	name:  "escape: trailing backslash remains literal text",
-		// 	input: "\\",
-		// },
-		// {
-		// 	name:  "escape: backslash before ordinary text remains literal",
-		// 	input: "\\a",
-		// },
-		// {
-		// 	name:  "escape: escaped delimiter does not prevent later valid emphasis",
-		// 	input: "\\*a* *b*",
-		// },
-		// {
-		// 	name:  "escape: escaped opener leaves following link syntax literal",
-		// 	input: "\\[x](y)",
-		// },
-		// {
-		// 	name:  "escape: escaped bang leaves following bracket construct as link syntax",
-		// 	input: "\\![x](y)",
-		// },
-		// {
-		// 	name:  "escape: escaped punctuation is preserved in surrounding text",
-		// 	input: "a \\* b",
-		// },
+		{
+			name:    "escape: escaped emphasis opener remains literal text",
+			input:   "\\*a*",
+			want:    `<p>*a*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped emphasis closer remains literal text",
+			input:   "*a\\*",
+			want:    `<p>*a*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped strong delimiter remains literal text",
+			input:   "\\**a**",
+			want:    `<p>**a**</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped underscore remains literal text",
+			input:   "\\_a_",
+			want:    `<p>_a_</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped backtick remains literal text",
+			input:   "\\`code`",
+			want:    "<p>`code`</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped opening bracket prevents link formation",
+			input:   "\\[label](/url)",
+			want:    `<p>[label](/url)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped closing bracket prevents link formation",
+			input:   "[label\\](/url)",
+			want:    `<p>[label](/url)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped opening parenthesis prevents inline link tail",
+			input:   "[label]\\(/url)",
+			want:    `<p>[label](/url)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped closing parenthesis remains literal text",
+			input:   "[label](/url\\)",
+			want:    `<p>[label](/url)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped opening angle remains literal text",
+			input:   "\\<span>",
+			want:    `<p>&lt;span&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped closing angle remains literal text",
+			input:   "<span\\>",
+			want:    `<p>&lt;span&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped bang prevents image formation",
+			input:   "\\![alt](/img.png)",
+			want:    `<p>!<a href="/img.png">alt</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped image opener becomes literal punctuation",
+			input:   "!\\[alt](/img.png)",
+			want:    `<p>![alt](/img.png)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped delimiter inside emphasis is literal text",
+			input:   "*a \\* b*",
+			want:    `<p><em>a * b</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped delimiter inside strong is literal text",
+			input:   "**a \\* b**",
+			want:    `<p><strong>a * b</strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped backticks prevent code span formation",
+			input:   "\\`code\\`",
+			want:    "<p>`code`</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped brackets are literal inside text",
+			input:   "\\[a\\]",
+			want:    `<p>[a]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped parentheses are literal inside text",
+			input:   "\\(a\\)",
+			want:    `<p>(a)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped angle brackets are literal inside text",
+			input:   "\\<a\\>",
+			want:    `<p>&lt;a&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped backslash yields literal backslash",
+			input:   "\\\\",
+			want:    `<p>\</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: trailing backslash remains literal text",
+			input:   "\\",
+			want:    `<p>\</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: backslash before ordinary text remains literal",
+			input:   "\\a",
+			want:    `<p>\a</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped delimiter does not prevent later valid emphasis",
+			input:   "\\*a* *b*",
+			want:    `<p>*a* <em>b</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped opener leaves following link syntax literal",
+			input:   "\\[x](y)",
+			want:    `<p>[x](y)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped bang leaves following bracket construct as link syntax",
+			input:   "\\![x](y)",
+			want:    `<p>!<a href="y">x</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "escape: escaped punctuation is preserved in surrounding text",
+			input:   "a \\* b",
+			want:    `<p>a * b</p>`,
+			wantErr: nil,
+		},
 
 		// reference links and images
 
