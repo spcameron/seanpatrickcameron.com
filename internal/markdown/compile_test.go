@@ -4072,85 +4072,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p>[outer <a href="/in">inner</a>]</p>`,
 			wantErr: nil,
 		},
-
-		// reference images
-
-		// {
-		// 	name:  "reference image: full reference resolves to image",
-		// 	input: "![alt][ref]\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: collapsed reference resolves to image",
-		// 	input: "![alt][]\n\n[alt]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: shortcut reference resolves to image",
-		// 	input: "![alt]\n\n[alt]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: full reference may use empty label",
-		// 	input: "![alt][]\n\n[]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: full reference uses referenced label rather than visible label",
-		// 	input: "![visible][ref]\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: reference definition may provide title",
-		// 	input: "![alt][ref]\n\n[ref]: /img.png \"title\"",
-		// },
-		// {
-		// 	name:  "reference image: collapsed reference may use definition title",
-		// 	input: "![alt][]\n\n[alt]: /img.png \"title\"",
-		// },
-		// {
-		// 	name:  "reference image: shortcut reference may use definition title",
-		// 	input: "![alt]\n\n[alt]: /img.png \"title\"",
-		// },
-		// {
-		// 	name:  "reference image: nested inline content is allowed in label",
-		// 	input: "![a *b* c][ref]\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: code span is allowed in label",
-		// 	input: "![a `b` c][ref]\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: link is allowed in image label",
-		// 	input: "![see [this](/url)][ref]\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: surrounding text is preserved",
-		// 	input: "a ![alt][ref] b\n\n[ref]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: full reference falls back to literal text when definition is missing",
-		// 	input: "![alt][ref]",
-		// },
-		// {
-		// 	name:  "reference image: collapsed reference falls back to literal text when definition is missing",
-		// 	input: "![alt][]",
-		// },
-		// {
-		// 	name:  "reference image: shortcut reference falls back to literal text when definition is missing",
-		// 	input: "![alt]",
-		// },
-		// {
-		// 	name:  "reference image: full reference falls back to literal text when closing bracket is missing",
-		// 	input: "![alt][ref",
-		// },
-		// {
-		// 	name:  "reference image: collapsed reference takes precedence over shortcut reference",
-		// 	input: "![alt][]\n\n[alt]: /img.png",
-		// },
-		// {
-		// 	name:  "reference image: nested images are allowed in reference form",
-		// 	input: "![outer ![inner][in]][out]\n\n[in]: /in.png\n[out]: /out.png",
-		// },
-		// {
-		// 	name:  "reference image: full reference takes precedence over shortcut reference",
-		// 	input: "![alt][ref]\n\n[alt]: /wrong.png\n[ref]: /right.png",
-		// },
 		{
 			name:    "reference link: first matching definition wins",
 			input:   "[label]\n\n[label]: /first\n[label]: /second",
@@ -4158,15 +4079,126 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "reference image: first matching definition wins",
-			input:   "![alt]\n\n[alt]: /first.png\n[alt]: /second.png",
-			want:    `<p><img alt="alt" src="/first.png"></p>`,
-			wantErr: nil,
-		},
-		{
 			name:    "reference link: definition may be indented up to three spaces",
 			input:   "[label]\n\n   [label]: /url",
 			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+
+		// reference images
+
+		{
+			name:    "reference image: full reference resolves to image",
+			input:   "![alt][ref]\n\n[ref]: /img.png",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: collapsed reference resolves to image",
+			input:   "![alt][]\n\n[alt]: /img.png",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: shortcut reference resolves to image",
+			input:   "![alt]\n\n[alt]: /img.png",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: full reference uses referenced label rather than visible label",
+			input:   "![visible][ref]\n\n[ref]: /img.png",
+			want:    `<p><img alt="visible" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: reference definition may provide title",
+			input:   "![alt][ref]\n\n[ref]: /img.png \"title\"",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: collapsed reference may use definition title",
+			input:   "![alt][]\n\n[alt]: /img.png \"title\"",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: shortcut reference may use definition title",
+			input:   "![alt]\n\n[alt]: /img.png \"title\"",
+			want:    `<p><img alt="alt" src="/img.png" title="title"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: nested inline content is allowed in label",
+			input:   "![a *b* c][ref]\n\n[ref]: /img.png",
+			want:    `<p><img alt="a b c" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: code span is allowed in label",
+			input:   "![a `b` c][ref]\n\n[ref]: /img.png",
+			want:    `<p><img alt="a b c" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: link is allowed in image label",
+			input:   "![see [this](/url)][ref]\n\n[ref]: /img.png",
+			want:    `<p><img alt="see this" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: surrounding text is preserved",
+			input:   "a ![alt][ref] b\n\n[ref]: /img.png",
+			want:    `<p>a <img alt="alt" src="/img.png"> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: full reference falls back to literal text when definition is missing",
+			input:   "![alt][ref]",
+			want:    `<p>![alt][ref]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: collapsed reference falls back to literal text when definition is missing",
+			input:   "![alt][]",
+			want:    `<p>![alt][]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: shortcut reference falls back to literal text when definition is missing",
+			input:   "![alt]",
+			want:    `<p>![alt]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: full reference falls back to literal text when closing bracket is missing",
+			input:   "![alt][ref",
+			want:    `<p>![alt][ref</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: collapsed reference takes precedence over shortcut reference",
+			input:   "![alt][]\n\n[alt]: /img.png",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: nested images are allowed in reference form",
+			input:   "![outer ![inner][in]][out]\n\n[in]: /in.png\n[out]: /out.png",
+			want:    `<p><img alt="outer inner" src="/out.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: full reference takes precedence over shortcut reference",
+			input:   "![alt][ref]\n\n[alt]: /wrong.png\n[ref]: /right.png",
+			want:    `<p><img alt="alt" src="/right.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: first matching definition wins",
+			input:   "![alt]\n\n[alt]: /first.png\n[alt]: /second.png",
+			want:    `<p><img alt="alt" src="/first.png"></p>`,
 			wantErr: nil,
 		},
 		{
@@ -4178,142 +4210,200 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// precedence and ambiguity
 
-		// 		{
-		// 	name:  "precedence: code span suppresses emphasis parsing",
-		// 	input: "*a `*`*",
-		// },
-		// {
-		// 	name:  "precedence: code span suppresses link parsing",
-		// 	input: "[`[x](y)`](/url)",
-		// },
-		// {
-		// 	name:  "precedence: code span suppresses image parsing",
-		// 	input: "`![alt](/img.png)`",
-		// },
-		// {
-		// 	name:  "precedence: code span suppresses raw html parsing",
-		// 	input: "`<span>`",
-		// },
-		//
-		// 		{
-		// 	name:  "precedence: uri autolink takes precedence over raw html fallback",
-		// 	input: "<https://example.com>",
-		// },
-		// {
-		// 	name:  "precedence: email autolink takes precedence over raw html fallback",
-		// 	input: "<user@example.com>",
-		// },
-		// {
-		// 	name:  "precedence: raw html resolves when angle construct is not an autolink",
-		// 	input: "<span>",
-		// },
-		// {
-		// 	name:  "precedence: invalid angle construct falls back to literal text",
-		// 	input: "<local@domain>",
-		// },
-		//
-		// 		{
-		// 	name:  "precedence: emphasis is parsed inside link label",
-		// 	input: "[a *b* c](/url)",
-		// },
-		// {
-		// 	name:  "precedence: strong emphasis is parsed inside image label",
-		// 	input: "![a **b** c](/img.png)",
-		// },
-		// {
-		// 	name:  "precedence: nested link is rejected inside link label",
-		// 	input: "[outer [inner](/in)](/out)",
-		// },
-		// {
-		// 	name:  "precedence: link is allowed inside image label",
-		// 	input: "![see [this](/url)](/img.png)",
-		// },
-		//
-		// 		{
-		// 	name:  "precedence: escape prevents emphasis from binding",
-		// 	input: "\\*a*",
-		// },
-		// {
-		// 	name:  "precedence: escape prevents link formation",
-		// 	input: "\\[x](y)",
-		// },
-		// {
-		// 	name:  "precedence: escape prevents image formation",
-		// 	input: "\\![x](y)",
-		// },
-		// {
-		// 	name:  "precedence: escape prevents html recognition from opening angle bracket",
-		// 	input: "\\<span>",
-		// },
-		//
-		// 		{
-		// 	name:  "precedence: emphasis may wrap a link",
-		// 	input: "*[x](/url)*",
-		// },
-		// {
-		// 	name:  "precedence: strong emphasis may wrap an image",
-		// 	input: "**![alt](/img.png)**",
-		// },
-		// {
-		// 	name:  "precedence: link label may contain code span and emphasis together",
-		// 	input: "[a `b` *c*](/url)",
-		// },
-		// {
-		// 	name:  "precedence: code span prevents delimiter participation inside emphasis run",
-		// 	input: "*a `*` b*",
-		// },
-		//
-		// 		{
-		// 	name:  "precedence: failed inline link falls back without preventing later emphasis",
-		// 	input: "[x](a(b) *c*",
-		// },
-		// {
-		// 	name:  "precedence: failed autolink falls back to text and allows later emphasis",
-		// 	input: "<local@domain> *x*",
-		// },
-		// {
-		// 	name:  "precedence: failed raw html falls back to text and allows later link",
-		// 	input: "<1tag> [x](/url)",
-		// },
+		{
+			name:    "precedence: code span suppresses emphasis parsing",
+			input:   "*a `*`*",
+			want:    `<p><em>a <code>*</code></em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: code span suppresses link parsing",
+			input:   "[`[x](y)`](/url)",
+			want:    `<p><a href="/url"><code>[x](y)</code></a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: code span suppresses image parsing",
+			input:   "`![alt](/img.png)`",
+			want:    `<p><code>![alt](/img.png)</code></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: code span suppresses raw html parsing",
+			input:   "`<span>`",
+			want:    `<p><code>&lt;span&gt;</code></p>`,
+			wantErr: nil,
+		},
 
-		// 		{
-		// 	name:  "composite: emphasis code span and link may coexist in one paragraph",
-		// 	input: "a *b* `c` [d](/url) e",
-		// },
-		// {
-		// 	name:  "composite: image link and autolink may coexist in one paragraph",
-		// 	input: "![alt](/img.png) [x](/url) <https://example.com>",
-		// },
-		// {
-		// 	name:  "composite: escaped punctuation does not disrupt neighboring inline constructs",
-		// 	input: "\\* a *b* [c](/url) `d`",
-		// },
-		//
-		// 		{
-		// 	name:  "adjacency: consecutive links parse independently",
-		// 	input: "[a](/x)[b](/y)",
-		// },
-		// {
-		// 	name:  "adjacency: consecutive emphasis runs parse independently",
-		// 	input: "*a**b*",
-		// },
-		// {
-		// 	name:  "adjacency: code span adjacent to link parses independently",
-		// 	input: "`a`[b](/url)",
-		// },
-		// {
-		// 	name:  "adjacency: html adjacent to autolink parses independently",
-		// 	input: "<span><https://example.com>",
-		// },
-		//
-		// 		{
-		// 	name:  "nesting: emphasis inside link inside emphasis resolves correctly",
-		// 	input: "*[a **b** c](/url)*",
-		// },
-		// {
-		// 	name:  "nesting: image inside link inside emphasis resolves correctly",
-		// 	input: "*[![alt](/img.png)](/url)*",
-		// },
+		{
+			name:    "precedence: uri autolink takes precedence over raw html fallback",
+			input:   "<https://example.com>",
+			want:    `<p><a href="https://example.com">https://example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: email autolink takes precedence over raw html fallback",
+			input:   "<user@example.com>",
+			want:    `<p><a href="mailto:user@example.com">user@example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: raw html resolves when angle construct is not an autolink",
+			input:   "<span>",
+			want:    `<p><span></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: invalid angle construct falls back to literal text",
+			input:   "<local@domain>",
+			want:    `<p><a href="mailto:local@domain">local@domain</a></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "precedence: emphasis is parsed inside link label",
+			input:   "[a *b* c](/url)",
+			want:    `<p><a href="/url">a <em>b</em> c</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: strong emphasis is parsed inside image label",
+			input:   "![a **b** c](/img.png)",
+			want:    `<p><img alt="a b c" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: nested link is rejected inside link label",
+			input:   "[outer [inner](/in)](/out)",
+			want:    `<p>[outer <a href="/in">inner</a>](/out)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: link is allowed inside image label",
+			input:   "![see [this](/url)](/img.png)",
+			want:    `<p><img alt="see this" src="/img.png"></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "precedence: escape prevents emphasis from binding",
+			input:   "\\*a*",
+			want:    `<p>*a*</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: escape prevents link formation",
+			input:   "\\[x](y)",
+			want:    `<p>[x](y)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: escaped bang prevents image formation but preserves link parsing",
+			input:   "\\![x](y)",
+			want:    `<p>!<a href="y">x</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: escape prevents html recognition from opening angle bracket",
+			input:   "\\<span>",
+			want:    `<p>&lt;span&gt;</p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "precedence: emphasis may wrap a link",
+			input:   "*[x](/url)*",
+			want:    `<p><em><a href="/url">x</a></em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: strong emphasis may wrap an image",
+			input:   "**![alt](/img.png)**",
+			want:    `<p><strong><img alt="alt" src="/img.png"></strong></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: link label may contain code span and emphasis together",
+			input:   "[a `b` *c*](/url)",
+			want:    `<p><a href="/url">a <code>b</code> <em>c</em></a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: code span prevents delimiter participation inside emphasis run",
+			input:   "*a `*` b*",
+			want:    `<p><em>a <code>*</code> b</em></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "precedence: failed inline link falls back without preventing later emphasis",
+			input:   "[x](a(b) *c*",
+			want:    `<p>[x](a(b) <em>c</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: failed autolink falls back to text and allows later emphasis",
+			input:   "<local@domain> *x*",
+			want:    `<p><a href="mailto:local@domain">local@domain</a> <em>x</em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "precedence: failed raw html falls back to text and allows later link",
+			input:   "<1tag> [x](/url)",
+			want:    `<p>&lt;1tag&gt; <a href="/url">x</a></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "composite: emphasis code span and link may coexist in one paragraph",
+			input:   "a *b* `c` [d](/url) e",
+			want:    `<p>a <em>b</em> <code>c</code> <a href="/url">d</a> e</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "composite: image link and autolink may coexist in one paragraph",
+			input:   "![alt](/img.png) [x](/url) <https://example.com>",
+			want:    `<p><img alt="alt" src="/img.png"> <a href="/url">x</a> <a href="https://example.com">https://example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "composite: escaped punctuation does not disrupt neighboring inline constructs",
+			input:   "\\* a *b* [c](/url) `d`",
+			want:    `<p>* a <em>b</em> <a href="/url">c</a> <code>d</code></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "adjacency: consecutive links parse independently",
+			input:   "[a](/x)[b](/y)",
+			want:    `<p><a href="/x">a</a><a href="/y">b</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "adjacency: code span adjacent to link parses independently",
+			input:   "`a`[b](/url)",
+			want:    `<p><code>a</code><a href="/url">b</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "adjacency: html adjacent to autolink parses independently",
+			input:   "<span><https://example.com>",
+			want:    `<p><span><a href="https://example.com">https://example.com</a></p>`,
+			wantErr: nil,
+		},
+
+		{
+			name:    "nesting: emphasis inside link inside emphasis resolves correctly",
+			input:   "*[a **b** c](/url)*",
+			want:    `<p><em><a href="/url">a <strong>b</strong> c</a></em></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "nesting: image inside link inside emphasis resolves correctly",
+			input:   "*[![alt](/img.png)](/url)*",
+			want:    `<p><em><a href="/url"><img alt="alt" src="/img.png"></a></em></p>`,
+			wantErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {
