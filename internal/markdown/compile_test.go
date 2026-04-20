@@ -2912,124 +2912,192 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// inline autolinks
 
-		// 		{
-		// 	name:  "autolink: uri with alphabetic scheme resolves to link",
-		// 	input: "<https://example.com>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme may include plus period and hyphen",
-		// 	input: "<a+b.c-d:xyz>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme may include digits after the first character",
-		// 	input: "<x1:abc>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme must begin with a letter",
-		// 	input: "<1x:abc>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme must contain a colon",
-		// 	input: "<https//example.com>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme must be at least two characters",
-		// 	input: "<h:abc>",
-		// },
-		// {
-		// 	name:  "autolink: uri scheme may not exceed thirty two characters",
-		// 	input: "<abcdefghijklmnopqrstuvwxyzabcdef:abc>",
-		// },
-		// {
-		// 	name:  "autolink: uri may contain query punctuation",
-		// 	input: "<https://example.com?a=1&b=2>",
-		// },
-		// {
-		// 	name:  "autolink: uri may not contain spaces",
-		// 	input: "<https://example .com>",
-		// },
-		// {
-		// 	name:  "autolink: uri may not contain angle brackets in content",
-		// 	input: "<https://exa<mple.com>",
-		// },
-		// {
-		// 	name:  "autolink: uri without closing angle bracket remains literal text",
-		// 	input: "<https://example.com",
-		// },
-		// {
-		// 	name:  "autolink: surrounding text is preserved for uri autolink",
-		// 	input: "a <https://example.com> b",
-		// },
-		//
-		// {
-		// 	name:  "autolink: email address resolves to mail link",
-		// 	input: "<user@example.com>",
-		// },
-		// {
-		// 	name:  "autolink: email local part may contain permitted punctuation",
-		// 	input: "<a.b+c_d-test@example.com>",
-		// },
-		// {
-		// 	name:  "autolink: email domain may contain hyphen within label",
-		// 	input: "<user@exa-mple.com>",
-		// },
-		// {
-		// 	name:  "autolink: email requires exactly one at sign",
-		// 	input: "<a@b@c.com>",
-		// },
-		// {
-		// 	name:  "autolink: email requires nonempty local part",
-		// 	input: "<@example.com>",
-		// },
-		// {
-		// 	name:  "autolink: email requires nonempty domain",
-		// 	input: "<user@>",
-		// },
-		// {
-		// 	name:  "autolink: email domain labels may not begin with hyphen",
-		// 	input: "<user@-example.com>",
-		// },
-		// {
-		// 	name:  "autolink: email domain labels may not end with hyphen",
-		// 	input: "<user@example-.com>",
-		// },
-		// {
-		// 	name:  "autolink: email domain labels may not contain underscore",
-		// 	input: "<user@exa_mple.com>",
-		// },
-		// {
-		// 	name:  "autolink: email domain labels may not be empty",
-		// 	input: "<user@example..com>",
-		// },
-		// {
-		// 	name:  "autolink: email without closing angle bracket remains literal text",
-		// 	input: "<user@example.com",
-		// },
-		// {
-		// 	name:  "autolink: surrounding text is preserved for email autolink",
-		// 	input: "a <user@example.com> b",
-		// },
-		//
-		// {
-		// 	name:  "autolink: invalid angle content falls back to literal text",
-		// 	input: "<local@domain>",
-		// },
-		// {
-		// 	name:  "autolink: invalid uri content falls back to literal text",
-		// 	input: "<http:exa mple>",
-		// },
-		// {
-		// 	name:  "autolink: invalid email content falls back to literal text",
-		// 	input: "<user@exa_mple.com>",
-		// },
-		// {
-		// 	name:  "autolink: lone opening angle bracket remains literal text",
-		// 	input: "<",
-		// },
-		// {
-		// 	name:  "autolink: empty angle pair remains literal text",
-		// 	input: "<>",
-		// },
+		{
+			name:    "autolink: uri with alphabetic scheme resolves to link",
+			input:   "<https://example.com>",
+			want:    `<p><a href="https://example.com">https://example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme may include plus period and hyphen",
+			input:   "<a+b.c-d:xyz>",
+			want:    `<p><a href="a+b.c-d:xyz">a+b.c-d:xyz</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme may include digits after the first character",
+			input:   "<x1:abc>",
+			want:    `<p><a href="x1:abc">x1:abc</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme must begin with a letter",
+			input:   "<1x:abc>",
+			want:    `<p>&lt;1x:abc&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme must contain a colon",
+			input:   "<https//example.com>",
+			want:    `<p>&lt;https//example.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme must be at least two characters",
+			input:   "<h:abc>",
+			want:    `<p>&lt;h:abc&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme of thirty two characters is allowed",
+			input:   "<abcdefghijklmnopqrstuvwxyzabcdef:abc>",
+			want:    `<p><a href="abcdefghijklmnopqrstuvwxyzabcdef:abc">abcdefghijklmnopqrstuvwxyzabcdef:abc</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri scheme may not exceed thirty two characters",
+			input:   "<abcdefghijklmnopqrstuvwxyzabcdefg:abc>",
+			want:    `<p>&lt;abcdefghijklmnopqrstuvwxyzabcdefg:abc&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri may contain query punctuation",
+			input:   "<https://example.com?a=1&b=2>",
+			want:    `<p><a href="https://example.com?a=1&amp;b=2">https://example.com?a=1&amp;b=2</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri may not contain spaces",
+			input:   "<https://example .com>",
+			want:    `<p>&lt;https://example .com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri may not contain angle brackets in content",
+			input:   "<https://exa<mple.com>",
+			want:    `<p>&lt;https://exa&lt;mple.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: uri without closing angle bracket remains literal text",
+			input:   "<https://example.com",
+			want:    `<p>&lt;https://example.com</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: surrounding text is preserved for uri autolink",
+			input:   "a <https://example.com> b",
+			want:    `<p>a <a href="https://example.com">https://example.com</a> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email address resolves to mail link",
+			input:   "<user@example.com>",
+			want:    `<p><a href="mailto:user@example.com">user@example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email local part may contain permitted punctuation",
+			input:   "<a.b+c_d-test@example.com>",
+			want:    `<p><a href="mailto:a.b+c_d-test@example.com">a.b+c_d-test@example.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email domain may contain hyphen within label",
+			input:   "<user@exa-mple.com>",
+			want:    `<p><a href="mailto:user@exa-mple.com">user@exa-mple.com</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email requires exactly one at sign",
+			input:   "<a@b@c.com>",
+			want:    `<p>&lt;a@b@c.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email requires nonempty local part",
+			input:   "<@example.com>",
+			want:    `<p>&lt;@example.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email requires nonempty domain",
+			input:   "<user@>",
+			want:    `<p>&lt;user@&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email domain labels may not begin with hyphen",
+			input:   "<user@-example.com>",
+			want:    `<p>&lt;user@-example.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email domain labels may not end with hyphen",
+			input:   "<user@example-.com>",
+			want:    `<p>&lt;user@example-.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email domain labels may not contain underscore",
+			input:   "<user@exa_mple.com>",
+			want:    `<p>&lt;user@exa_mple.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email domain labels may not be empty",
+			input:   "<user@example..com>",
+			want:    `<p>&lt;user@example..com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email without closing angle bracket remains literal text",
+			input:   "<user@example.com",
+			want:    `<p>&lt;user@example.com</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: surrounding text is preserved for email autolink",
+			input:   "a <user@example.com> b",
+			want:    `<p>a <a href="mailto:user@example.com">user@example.com</a> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: email autolink does not require dotted domain",
+			input:   "<local@domain>",
+			want:    `<p><a href="mailto:local@domain">local@domain</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: invalid email content falls back to literal text",
+			input:   "<local@do_main>",
+			want:    `<p>&lt;local@do_main&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: invalid uri content falls back to literal text",
+			input:   "<http:exa mple>",
+			want:    `<p>&lt;http:exa mple&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: invalid email content falls back to literal text",
+			input:   "<user@exa_mple.com>",
+			want:    `<p>&lt;user@exa_mple.com&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: lone opening angle bracket remains literal text",
+			input:   "<",
+			want:    `<p>&lt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "autolink: empty angle pair remains literal text",
+			input:   "<>",
+			want:    `<p>&lt;&gt;</p>`,
+			wantErr: nil,
+		},
 
 		// raw inline HTML
 
