@@ -7,6 +7,9 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/testsupport/assert"
 )
 
+// TODO:
+// - trim ATX trailing markers
+
 func TestCompile_EndToEnd(t *testing.T) {
 	// TODO: rename fields input -> md, want -> html
 	testCases := []struct {
@@ -2424,7 +2427,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// NOTE: pick up from here
 		// code spans
 
 		{
@@ -2550,122 +2552,186 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// inline links
 
-		// {
-		// 	name:  "link: inline destination resolves to link",
-		// 	input: "[label](/url)",
-		// },
-		// {
-		// 	name:  "link: empty destination is allowed",
-		// 	input: "[label]()",
-		// },
-		// {
-		// 	name:  "link: empty label is allowed",
-		// 	input: "[](/url)",
-		// },
-		// {
-		// 	name:  "link: angle-delimited destination resolves to link",
-		// 	input: "[label](</url>)",
-		// },
-		// {
-		// 	name:  "link: bare destination resolves to link",
-		// 	input: "[label](/a/b)",
-		// },
-		// {
-		// 	name:  "link: bare destination may contain balanced parentheses",
-		// 	input: "[label](a(b)c)",
-		// },
-		// {
-		// 	name:  "link: bare destination may contain escaped parentheses",
-		// 	input: "[label](a\\(b\\)c)",
-		// },
-		// {
-		// 	name:  "link: destination may include a double-quoted title",
-		// 	input: "[label](/url \"title\")",
-		// },
-		// {
-		// 	name:  "link: destination may include a single-quoted title",
-		// 	input: "[label](/url 'title')",
-		// },
-		// {
-		// 	name:  "link: destination may include a parenthesized title",
-		// 	input: "[label](/url (title))",
-		// },
-		// {
-		// 	name:  "link: title may contain balanced parentheses",
-		// 	input: "[label](/url (a (b) c))",
-		// },
-		// {
-		// 	name:  "link: whitespace between destination and title is required",
-		// 	input: "[label](/url\"title\")",
-		// },
-		// {
-		// 	name:  "link: spaces and tabs around destination are allowed",
-		// 	input: "[label]( \t/url\t )",
-		// },
-		// {
-		// 	name:  "link: spaces and tabs around destination and title are allowed",
-		// 	input: "[label]( \t/url \t \"title\"\t )",
-		// },
-		// {
-		// 	name:  "link: nested inline content is allowed in label",
-		// 	input: "[a *b* c](/url)",
-		// },
-		// {
-		// 	name:  "link: code span is allowed inside label",
-		// 	input: "[a `b` c](/url)",
-		// },
-		// {
-		// 	name:  "link: image is allowed inside label",
-		// 	input: "[![alt](/img.png)](/url)",
-		// },
-		// {
-		// 	name:  "link: surrounding text is preserved",
-		// 	input: "a [label](/url) b",
-		// },
-		// {
-		// 	name:  "link: missing tail leaves brackets as literal text",
-		// 	input: "[label]",
-		// },
-		// {
-		// 	name:  "link: missing closing parenthesis leaves construct as literal text",
-		// 	input: "[label](/url",
-		// },
-		// {
-		// 	name:  "link: invalid angle destination leaves construct as literal text",
-		// 	input: "[label](<a<>)",
-		// },
-		// {
-		// 	name:  "link: unbalanced bare destination leaves construct as literal text",
-		// 	input: "[label](a(b)",
-		// },
-		// {
-		// 	name:  "link: title without destination leaves construct as literal text",
-		// 	input: "[label](\"title\")",
-		// },
-		// {
-		// 	name:  "link: newline in angle destination leaves construct as literal text",
-		// 	input: "[label](<a\nb>)",
-		// },
-		// {
-		// 	name:  "link: newline in quoted title leaves construct as literal text",
-		// 	input: "[label](/url \"a\nb\")",
-		// },
-		// {
-		// 	name:  "link: newline in parenthesized title leaves construct as literal text",
-		// 	input: "[label](/url (a\nb))",
-		// },
-		// {
-		// 	name:  "link: literal closing bracket without opener remains text",
-		// 	input: "label](/url)",
-		// },
-		// {
-		// 	name:  "link: nested links are rejected",
-		// 	input: "[outer [inner](/in)](/out)",
-		// },
-		// {
-		// 	name:  "link: inner links may still resolve when outer link is rejected",
-		// 	input: "[outer [inner](/in)]",
-		// },
+		{
+			name:    "link: inline destination resolves to link",
+			input:   "[label](/url)",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: empty destination is allowed",
+			input:   "[label]()",
+			want:    `<p><a href="">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: empty label is allowed",
+			input:   "[](/url)",
+			want:    `<p><a href="/url"></a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: angle-delimited destination resolves to link",
+			input:   "[label](</url>)",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: bare destination resolves to link",
+			input:   "[label](/a/b)",
+			want:    `<p><a href="/a/b">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: bare destination may contain balanced parentheses",
+			input:   "[label](a(b)c)",
+			want:    `<p><a href="a(b)c">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: bare destination may contain escaped parentheses",
+			input:   "[label](a\\(b\\)c)",
+			want:    `<p><a href="a(b)c">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: escaped punctuation is unescaped in destination and title",
+			input:   `[label](a\(b\)c "ti\"tle")`,
+			want:    `<p><a href="a(b)c" title="ti&#34;tle">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: destination may include a double-quoted title",
+			input:   "[label](/url \"title\")",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: destination may include a single-quoted title",
+			input:   "[label](/url 'title')",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: destination may include a parenthesized title",
+			input:   "[label](/url (title))",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: title may contain balanced parentheses",
+			input:   "[label](/url (a (b) c))",
+			want:    `<p><a href="/url" title="a (b) c">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: whitespace between destination and title is required",
+			input:   "[label](/url\"title\")",
+			want:    `<p><a href="/url&#34;title&#34;">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: spaces and tabs around destination are allowed",
+			input:   "[label]( \t/url\t )",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: spaces and tabs around destination and title are allowed",
+			input:   "[label]( \t/url \t \"title\"\t )",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: nested inline content is allowed in label",
+			input:   "[a *b* c](/url)",
+			want:    `<p><a href="/url">a <em>b</em> c</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: code span is allowed inside label",
+			input:   "[a `b` c](/url)",
+			want:    `<p><a href="/url">a <code>b</code> c</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: image is allowed inside label",
+			input:   "[![alt](/img.png)](/url)",
+			want:    `<p><a href="/url"><img alt="alt" src="/img.png"></a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: surrounding text is preserved",
+			input:   "a [label](/url) b",
+			want:    `<p>a <a href="/url">label</a> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: missing tail leaves brackets as literal text",
+			input:   "[label]",
+			want:    `<p>[label]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: missing closing parenthesis leaves construct as literal text",
+			input:   "[label](/url",
+			want:    `<p>[label](/url</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: invalid angle destination leaves construct as literal text",
+			input:   "[label](<a<>)",
+			want:    `<p>[label](&lt;a&lt;&gt;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: unbalanced bare destination leaves construct as literal text",
+			input:   "[label](a(b)",
+			want:    `<p>[label](a(b)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: quoted text without separator is parsed as bare destination",
+			input:   "[label](\"title\")",
+			want:    `<p><a href="&#34;title&#34;">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: newline in angle destination leaves construct as literal text",
+			input:   "[label](<a\nb>)",
+			want:    `<p>[label](&lt;a b&gt;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: newline in quoted title leaves construct as literal text",
+			input:   "[label](/url \"a\nb\")",
+			want:    `<p>[label](/url &#34;a b&#34;)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: newline in parenthesized title leaves construct as literal text",
+			input:   "[label](/url (a\nb))",
+			want:    `<p>[label](/url (a b))</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: literal closing bracket without opener remains text",
+			input:   "label](/url)",
+			want:    `<p>label](/url)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: nested links are rejected",
+			input:   "[outer [inner](/in)](/out)",
+			want:    `<p>[outer <a href="/in">inner</a>](/out)</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "link: inner links may still resolve when outer link is rejected",
+			input:   "[outer [inner](/in)]",
+			want:    `<p>[outer <a href="/in">inner</a>]</p>`,
+			wantErr: nil,
+		},
 
 		// inline images
 
@@ -2697,6 +2763,12 @@ func TestCompile_EndToEnd(t *testing.T) {
 		// 	name:  "image: bare destination may contain escaped parentheses",
 		// 	input: "![alt](a\\(b\\)c.png)",
 		// },
+		{
+			name:    "image: escaped punctuation is unescaped in destination and title",
+			input:   `![alt](a\(b\)c "ti\"tle")`,
+			want:    `<p><img alt="alt" src="a(b)c" title="ti&#34;tle"></p>`,
+			wantErr: nil,
+		},
 		// {
 		// 	name:  "image: destination may include a double-quoted title",
 		// 	input: "![alt](/img.png \"title\")",
