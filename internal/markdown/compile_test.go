@@ -3962,93 +3962,119 @@ func TestCompile_EndToEnd(t *testing.T) {
 			wantErr: nil,
 		},
 
-		// reference links and images
+		// reference links
 
-		// 		{
-		// 	name:  "reference link: full reference resolves to link",
-		// 	input: "[label][ref]\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: collapsed reference resolves to link",
-		// 	input: "[label][]\n\n[label]: /url",
-		// },
-		// {
-		// 	name:  "reference link: shortcut reference resolves to link",
-		// 	input: "[label]\n\n[label]: /url",
-		// },
-		// {
-		// 	name:  "reference link: full reference may use empty label",
-		// 	input: "[label][]\n\n[]: /url",
-		// },
-		// {
-		// 	name:  "reference link: full reference uses referenced label rather than visible label",
-		// 	input: "[visible][ref]\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: reference definition may provide title",
-		// 	input: "[label][ref]\n\n[ref]: /url \"title\"",
-		// },
-		// {
-		// 	name:  "reference link: collapsed reference may use definition title",
-		// 	input: "[label][]\n\n[label]: /url \"title\"",
-		// },
-		// {
-		// 	name:  "reference link: shortcut reference may use definition title",
-		// 	input: "[label]\n\n[label]: /url \"title\"",
-		// },
-		// {
-		// 	name:  "reference link: nested inline content is allowed in label",
-		// 	input: "[a *b* c][ref]\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: code span is allowed in label",
-		// 	input: "[a `b` c][ref]\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: image is allowed in label",
-		// 	input: "[![alt](/img.png)][ref]\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: surrounding text is preserved",
-		// 	input: "a [label][ref] b\n\n[ref]: /url",
-		// },
-		// {
-		// 	name:  "reference link: full reference falls back to literal text when definition is missing",
-		// 	input: "[label][ref]",
-		// },
-		// {
-		// 	name:  "reference link: collapsed reference falls back to literal text when definition is missing",
-		// 	input: "[label][]",
-		// },
-		// {
-		// 	name:  "reference link: shortcut reference falls back to literal text when definition is missing",
-		// 	input: "[label]",
-		// },
-		// {
-		// 	name:  "reference link: full reference falls back to literal text when closing bracket is missing",
-		// 	input: "[label][ref",
-		// },
-		// {
-		// 	name:  "reference link: full reference falls back to literal text when label is invalid",
-		// 	input: "[label][a\nb]\n\n[a b]: /url",
-		// },
-		// {
-		// 	name:  "reference link: collapsed reference takes precedence over shortcut reference",
-		// 	input: "[label][]\n\n[label]: /url",
-		// },
-		// {
-		// 	name:  "reference link: full reference takes precedence over shortcut reference",
-		// 	input: "[label][ref]\n\n[label]: /wrong\n[ref]: /right",
-		// },
-		// {
-		// 	name:  "reference link: nested links are rejected in reference form",
-		// 	input: "[outer [inner][in]][out]\n\n[in]: /in\n[out]: /out",
-		// },
-		// {
-		// 	name:  "reference link: inner reference link may still resolve when outer link is rejected",
-		// 	input: "[outer [inner][in]]\n\n[in]: /in",
-		// },
-		//
+		{
+			name:    "reference link: full reference resolves to link",
+			input:   "[label][ref]\n\n[ref]: /url",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: collapsed reference resolves to link",
+			input:   "[label][]\n\n[label]: /url",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: shortcut reference resolves to link",
+			input:   "[label]\n\n[label]: /url",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: visible label text is independent of referenced definition label",
+			input:   "[visible][ref]\n\n[ref]: /url",
+			want:    `<p><a href="/url">visible</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: reference definition may provide title",
+			input:   "[label][ref]\n\n[ref]: /url \"title\"",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: collapsed reference may use definition title",
+			input:   "[label][]\n\n[label]: /url \"title\"",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: shortcut reference may use definition title",
+			input:   "[label]\n\n[label]: /url \"title\"",
+			want:    `<p><a href="/url" title="title">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: nested inline content is allowed in label",
+			input:   "[a *b* c][ref]\n\n[ref]: /url",
+			want:    `<p><a href="/url">a <em>b</em> c</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: code span is allowed in label",
+			input:   "[a `b` c][ref]\n\n[ref]: /url",
+			want:    `<p><a href="/url">a <code>b</code> c</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: image is allowed in label",
+			input:   "[![alt](/img.png)][ref]\n\n[ref]: /url",
+			want:    `<p><a href="/url"><img alt="alt" src="/img.png"></a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: surrounding text is preserved",
+			input:   "a [label][ref] b\n\n[ref]: /url",
+			want:    `<p>a <a href="/url">label</a> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: full reference falls back to literal text when definition is missing",
+			input:   "[label][ref]",
+			want:    `<p>[label][ref]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: collapsed reference falls back to literal text when definition is missing",
+			input:   "[label][]",
+			want:    `<p>[label][]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: shortcut reference falls back to literal text when definition is missing",
+			input:   "[label]",
+			want:    `<p>[label]</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: full reference falls back to literal text when closing bracket is missing",
+			input:   "[label][ref",
+			want:    `<p>[label][ref</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: collapsed reference takes precedence over shortcut reference",
+			input:   "[label][]\n\n[label]: /url",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: full reference takes precedence over shortcut reference",
+			input:   "[label][ref]\n\n[label]: /wrong\n[ref]: /right",
+			want:    `<p><a href="/right">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: inner reference link may still resolve when outer link is rejected",
+			input:   "[outer [inner][in]]\n\n[in]: /in",
+			want:    `<p>[outer <a href="/in">inner</a>]</p>`,
+			wantErr: nil,
+		},
+
+		// reference images
+
 		// {
 		// 	name:  "reference image: full reference resolves to image",
 		// 	input: "![alt][ref]\n\n[ref]: /img.png",
@@ -4114,10 +4140,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 		// 	input: "![alt][ref",
 		// },
 		// {
-		// 	name:  "reference image: full reference falls back to literal text when label is invalid",
-		// 	input: "![alt][a\nb]\n\n[a b]: /img.png",
-		// },
-		// {
 		// 	name:  "reference image: collapsed reference takes precedence over shortcut reference",
 		// 	input: "![alt][]\n\n[alt]: /img.png",
 		// },
@@ -4129,6 +4151,30 @@ func TestCompile_EndToEnd(t *testing.T) {
 		// 	name:  "reference image: full reference takes precedence over shortcut reference",
 		// 	input: "![alt][ref]\n\n[alt]: /wrong.png\n[ref]: /right.png",
 		// },
+		{
+			name:    "reference link: first matching definition wins",
+			input:   "[label]\n\n[label]: /first\n[label]: /second",
+			want:    `<p><a href="/first">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: first matching definition wins",
+			input:   "![alt]\n\n[alt]: /first.png\n[alt]: /second.png",
+			want:    `<p><img alt="alt" src="/first.png"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference link: definition may be indented up to three spaces",
+			input:   "[label]\n\n   [label]: /url",
+			want:    `<p><a href="/url">label</a></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "reference image: definition may be indented up to three spaces",
+			input:   "![alt]\n\n   [alt]: /img.png",
+			want:    `<p><img alt="alt" src="/img.png"></p>`,
+			wantErr: nil,
+		},
 
 		// precedence and ambiguity
 
