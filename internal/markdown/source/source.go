@@ -32,6 +32,42 @@ func (src *Source) Slice(span ByteSpan) string {
 	return src.Raw[int(span.Start):int(span.End)]
 }
 
+func (src *Source) UnescapedSlice(span ByteSpan) string {
+	s := src.Slice(span)
+
+	var sb strings.Builder
+	sb.Grow(len(s))
+
+	pos := 0
+	for pos < len(s) {
+		b := s[pos]
+
+		if b != '\\' {
+			sb.WriteByte(b)
+			pos++
+			continue
+		}
+
+		if pos+1 >= len(s) {
+			sb.WriteByte('\\')
+			pos++
+			continue
+		}
+
+		next := s[pos+1]
+		if IsEscapablePunctuation(next) {
+			sb.WriteByte(next)
+			pos += 2
+			continue
+		}
+
+		sb.WriteByte('\\')
+		pos++
+	}
+
+	return sb.String()
+}
+
 func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	pos = max(0, pos)
 	pos = min(pos, src.EOF())
@@ -75,6 +111,30 @@ func (src *Source) LineSpan(line int) ByteSpan {
 	}
 }
 
+func (src *Source) LineSpansWithin(span ByteSpan) []ByteSpan {
+	if span.Start >= span.End {
+		return []ByteSpan{}
+	}
+
+	firstLine, _ := src.LineColumn(span.Start)
+	lastLine, _ := src.LineColumn(span.End - 1)
+
+	spans := make([]ByteSpan, 0, lastLine-firstLine+1)
+	for i := firstLine; i <= lastLine; i++ {
+		lineSpan := src.LineSpan(i)
+		clamped := ByteSpan{
+			Start: max(lineSpan.Start, span.Start),
+			End:   min(lineSpan.End, span.End),
+		}
+
+		if clamped.Start < clamped.End {
+			spans = append(spans, clamped)
+		}
+	}
+
+	return spans
+}
+
 func (src *Source) validateSpan(span ByteSpan) bool {
 	if 0 <= span.Start &&
 		span.Start <= span.End &&
@@ -87,6 +147,18 @@ func (src *Source) validateSpan(span ByteSpan) bool {
 
 func (src *Source) EOF() BytePos {
 	return BytePos(len(src.Raw))
+}
+
+func IsEscapablePunctuation(b byte) bool {
+	switch b {
+	case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+		':', ';', '<', '=', '>', '?', '@',
+		'[', '\\', ']', '^', '_', '`',
+		'{', '|', '}', '~':
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeText(s string) string {

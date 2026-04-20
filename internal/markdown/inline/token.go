@@ -35,12 +35,27 @@ const (
 	_ EscapeBehavior = iota
 	EscapeNone
 	EscapeLiteralize
+	EscapeLiteralizeLeadingByte
 	EscapeDecompose
 )
 
-func classifyEscapeTarget(tok Token) EscapeBehavior {
+func classifyEscapeTarget(tok Token, src *source.Source) EscapeBehavior {
 	switch tok.Kind {
-	case TokenText, TokenEOF:
+	case TokenText:
+		if tok.Span.Start >= tok.Span.End {
+			return EscapeNone
+		}
+
+		s := src.Slice(tok.Span)
+		b := s[0]
+
+		if source.IsEscapablePunctuation(b) {
+			return EscapeLiteralizeLeadingByte
+		}
+
+		return EscapeNone
+
+	case TokenEOF:
 		return EscapeNone
 
 	case TokenImageOpenBracket:

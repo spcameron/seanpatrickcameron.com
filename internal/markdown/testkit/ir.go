@@ -33,9 +33,10 @@ func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
 
 func IRHeader(level int, input ...string) ir.Header {
 	return ir.Header{
-		Span:        source.ByteSpan{},
-		ContentSpan: source.ByteSpan{},
-		Level:       level,
+		Span:         source.ByteSpan{},
+		ContentSpan:  source.ByteSpan{},
+		ContentLines: []source.ByteSpan{},
+		Level:        level,
 	}
 }
 
@@ -113,7 +114,7 @@ func NormalizeIR(doc ir.Document) ir.Document {
 	if doc.Blocks == nil {
 		doc.Blocks = []ir.Block{}
 	}
-	doc.Blocks = NormalizeIRBLocks(doc.Blocks)
+	doc.Blocks = NormalizeIRBlocks(doc.Blocks)
 
 	if doc.Definitions == nil {
 		doc.Definitions = map[string]ir.ReferenceDefinition{}
@@ -123,7 +124,7 @@ func NormalizeIR(doc ir.Document) ir.Document {
 	return doc
 }
 
-func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
+func NormalizeIRBlocks(blocks []ir.Block) []ir.Block {
 	for i := range blocks {
 		switch b := blocks[i].(type) {
 		case ir.BlockQuote:
@@ -131,12 +132,13 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			if b.Children == nil {
 				b.Children = []ir.Block{}
 			}
-			b.Children = NormalizeIRBLocks(b.Children)
+			b.Children = NormalizeIRBlocks(b.Children)
 			blocks[i] = b
 
 		case ir.Header:
 			b.Span = source.ByteSpan{}
 			b.ContentSpan = source.ByteSpan{}
+			b.ContentLines = []source.ByteSpan{}
 			blocks[i] = b
 
 		case ir.ThematicBreak:
@@ -154,7 +156,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				if item.Children == nil {
 					item.Children = []ir.Block{}
 				}
-				item.Children = NormalizeIRBLocks(item.Children)
+				item.Children = NormalizeIRBlocks(item.Children)
 				b.Items[j] = item
 			}
 			blocks[i] = b
@@ -170,7 +172,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 				if item.Children == nil {
 					item.Children = []ir.Block{}
 				}
-				item.Children = NormalizeIRBLocks(item.Children)
+				item.Children = NormalizeIRBlocks(item.Children)
 				b.Items[j] = item
 			}
 			blocks[i] = b
@@ -180,7 +182,7 @@ func NormalizeIRBLocks(blocks []ir.Block) []ir.Block {
 			if b.Children == nil {
 				b.Children = []ir.Block{}
 			}
-			b.Children = NormalizeIRBLocks(b.Children)
+			b.Children = NormalizeIRBlocks(b.Children)
 			blocks[i] = b
 
 		case ir.IndentedCodeBlock:
