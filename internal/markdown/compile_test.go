@@ -3101,184 +3101,270 @@ func TestCompile_EndToEnd(t *testing.T) {
 
 		// raw inline HTML
 
-		// 		{
-		// 	name:  "inline html: comment resolves as raw html",
-		// 	input: "<!-- comment -->",
-		// },
-		// {
-		// 	name:  "inline html: empty comment resolves as raw html",
-		// 	input: "<!---->",
-		// },
-		// {
-		// 	name:  "inline html: processing instruction resolves as raw html",
-		// 	input: "<?php?>",
-		// },
-		// {
-		// 	name:  "inline html: declaration resolves as raw html",
-		// 	input: "<!DOCTYPE html>",
-		// },
-		// {
-		// 	name:  "inline html: cdata section resolves as raw html",
-		// 	input: "<![CDATA[hello]]>",
-		// },
-		// {
-		// 	name:  "inline html: opening tag resolves as raw html",
-		// 	input: "<span>",
-		// },
-		// {
-		// 	name:  "inline html: closing tag resolves as raw html",
-		// 	input: "</span>",
-		// },
-		// {
-		// 	name:  "inline html: opening tag may contain attributes",
-		// 	input: "<a href=\"/url\" title=\"x\">",
-		// },
-		// {
-		// 	name:  "inline html: opening tag may contain single quoted attributes",
-		// 	input: "<a href='/url' title='x'>",
-		// },
-		// {
-		// 	name:  "inline html: opening tag may contain unquoted attributes",
-		// 	input: "<a href=/url title=x>",
-		// },
-		// {
-		// 	name:  "inline html: opening tag may contain bare attributes",
-		// 	input: "<input disabled>",
-		// },
-		// {
-		// 	name:  "inline html: opening tag may contain spaces before attributes",
-		// 	input: "<a  href=\"/url\">",
-		// },
-		// {
-		// 	name:  "inline html: self closing tag resolves as raw html",
-		// 	input: "<br/>",
-		// },
-		// {
-		// 	name:  "inline html: self closing tag may contain spaces before slash",
-		// 	input: "<br />",
-		// },
-		// {
-		// 	name:  "inline html: self closing tag may contain attributes",
-		// 	input: "<img src=\"/img.png\" alt=\"x\" />",
-		// },
-		// {
-		// 	name:  "inline html: tag attributes may mix quoting styles",
-		// 	input: "<a href=\"/url\" data-x='y' rel=noopener>",
-		// },
-		// {
-		// 	name:  "inline html: quoted attribute values may contain closing angle brackets",
-		// 	input: "<a title=\"1 > 0\">",
-		// },
-		// {
-		// 	name:  "inline html: quoted attribute values may contain opposite quote kind",
-		// 	input: "<a title='\"x\"'>",
-		// },
-		// {
-		// 	name:  "inline html: surrounding text is preserved",
-		// 	input: "a <span> b",
-		// },
-		//
-		// {
-		// 	name:  "inline html: opening tag requires alphabetic tag name start",
-		// 	input: "<1span>",
-		// },
-		// {
-		// 	name:  "inline html: closing tag requires alphabetic tag name start",
-		// 	input: "</1span>",
-		// },
-		// {
-		// 	name:  "inline html: tag name may contain digits after the first character",
-		// 	input: "<h1>",
-		// },
-		// {
-		// 	name:  "inline html: tag name may contain hyphen",
-		// 	input: "<custom-tag>",
-		// },
-		// {
-		// 	name:  "inline html: attribute name may begin with underscore",
-		// 	input: "<a _x=\"y\">",
-		// },
-		// {
-		// 	name:  "inline html: attribute name may begin with colon",
-		// 	input: "<a :x=\"y\">",
-		// },
-		// {
-		// 	name:  "inline html: attribute name may contain punctuation",
-		// 	input: "<a data.x:y-z=\"v\">",
-		// },
-		//
-		// {
-		// 	name:  "inline html: unterminated comment remains literal text",
-		// 	input: "<!-- comment",
-		// },
-		// {
-		// 	name:  "inline html: unterminated processing instruction remains literal text",
-		// 	input: "<?php",
-		// },
-		// {
-		// 	name:  "inline html: unterminated declaration remains literal text",
-		// 	input: "<!DOCTYPE html",
-		// },
-		// {
-		// 	name:  "inline html: unterminated cdata remains literal text",
-		// 	input: "<![CDATA[hello",
-		// },
-		// {
-		// 	name:  "inline html: unterminated opening tag remains literal text",
-		// 	input: "<span",
-		// },
-		// {
-		// 	name:  "inline html: unterminated closing tag remains literal text",
-		// 	input: "</span",
-		// },
-		// {
-		// 	name:  "inline html: attribute requires separator whitespace",
-		// 	input: "<ahref=\"/url\">",
-		// },
-		// {
-		// 	name:  "inline html: attribute value requires nonempty content when unquoted",
-		// 	input: "<a href=>",
-		// },
-		// {
-		// 	name:  "inline html: attribute value requires closing quote",
-		// 	input: "<a href=\"/url>",
-		// },
-		// {
-		// 	name:  "inline html: single quoted attribute value requires closing quote",
-		// 	input: "<a href='/url>",
-		// },
-		// {
-		// 	name:  "inline html: self closing suffix must run directly to closing bracket",
-		// 	input: "<br/ x>",
-		// },
-		// {
-		// 	name:  "inline html: closing tag allows trailing spaces only",
-		// 	input: "</span >",
-		// },
-		// {
-		// 	name:  "inline html: closing tag rejects extra content",
-		// 	input: "</span x>",
-		// },
-		// {
-		// 	name:  "inline html: unquoted attribute value may not contain less than",
-		// 	input: "<a href=x<y>",
-		// },
-		// {
-		// 	name:  "inline html: unquoted attribute value may not contain greater than",
-		// 	input: "<a href=x>y>",
-		// },
-		// {
-		// 	name:  "inline html: unquoted attribute value may not contain backtick",
-		// 	input: "<a href=x`y>",
-		// },
-		// {
-		// 	name:  "inline html: lone opening angle bracket remains literal text",
-		// 	input: "<",
-		// },
-		// {
-		// 	name:  "inline html: unknown angle construct remains literal text",
-		// 	input: "<!>",
-		// },
+		{
+			name:    "inline html: comment resolves as raw html",
+			input:   "<!-- comment -->",
+			want:    `<!-- comment -->`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: empty comment resolves as raw html",
+			input:   "<!---->",
+			want:    `<!---->`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: processing instruction resolves as raw html",
+			input:   "<?php?>",
+			want:    `<?php?>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: declaration resolves as raw html",
+			input:   "<!DOCTYPE html>",
+			want:    `<!DOCTYPE html>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: cdata section resolves as raw html",
+			input:   "<![CDATA[hello]]>",
+			want:    `<![CDATA[hello]]>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag resolves as raw html",
+			input:   "<span>",
+			want:    `<p><span></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: closing tag resolves as raw html",
+			input:   "</span>",
+			want:    `<p></span></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag may contain attributes",
+			input:   "<a href=\"/url\" title=\"x\">",
+			want:    `<p><a href="/url" title="x"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag may contain single quoted attributes",
+			input:   "<a href='/url' title='x'>",
+			want:    `<p><a href='/url' title='x'></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag may contain unquoted attributes",
+			input:   "<a href=/url title=x>",
+			want:    `<p><a href=/url title=x></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag may contain bare attributes",
+			input:   "<input disabled>",
+			want:    `<p><input disabled></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag may contain spaces before attributes",
+			input:   "<a  href=\"/url\">",
+			want:    `<p><a  href="/url"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: self closing tag resolves as raw html",
+			input:   "<br/>",
+			want:    `<p><br/></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: self closing tag may contain spaces before slash",
+			input:   "<br />",
+			want:    `<p><br /></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: self closing tag may contain attributes",
+			input:   "<img src=\"/img.png\" alt=\"x\" />",
+			want:    `<p><img src="/img.png" alt="x" /></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: tag attributes may mix quoting styles",
+			input:   "<a href=\"/url\" data-x='y' rel=noopener>",
+			want:    `<p><a href="/url" data-x='y' rel=noopener></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: quoted attribute values may contain closing angle brackets",
+			input:   "<a title=\"1 > 0\">",
+			want:    `<p><a title="1 > 0"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: quoted attribute values may contain opposite quote kind",
+			input:   "<a title='\"x\"'>",
+			want:    `<p><a title='"x"'></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: surrounding text is preserved",
+			input:   "a <span> b",
+			want:    `<p>a <span> b</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: opening tag requires alphabetic tag name start",
+			input:   "<1span>",
+			want:    `<p>&lt;1span&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: closing tag requires alphabetic tag name start",
+			input:   "</1span>",
+			want:    `<p>&lt;/1span&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: tag name may contain digits after the first character",
+			input:   "<h1>",
+			want:    `<h1>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: tag name may contain hyphen",
+			input:   "<custom-tag>",
+			want:    `<p><custom-tag></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute name may begin with underscore",
+			input:   "<a _x=\"y\">",
+			want:    `<p><a _x="y"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute name may begin with colon",
+			input:   "<a :x=\"y\">",
+			want:    `<p><a :x="y"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute name may contain punctuation",
+			input:   "<a data.x:y-z=\"v\">",
+			want:    `<p><a data.x:y-z="v"></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated comment remains literal text",
+			input:   "<!-- comment",
+			want:    `<!-- comment`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated processing instruction remains literal text",
+			input:   "<?php",
+			want:    `<?php`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated declaration remains literal text",
+			input:   "<!DOCTYPE html",
+			want:    `<!DOCTYPE html`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated cdata remains literal text",
+			input:   "<![CDATA[hello",
+			want:    `<![CDATA[hello`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated opening tag remains literal text",
+			input:   "<span",
+			want:    `<p>&lt;span</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unterminated closing tag remains literal text",
+			input:   "</span",
+			want:    `<p>&lt;/span</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute requires separator whitespace",
+			input:   "<ahref=\"/url\">",
+			want:    `<p>&lt;ahref=&#34;/url&#34;&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute value requires nonempty content when unquoted",
+			input:   "<a href=>",
+			want:    `<p>&lt;a href=&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: attribute value requires closing quote",
+			input:   "<a href=\"/url>",
+			want:    `<p>&lt;a href=&#34;/url&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: single quoted attribute value requires closing quote",
+			input:   "<a href='/url>",
+			want:    `<p>&lt;a href=&#39;/url&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: self closing suffix must run directly to closing bracket",
+			input:   "<br/ x>",
+			want:    `<p>&lt;br/ x&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: closing tag allows trailing spaces only",
+			input:   "</span >",
+			want:    `<p></span ></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: closing tag rejects extra content",
+			input:   "</span x>",
+			want:    `<p>&lt;/span x&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unquoted attribute value may not contain less than",
+			input:   "<a href=x<y>",
+			want:    `<p>&lt;a href=x<y></p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unquoted attribute value may not contain greater than",
+			input:   "<a href=x>y>",
+			want:    `<p><a href=x>y&gt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unquoted attribute value may not contain backtick",
+			input:   "<a href=x`y>",
+			want:    "<p>&lt;a href=x`y&gt;</p>",
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: lone opening angle bracket remains literal text",
+			input:   "<",
+			want:    `<p>&lt;</p>`,
+			wantErr: nil,
+		},
+		{
+			name:    "inline html: unknown angle construct remains literal text",
+			input:   "<!>",
+			want:    `<!>`,
+			wantErr: nil,
+		},
 
 		// HTML blocks
 
