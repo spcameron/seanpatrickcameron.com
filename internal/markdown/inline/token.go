@@ -49,7 +49,7 @@ func classifyEscapeTarget(tok Token, src *source.Source) EscapeBehavior {
 		s := src.Slice(tok.Span)
 		b := s[0]
 
-		if isEscapablePunctuation(b) {
+		if source.IsEscapablePunctuation(b) {
 			return EscapeLiteralizeLeadingByte
 		}
 
@@ -64,17 +64,5 @@ func classifyEscapeTarget(tok Token, src *source.Source) EscapeBehavior {
 	default:
 		return EscapeLiteralize
 
-	}
-}
-
-func isEscapablePunctuation(b byte) bool {
-	switch b {
-	case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
-		':', ';', '<', '=', '>', '?', '@',
-		'[', '\\', ']', '^', '_', '`',
-		'{', '|', '}', '~':
-		return true
-	default:
-		return false
 	}
 }

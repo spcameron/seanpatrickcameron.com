@@ -807,6 +807,7 @@ func (c *Cursor) handleTokenBackslash() {
 			Start: next.Span.Start,
 			End:   next.Span.Start + 1,
 		}
+
 		bracketSpan := source.ByteSpan{
 			Start: next.Span.Start + 1,
 			End:   next.Span.End,

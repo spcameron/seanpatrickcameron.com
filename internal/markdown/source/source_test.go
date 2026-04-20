@@ -215,6 +215,103 @@ func TestSlice(t *testing.T) {
 	}
 }
 
+func TestUnescapedSlice(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+		span  ByteSpan
+		want  string
+	}{
+		{
+			name:  "returns literal slice when no escapes are present",
+			input: "abc",
+			span:  ByteSpan{Start: 0, End: 3},
+			want:  "abc",
+		},
+		{
+			name:  "unescapes escaped parentheses",
+			input: `a\(b\)c`,
+			span:  ByteSpan{Start: 0, End: 7},
+			want:  "a(b)c",
+		},
+		{
+			name:  "unescapes escaped asterisk",
+			input: `\*`,
+			span:  ByteSpan{Start: 0, End: 2},
+			want:  "*",
+		},
+		{
+			name:  "unescapes escaped backslash",
+			input: `\\`,
+			span:  ByteSpan{Start: 0, End: 2},
+			want:  `\`,
+		},
+		{
+			name:  "preserves backslash before non-escapable byte",
+			input: `\a`,
+			span:  ByteSpan{Start: 0, End: 2},
+			want:  `\a`,
+		},
+		{
+			name:  "preserves trailing backslash",
+			input: `abc\`,
+			span:  ByteSpan{Start: 0, End: 4},
+			want:  `abc\`,
+		},
+		{
+			name:  "unescapes multiple escaped punctuation bytes",
+			input: `\*\_\[\]`,
+			span:  ByteSpan{Start: 0, End: 8},
+			want:  `*_[]`,
+		},
+		{
+			name:  "mixes escaped and unescaped content",
+			input: `a\*b\?c`,
+			span:  ByteSpan{Start: 0, End: 7},
+			want:  `a*b?c`,
+		},
+		{
+			name:  "respects the requested span",
+			input: `xx\*yy`,
+			span:  ByteSpan{Start: 2, End: 4},
+			want:  "*",
+		},
+		{
+			name:  "returns empty string for empty span",
+			input: "abc",
+			span:  ByteSpan{Start: 1, End: 1},
+			want:  "",
+		},
+		{
+			name:  "returns empty string for invalid span start beyond input",
+			input: "abc",
+			span:  ByteSpan{Start: 4, End: 5},
+			want:  "",
+		},
+		{
+			name:  "returns empty string for invalid span with end before start",
+			input: "abc",
+			span:  ByteSpan{Start: 2, End: 1},
+			want:  "",
+		},
+		{
+			name:  "returns empty string for invalid span end beyond input",
+			input: "abc",
+			span:  ByteSpan{Start: 0, End: 4},
+			want:  "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := NewSource(tc.input)
+			got := src.UnescapedSlice(tc.span)
+
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
+
 func TestLineColumn(t *testing.T) {
 	testCases := []struct {
 		name     string

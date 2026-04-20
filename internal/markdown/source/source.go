@@ -32,6 +32,42 @@ func (src *Source) Slice(span ByteSpan) string {
 	return src.Raw[int(span.Start):int(span.End)]
 }
 
+func (src *Source) UnescapedSlice(span ByteSpan) string {
+	s := src.Slice(span)
+
+	var sb strings.Builder
+	sb.Grow(len(s))
+
+	pos := 0
+	for pos < len(s) {
+		b := s[pos]
+
+		if b != '\\' {
+			sb.WriteByte(b)
+			pos++
+			continue
+		}
+
+		if pos+1 >= len(s) {
+			sb.WriteByte('\\')
+			pos++
+			continue
+		}
+
+		next := s[pos+1]
+		if IsEscapablePunctuation(next) {
+			sb.WriteByte(next)
+			pos += 2
+			continue
+		}
+
+		sb.WriteByte('\\')
+		pos++
+	}
+
+	return sb.String()
+}
+
 func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	pos = max(0, pos)
 	pos = min(pos, src.EOF())
@@ -111,6 +147,18 @@ func (src *Source) validateSpan(span ByteSpan) bool {
 
 func (src *Source) EOF() BytePos {
 	return BytePos(len(src.Raw))
+}
+
+func IsEscapablePunctuation(b byte) bool {
+	switch b {
+	case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+		':', ';', '<', '=', '>', '?', '@',
+		'[', '\\', ']', '^', '_', '`',
+		'{', '|', '}', '~':
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeText(s string) string {

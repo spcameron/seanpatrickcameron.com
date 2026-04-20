@@ -337,12 +337,12 @@ func renderImage(src *source.Source, inl ast.Image) (html.Node, error) {
 	}
 
 	attr := html.Attributes{
-		"src": src.Slice(inl.Destination),
+		"src": src.UnescapedSlice(inl.Destination),
 		"alt": alt,
 	}
 
 	if inl.Title != (source.ByteSpan{}) {
-		attr["title"] = src.Slice(inl.Title)
+		attr["title"] = src.UnescapedSlice(inl.Title)
 	}
 
 	node := html.VoidElement{
@@ -359,7 +359,7 @@ func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 		return nil, err
 	}
 
-	href := src.Slice(inl.Destination)
+	href := src.UnescapedSlice(inl.Destination)
 	if inl.MailTo {
 		href = "mailto:" + href
 	}
@@ -369,7 +369,7 @@ func renderLink(src *source.Source, inl ast.Link) (html.Node, error) {
 	}
 
 	if inl.Title != (source.ByteSpan{}) {
-		attr["title"] = src.Slice(inl.Title)
+		attr["title"] = src.UnescapedSlice(inl.Title)
 	}
 
 	node := html.Element{
