@@ -4234,7 +4234,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p><code>&lt;span&gt;</code></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "precedence: uri autolink takes precedence over raw html fallback",
 			input:   "<https://example.com>",
@@ -4259,7 +4258,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p><a href="mailto:local@domain">local@domain</a></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "precedence: emphasis is parsed inside link label",
 			input:   "[a *b* c](/url)",
@@ -4284,7 +4282,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p><img alt="see this" src="/img.png"></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "precedence: escape prevents emphasis from binding",
 			input:   "\\*a*",
@@ -4309,7 +4306,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p>&lt;span&gt;</p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "precedence: emphasis may wrap a link",
 			input:   "*[x](/url)*",
@@ -4334,7 +4330,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p><em>a <code>*</code> b</em></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "precedence: failed inline link falls back without preventing later emphasis",
 			input:   "[x](a(b) *c*",
@@ -4353,7 +4348,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p>&lt;1tag&gt; <a href="/url">x</a></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "composite: emphasis code span and link may coexist in one paragraph",
 			input:   "a *b* `c` [d](/url) e",
@@ -4372,7 +4366,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p>* a <em>b</em> <a href="/url">c</a> <code>d</code></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "adjacency: consecutive links parse independently",
 			input:   "[a](/x)[b](/y)",
@@ -4391,7 +4384,6 @@ func TestCompile_EndToEnd(t *testing.T) {
 			want:    `<p><span><a href="https://example.com">https://example.com</a></p>`,
 			wantErr: nil,
 		},
-
 		{
 			name:    "nesting: emphasis inside link inside emphasis resolves correctly",
 			input:   "*[a **b** c](/url)*",
