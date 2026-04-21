@@ -1,4 +1,62 @@
-# Markdown Compiler
+# scribe
+
+## Quick Start
+
+`scribe` is a Markdown compiler that produces HTML.
+
+It exposes a minimal API: 
+
+* compile Markdown into a renderable document
+* render that document to HTML
+
+### Installation
+
+```sh
+go get github.com/spcameron/scribe
+```
+
+### Basic Usage
+
+```go
+html, err := scribe.HTML(md)
+if err != nil {
+  // handle error
+}
+```
+
+### Rendering to an `io.Writer`
+
+```go
+doc, err := scribe.Compile(md)
+if err != nil {
+  // handle error
+}
+
+if err := doc.Write(w); err != nil {
+  // handle error
+}
+```
+
+### Using with templ
+
+```go
+func MarkdownHTML(doc scribe.Document) templ.Component {
+  return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+    if doc == nil {
+      return nil
+    }
+    return doc.Write(w)
+  })
+}
+```
+
+### Notes
+
+* Output is HTML.
+* The compiler follows CommonMark-style rules with some intentional departures and simplifications.
+* The API is small by design; internal structure is not exposed.
+
+---
 
 ## Design Overview
 
@@ -32,30 +90,36 @@ The shape of the compiler is stable. New Markdown features expand rule vocabular
 ### Pipeline Overview
 
 * Markdown (`string`)
+
 * `source.Source`
 
   * immutable buffer
   * line index
+
 * Block Parse
 
   * block scan → `[]Line`
   * block build → `ir.Document`
+
 * Lowering
 
   * `ir.Document` → `ast.Document`
   * invokes inline parsing for content-bearing spans
+
 * Inline Parse (during lowering)
 
   * inline scan → `[]Token`
   * build → mutable item list + delimiter stack
   * lower → `[]ast.Inline`
+
 * Code Generation
 
-  * `ast.Document` → `html.Node`
+  * `ast.Document` → renderable document
+
 * HTML Emission
 
-  * `html.Write(io.Writer, node)`
-  * `html.Render(node) string`
+  * document writes to `io.Writer`
+  * helper functions may render to string
 
 Inline parsing is not a separate compilation stage; it is a transformation applied during lowering to spans that carry inline content.
 
@@ -68,7 +132,7 @@ The compiler is organized around four representation layers:
 * `source.Source`: immutable input buffer with span utilities and line/column mapping
 * `ir.Document`: block-level intermediate representation; structural only, span-based
 * `ast.Document`: semantic representation used for code generation; still span-based
-* `html.Node`: target-language tree used for HTML serialization
+* `markdown.Document`: target-language representation used for HTML serialization
 
 Only the HTML layer materializes concrete output text. All earlier layers operate by preserving and transforming coordinates into the original source.
 
@@ -76,10 +140,10 @@ Only the HTML layer materializes concrete output text. All earlier layers operat
 
 ## Entry Points
 
+* `Compile(md string) (Document, error)`: executes the full pipeline and returns a renderable document
 * `HTML(md string) (string, error)`: executes the full pipeline and returns serialized HTML
-* `Tree(md string) (html.Node, error)`: executes the full pipeline and returns the HTML node tree
 
-The string-returning entry point is convenient for standalone rendering. The tree-returning entry point allows the generated structure to be embedded or transformed before serialization.
+The returned `Document` writes HTML directly to an `io.Writer`.
 
 ---
 
@@ -113,7 +177,7 @@ The compiler distinguishes between:
 * **code generation**: AST → `html.Node` tree
 * **emission**: `html.Node` → serialized output
 
-Output text is first materialized during code generation. Emission is a separate concern responsible only for serialization.
+Output structure is materialized during code generation. Output text is produced during emission.
 
 ### 5. Scanner Discipline
 
@@ -337,14 +401,6 @@ Because resolution operates directly on the item list, no index-based rewriting 
 
 Unmatched delimiter runs remain as text. No backtracking or re-scanning is performed.
 
-### Final Emphasis Resolution
-
-After the token stream has been fully consumed, the remaining delimiter stack is processed once more to resolve any outstanding emphasis opportunities across the entire item list.
-
-Any delimiter records that cannot participate in a valid match are discarded. Their corresponding items remain as literal text.
-
-This final pass ensures that constructs spanning larger regions (for example, those interrupted by links or other inline structures) are resolved without requiring multiple parsing phases.
-
 ### Code Spans
 
 Backtick runs are resolved immediately.
@@ -451,7 +507,7 @@ and is recognized as a block-level construct.
 
 A valid definition:
 
-* begins with a bracketd label (`[label]`)
+* begins with a bracketed label (`[label]`)
 * is followed immediately by a colon (`:`)
 * includes a link destination
 * may include an optional title, separated from the destination by whitespace
@@ -498,7 +554,7 @@ Image references follow the same forms, prefixed by `!`.
 When resolving a reference:
 
 * the lookup label is validated and normalized using the same rules as definitions
-* the normalized key is used to query the document's definitoion map
+* the normalized key is used to query the document's definition map
 * if a matching definition is found, its destination and title are applied
 * if no matching definition exists, the construct is treated as literal text
 
@@ -547,7 +603,7 @@ New Markdown features are added by expanding rule sets within existing layers:
 
 ## Philosophy
 
-This project treats Markdown as a small language and HTML as its target language.
+This project treats Markdown as a small language and HTML as its target output format.
 
 The design mirrors conventional compiler structure:
 
