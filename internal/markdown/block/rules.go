@@ -1219,25 +1219,28 @@ func (HeaderRule) tryParseHeaderLine(c *Cursor) (int, source.ByteSpan, bool) {
 		}
 	}
 
-	// validate the delimiter (space or tab)
-	if pos >= len(s) || (s[pos] != ' ' && s[pos] != '\t') {
+	// after opening marker run, require space/tab or end of line
+	if pos < len(s) && s[pos] != ' ' && s[pos] != '\t' {
 		return 0, source.ByteSpan{}, false
 	}
 
-	// consume the delimiter and leading whitespace
-	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
-		pos++
+	// preserve the full heading field, including delimiter whitespace
+	fieldStart := pos
+	field := s[fieldStart:]
+
+	fieldEnd := len(strings.TrimRight(field, " \t"))
+	if end, ok := ATXContentEnd(field); ok {
+		fieldEnd = end
 	}
 
-	// TODO: consider trimming suffix '#' characters
-	// separate flow, not simply added to TrimRight
+	// now consume the delimiter and any leading whitespace
+	lead := 0
+	for lead < fieldEnd && (field[lead] == ' ' || field[lead] == '\t') {
+		lead++
+	}
 
-	// trim tailing spaces and tabs
-	rawContent := s[pos:]
-	trimmed := strings.TrimRight(rawContent, " \t")
-
-	contentStart := line.Span.Start + source.BytePos(pos)
-	contentEnd := contentStart + source.BytePos(len(trimmed))
+	contentStart := line.Span.Start + source.BytePos(fieldStart+lead)
+	contentEnd := line.Span.Start + source.BytePos(fieldStart+fieldEnd)
 
 	contentSpan := source.ByteSpan{
 		Start: contentStart,
@@ -1245,6 +1248,54 @@ func (HeaderRule) tryParseHeaderLine(c *Cursor) (int, source.ByteSpan, bool) {
 	}
 
 	return level, contentSpan, true
+}
+
+func ATXContentEnd(s string) (int, bool) {
+	if len(s) == 0 {
+		return 0, false
+	}
+
+	pos := len(s) - 1
+
+	// trim trailing spaces/tabs
+	for pos >= 0 && (s[pos] == ' ' || s[pos] == '\t') {
+		pos--
+	}
+
+	// consume terminal run of unescaped '#'
+	markerConsumed := false
+	for pos >= 0 && s[pos] == '#' {
+		if isEscaped(s, pos) {
+			break
+		}
+		markerConsumed = true
+		pos--
+	}
+
+	if !markerConsumed {
+		return 0, false
+	}
+
+	// require at least one separating space/tab before the closing run
+	sepStart := pos
+	for pos >= 0 && (s[pos] == ' ' || s[pos] == '\t') {
+		pos--
+	}
+
+	if pos == sepStart {
+		return 0, false
+	}
+
+	return pos + 1, true
+}
+
+func isEscaped(s string, i int) bool {
+	slashes := 0
+	for j := i - 1; j >= 0 && s[j] == '\\'; j-- {
+		slashes++
+	}
+
+	return slashes%2 == 1
 }
 
 type ThematicBreakRule struct{}
