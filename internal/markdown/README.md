@@ -149,7 +149,14 @@ This model is used strictly for structural recognition. It determines whether a 
 
 Both ATX (`#`) and Setext (`===`, `---`) headers are supported and normalized into a single header representation.
 
-ATX headers are recognized when a line begins (after up to three columns of indentation) with a run of one to six `#` characters followed by whitespace. The remainder of the line forms the header content, with trailing whitespace trimmed.
+ATX headers are recognized when a line begins (after up to three columns of indentation) with a run of one to six unescaped `#` characters. The opening run must be followed by either whitespace (space or tab) or end-of-line.
+
+The remainder of the line forms the heading field. Content is derived from this field by:
+
+* removing an optional closing marker run: a trailing sequence of one or more unescaped `#` characters that is preceded by whitespace and followed only by optional whitespace
+* trimming leading and trailing spaces or tabs
+
+As a result, ATX headings may be empty (e.g., `#,` `##`), and closing marker runs are not required to match the length of the opening run.
 
 Setext headers are recognized as a paragraph immediately followed by an underline line consisting entirely of `=` or `-` characters (aside from indentation and trailing whitespace). The underline determines the level, and the paragraph provides the content.
 

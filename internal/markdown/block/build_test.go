@@ -284,10 +284,122 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "header rejected: valid marker but missing delimiter",
+			name:  "header level 1: empty header at end of line allowed",
+			input: "#",
+			want: tk.IRDoc(
+				tk.IRHeader(1, ""),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 2: empty header at end of line allowed",
 			input: "##",
 			want: tk.IRDoc(
-				tk.IRPara("##"),
+				tk.IRHeader(2, ""),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: closing marker run trimmed",
+			input: "# header #",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: multiple closing markers trimmed",
+			input: "# header ###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 3: closing marker run trimmed with internal separation",
+			input: "###   bar    ###",
+			want: tk.IRDoc(
+				tk.IRHeader(3, "bar"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: closing marker run allows trailing whitespace",
+			input: "# header ###   \t ",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: closing marker rejected without separating whitespace",
+			input: "# header###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header###"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: single trailing hash rejected without separating whitespace",
+			input: "# header#",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header#"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: escaped closing marker not trimmed",
+			input: "# header \\###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header \\###"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: partially escaped trailing hashes not trimmed as closer",
+			input: "# header #\\##",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header #\\##"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: even backslashes leave closing marker unescaped and trimmed",
+			input: "# header \\\\###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header \\\\"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: odd backslashes escape first trailing hash and prevent closer",
+			input: "# header \\\\\\###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, "header \\\\\\###"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 1: closing marker trims to empty content",
+			input: "# ###",
+			want: tk.IRDoc(
+				tk.IRHeader(1, ""),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 3: content may itself contain hashes before valid closer",
+			input: "### foo # bar ###",
+			want: tk.IRDoc(
+				tk.IRHeader(3, "foo # bar"),
+			),
+			wantErr: nil,
+		},
+		{
+			name:  "header level 3: nonterminal hashes remain content",
+			input: "### foo ### bar",
+			want: tk.IRDoc(
+				tk.IRHeader(3, "foo ### bar"),
 			),
 			wantErr: nil,
 		},
