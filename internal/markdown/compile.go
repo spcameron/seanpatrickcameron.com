@@ -1,6 +1,8 @@
 package markdown
 
 import (
+	"io"
+
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/block"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/codegen"
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
@@ -8,8 +10,12 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-// Tree compiles Markdown into an HTML node tree.
-func Tree(md string) (html.Node, error) {
+type Document interface {
+	Write(io.Writer) error
+}
+
+// Compile parses Markdown and returns a renderable document.
+func Compile(md string) (Document, error) {
 	src := source.NewSource(md)
 
 	irDoc, err := block.Parse(src)
@@ -30,9 +36,9 @@ func Tree(md string) (html.Node, error) {
 	return tree, nil
 }
 
-// HTML compiles Markdown and renders the result as an HTML string.
+// HTML parses Markdown and renders the result as an HTML string.
 func HTML(md string) (string, error) {
-	tree, err := Tree(md)
+	tree, err := Compile(md)
 	if err != nil {
 		return "", err
 	}

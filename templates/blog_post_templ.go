@@ -13,7 +13,7 @@ import (
 	"io"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/content"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
+	"github.com/spcameron/seanpatrickcameron.com/internal/markdown"
 )
 
 func BlogPost(p content.Post) templ.Component {
@@ -114,12 +114,12 @@ func BlogPostContent(p content.Post) templ.Component {
 	})
 }
 
-func MarkdownHTML(n html.Node) templ.Component {
+func MarkdownHTML(d markdown.Document) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		if n == nil {
+		if d == nil {
 			return nil
 		}
-		return n.Write(w)
+		return d.Write(w)
 	})
 }
 

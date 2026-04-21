@@ -1,13 +1,18 @@
 package html
 
-import "strings"
+import (
+	"io"
+	"strings"
+)
 
-func Render(node Node) (string, error) {
+type Writable interface {
+	Write(io.Writer) error
+}
+
+func Render(w Writable) (string, error) {
 	var sb strings.Builder
-	err := node.Write(&sb)
-	if err != nil {
+	if err := w.Write(&sb); err != nil {
 		return "", err
 	}
-
 	return sb.String(), nil
 }

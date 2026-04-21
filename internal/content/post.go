@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown"
-	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 )
 
 var fence = []byte("---")
@@ -23,7 +22,7 @@ type Post struct {
 	SourcePath   string
 	SourceDir    string
 	FrontMatter  FrontMatter
-	BodyHTMLTree html.Node
+	BodyHTMLTree markdown.Document
 }
 
 type PostSummary struct{}
@@ -57,7 +56,7 @@ func ParsePost(path string) (Post, error) {
 		return Post{}, err
 	}
 
-	md, err := markdown.Tree(string(mdBytes))
+	md, err := markdown.Compile(string(mdBytes))
 	if err != nil {
 		return Post{}, err
 	}
