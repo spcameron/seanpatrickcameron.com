@@ -12,6 +12,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Cursor carries the mutable state used while resolving inline tokens into
+// item records and final AST nodes.
 type Cursor struct {
 	Source      *source.Source
 	Definitions map[string]ir.ReferenceDefinition
@@ -22,6 +24,7 @@ type Cursor struct {
 	Delimiters  *DelimiterList
 }
 
+// NewCursor constructs an inline parsing cursor over the given token stream.
 func NewCursor(src *source.Source, defs map[string]ir.ReferenceDefinition, span source.ByteSpan, tokens []Token) *Cursor {
 	return &Cursor{
 		Source:      src,
@@ -34,16 +37,20 @@ func NewCursor(src *source.Source, defs map[string]ir.ReferenceDefinition, span 
 	}
 }
 
+// Next returns the current token and advances the cursor.
 func (c *Cursor) Next() Token {
 	out := c.Tokens[c.Index]
 	c.Index++
 	return out
 }
 
+// Peek returns the current token without advancing.
 func (c *Cursor) Peek() Token {
 	return c.Tokens[c.Index]
 }
 
+// advanceToBytePos advances the token cursor to the first token whose span
+// begins at or after pos.
 func (c *Cursor) advanceToBytePos(pos source.BytePos) {
 	for c.Index < len(c.Tokens) {
 		tok := c.Tokens[c.Index]
@@ -60,10 +67,11 @@ func (c *Cursor) advanceToBytePos(pos source.BytePos) {
 	}
 }
 
+// Build resolves the token stream into AST inline nodes.
 func (c *Cursor) Build() ([]ast.Inline, error) {
 	err := c.buildItems()
 	if err != nil {
-		return []ast.Inline{}, nil
+		return []ast.Inline{}, err
 	}
 
 	inlines := c.lowerItems(c.Items)
@@ -71,6 +79,8 @@ func (c *Cursor) Build() ([]ast.Inline, error) {
 	return inlines, nil
 }
 
+// buildItems consumes the token stream into the mutable item and delimiter
+// structures used by inline resolution.
 func (c *Cursor) buildItems() error {
 	for {
 		token := c.Next()
@@ -129,6 +139,7 @@ func (c *Cursor) buildItems() error {
 	return nil
 }
 
+// lowerItems converts resolved item records into AST inline nodes.
 func (c *Cursor) lowerItems(items *ItemList) []ast.Inline {
 	inlines := []ast.Inline{}
 
@@ -253,46 +264,37 @@ func (c *Cursor) lowerItems(items *ItemList) []ast.Inline {
 	return inlines
 }
 
+// processEmphasis resolves emphasis and strong emphasis by matching
+// delimiter runs using the delimiter stack.
 func (c *Cursor) processEmphasis(stackBottom *DelimiterRecord) {
-	// initialize the openers table
 	openersTable := newOpenersTable(stackBottom)
 
-	// define the starting delimiter record for traversal
 	var current *DelimiterRecord
 	if stackBottom == nil {
-		// if nil is passed as argument, begin from the first delimiter in the list
 		current = c.Delimiters.Front()
 	} else {
-		// otherwise, start from the first delimiter after the delimiter passed as argument
 		current = stackBottom.Next()
 	}
 
-	// traverse the delimiters stack
 	for current != nil {
-		// if current cannot close, advance to the next delimiter
 		if !current.CanClose {
 			current = current.Next()
 			continue
 		}
 
-		// obtain the openerKey for the current delimiter
 		key := openerKeyForCloser(current)
 		openerBottom := openersTable[key]
 
-		// find a matching opener
 		opener := findMatchingOpener(current, stackBottom, openerBottom)
 
-		// if a matching opener is found, derive the emphasis level and resolve the match
 		if opener != nil {
 			strong := opener.Count >= 2 && current.Count >= 2
 			current = c.resolveEmphasisMatch(opener, current, strong)
 			continue
 		}
 
-		// if no matching opener is found, update the table for future searches
 		openersTable[key] = current.Prev()
 
-		// if current also cannot open, remove it from the delimiter stack (since it also cannot be a closer)
 		next := current.Next()
 		if !current.CanOpen {
 			c.Delimiters.Remove(current)
@@ -303,14 +305,14 @@ func (c *Cursor) processEmphasis(stackBottom *DelimiterRecord) {
 	c.removeAllDelimitersAbove(stackBottom)
 }
 
+// resolveEmphasisMatch consumes a matched opener/closer pair and
+// replaces their contents with an emphasis or strong item.
 func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bool) *DelimiterRecord {
-	// determine the number of delimiter characters to consume
 	use := 1
 	if strong {
 		use = 2
 	}
 
-	// compute the original and live spans for the item record to be created
 	originalSpan := source.ByteSpan{
 		Start: opener.Item.LiveSpan.End - source.BytePos(use),
 		End:   closer.Item.LiveSpan.Start + source.BytePos(use),
@@ -321,10 +323,8 @@ func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bo
 		End:   closer.Item.LiveSpan.Start,
 	}
 
-	// save the next delimiter record to be potentially returned
 	nextCurrent := closer.Next()
 
-	// remove all delimiter records strictly between opener and closer
 	c.removeAllDelimitersBetween(opener, closer)
 
 	// guard against underflow
@@ -332,21 +332,16 @@ func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bo
 		panic("resolveEmphasisMatch: delimiter count underflow")
 	}
 
-	// decrement opener and closer counts by use
 	opener.Count -= use
 	closer.Count -= use
 
-	// update the ItemRecord live spans as well
 	opener.Item.LiveSpan.End -= source.BytePos(use)
 	closer.Item.LiveSpan.Start += source.BytePos(use)
 
-	// define the list of child items
 	var childList *ItemList
 	if opener.Item.Next() == closer.Item {
-		// if there is no item strictly between the opener and closer items, initialize an empty list
 		childList = NewItemList()
 	} else {
-		// otherwise, detach the contiguous span [firstChild, lastChild] and extract to a new *ItemList
 		firstChild := opener.Item.Next()
 		lastChild := closer.Item.Prev()
 		childList = c.Items.DetachRange(firstChild, lastChild)
@@ -366,7 +361,6 @@ func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bo
 
 	c.Items.InsertAfter(item, opener.Item)
 
-	// remove the items and delimiters whose runs are fully consumed
 	if opener.Count == 0 {
 		c.Items.Remove(opener.Item)
 		c.Delimiters.Remove(opener)
@@ -374,14 +368,14 @@ func (c *Cursor) resolveEmphasisMatch(opener, closer *DelimiterRecord, strong bo
 	if closer.Count == 0 {
 		c.Items.Remove(closer.Item)
 		c.Delimiters.Remove(closer)
-		// if closer count reached zero, return the nextCurrent record
+
 		return nextCurrent
 	}
 
-	// if closer count is > 0, return the closer
 	return closer
 }
 
+// removeAllDelimitersAbove removes all delimiters above stackBottom.
 func (c *Cursor) removeAllDelimitersAbove(stackBottom *DelimiterRecord) {
 	var current *DelimiterRecord
 	if stackBottom == nil {
@@ -407,12 +401,16 @@ func (c *Cursor) removeAllDelimitersBetween(opener, closer *DelimiterRecord) {
 	c.Delimiters.RemoveRange(first, last)
 }
 
+// openerKey identifies a class of potential openers used to bound
+// future opener searches.
 type openerKey struct {
 	kind    DelimiterKind
 	mod3    int
 	canOpen bool
 }
 
+// newOpenersTable initializes the opener search table for emphasis
+// resolution.
 func newOpenersTable(bottom *DelimiterRecord) map[openerKey]*DelimiterRecord {
 	m := make(map[openerKey]*DelimiterRecord)
 
@@ -446,8 +444,12 @@ func openerKeyForCloser(delim *DelimiterRecord) openerKey {
 	}
 }
 
+// findMatchingOpener searches backward for a delimiter that can match
+// the given closer within the allowed bounds.
 func findMatchingOpener(closer, stackBottom, openerBottom *DelimiterRecord) *DelimiterRecord {
-	for opener := closer.Prev(); opener != nil && opener != stackBottom && opener != openerBottom; opener = opener.Prev() {
+	for opener := closer.Prev(); opener != nil &&
+		opener != stackBottom &&
+		opener != openerBottom; opener = opener.Prev() {
 		if delimitersMatch(opener, closer) {
 			return opener
 		}
@@ -456,6 +458,8 @@ func findMatchingOpener(closer, stackBottom, openerBottom *DelimiterRecord) *Del
 	return nil
 }
 
+// delimitersMatch reports whether opener and closer can form a valid
+// emphasis or strong emphasis pair.
 func delimitersMatch(opener, closer *DelimiterRecord) bool {
 	if opener == nil || closer == nil {
 		return false
@@ -482,18 +486,14 @@ func (c *Cursor) handleStarDelimiter() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// provisionally append the delimiter run as plain text
 	item := c.appendItemRecord(token.Span, ItemText)
 
-	// extract information about the preceding and following runes
 	before, beforeOK := c.runeBefore(token.Span)
 	after, afterOK := c.runeAfter(token.Span)
 
-	// determine the flanking for determining opening/closing capability
 	left := leftFlanking(before, beforeOK, after, afterOK)
 	right := rightFlanking(before, beforeOK, after, afterOK)
 
-	// create and append the corresponding delimiter record
 	delim := &DelimiterRecord{
 		Item:     item,
 		Kind:     DelimAsterisk,
@@ -510,25 +510,20 @@ func (c *Cursor) handleUnderscoreDelimiter() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// provisionally append the delimiter run as plain text
 	item := c.appendItemRecord(token.Span, ItemText)
 
-	// extract information about the preceding and following runes
 	before, beforeOK := c.runeBefore(token.Span)
 	after, afterOK := c.runeAfter(token.Span)
 
 	beforeIsPunct := beforeOK && isPunctuation(before)
 	afterIsPunct := afterOK && isPunctuation(after)
 
-	// determine flanking
 	left := leftFlanking(before, beforeOK, after, afterOK)
 	right := rightFlanking(before, beforeOK, after, afterOK)
 
-	// define opening/closing capability
 	canOpen := left && (!right || beforeIsPunct)
 	canClose := right && (!left || afterIsPunct)
 
-	// create and append the corresponding delimiter record
 	delim := &DelimiterRecord{
 		Item:     item,
 		Kind:     DelimUnderscore,
@@ -546,7 +541,6 @@ func (c *Cursor) handleTokenBacktick() {
 	openerToken := c.Tokens[openerIdx]
 	openerWidth := openerToken.Span.Width()
 
-	// search for a closing backtick token with the same length as the opener
 	closerIdx := openerIdx + 1
 	for closerIdx < len(c.Tokens) {
 		next := c.Tokens[closerIdx]
@@ -563,24 +557,21 @@ func (c *Cursor) handleTokenBacktick() {
 		break
 	}
 
-	// if no matching closer is found, append the opening token as plain text and return
 	if closerIdx >= len(c.Tokens) {
 		c.appendItemRecord(openerToken.Span, ItemText)
 		return
 	}
 
-	// define the original span (delimiter inclusive)
 	originalSpan := source.ByteSpan{
 		Start: c.Tokens[openerIdx].Span.Start,
 		End:   c.Tokens[closerIdx].Span.End,
 	}
-	// define the live span (delimiter exclusive)
+
 	liveSpan := source.ByteSpan{
 		Start: c.Tokens[openerIdx].Span.End,
 		End:   c.Tokens[closerIdx].Span.Start,
 	}
 
-	// examine the content slice, and if there is both leading and trailing spaces and at least one non-space character, trim one space from both ends
 	contentSlice := c.Source.Slice(liveSpan)
 
 	if len(contentSlice) > 0 &&
@@ -591,14 +582,12 @@ func (c *Cursor) handleTokenBacktick() {
 		liveSpan.End--
 	}
 
-	// define the new ItemRecord
 	item := &ItemRecord{
 		OriginalSpan: originalSpan,
 		LiveSpan:     liveSpan,
 		Kind:         ItemCodeSpan,
 	}
 
-	// append the item to the item record list and advance the index past the closer backtick token
 	c.Items.PushBack(item)
 	c.Index = closerIdx + 1
 }
@@ -607,10 +596,8 @@ func (c *Cursor) handleTokenOpenBracket() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// provisionally append the open bracket as plain text
 	item := c.appendItemRecord(token.Span, ItemText)
 
-	// create and append the corresponding delimiter record
 	delim := &DelimiterRecord{
 		Item:   item,
 		Kind:   DelimOpenBracket,
@@ -624,7 +611,7 @@ func (c *Cursor) handleTokenCloseBracket() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// starting at the top of the delimiter stack, look backwards through the stack for an opening '[' or '![' delimiter
+	// search backward for the nearest unmatched '[' or '!['
 	openerDelim := c.Delimiters.Back()
 	for openerDelim != nil {
 		if openerDelim.Kind == DelimOpenBracket ||
@@ -635,13 +622,12 @@ func (c *Cursor) handleTokenCloseBracket() {
 		openerDelim = openerDelim.Prev()
 	}
 
-	// if no opening bracket found, append a literal text node
 	if openerDelim == nil {
 		c.appendItemRecord(token.Span, ItemText)
 		return
 	}
 
-	// if an opening bracket is found, but it's not active, remove the inactive delimiter from the stack and append a literal text node
+	// inactive openers cannot form links; treat ']' literally
 	if !openerDelim.Active {
 		c.Delimiters.Remove(openerDelim)
 		c.appendItemRecord(token.Span, ItemText)
@@ -650,25 +636,19 @@ func (c *Cursor) handleTokenCloseBracket() {
 
 	switch openerDelim.Kind {
 	case DelimOpenBracket:
-		// attempt to resolve the inline bracket as a link construct
 		if c.tryResolveBracket(openerDelim, token, ItemLink) {
 			return
 		}
 
-		// if all inline parse attempts fail, remove the delimiter from the stack
-		// and append the closing bracket as plain text
 		c.Delimiters.Remove(openerDelim)
 		c.appendItemRecord(token.Span, ItemText)
 		return
 
 	case DelimImageOpenBracket:
-		// attempt to resolve the inline bracket as an image construct
 		if c.tryResolveBracket(openerDelim, token, ItemImage) {
 			return
 		}
 
-		// if all inline image parse attempts fail, remove the delimiter from the stack
-		// and append the closing bracket as plain text
 		c.Delimiters.Remove(openerDelim)
 		c.appendItemRecord(token.Span, ItemText)
 		return
@@ -676,14 +656,12 @@ func (c *Cursor) handleTokenCloseBracket() {
 	default:
 		panic("unrecognized delimiter kind encountered")
 	}
-
 }
 
 func (c *Cursor) handleTokenOpenAngle() {
 	openerIdx := c.Index - 1
 	openerToken := c.Tokens[openerIdx]
 
-	// search for the very next close angle token
 	closerIdx := openerIdx + 1
 	for closerIdx < len(c.Tokens) {
 		next := c.Tokens[closerIdx]
@@ -695,67 +673,55 @@ func (c *Cursor) handleTokenOpenAngle() {
 		break
 	}
 
-	// if no close angle token found, append the open angle token as text
 	if closerIdx == len(c.Tokens) {
 		c.appendItemRecord(openerToken.Span, ItemText)
 		return
 	}
 	closerToken := c.Tokens[closerIdx]
 
-	// define the outer span (including angle brackets)
 	outerSpan := source.ByteSpan{
 		Start: openerToken.Span.Start,
 		End:   closerToken.Span.End,
 	}
 
-	// define the content span (excluding angle brackets)
 	contentSpan := source.ByteSpan{
 		Start: openerToken.Span.End,
 		End:   closerToken.Span.Start,
 	}
 
-	// extract the content slice
 	contentSlice := c.Source.Slice(contentSpan)
 
-	// check if the content span is a valid URI autolink
 	if validateURIAutolink(contentSlice) {
 		c.appendItemRecord(outerSpan, ItemAutolinkURI)
 		c.Index = closerIdx + 1
 		return
 	}
 
-	// check if the content span is a valid email autolink
 	if validateEmailAutolink(contentSlice) {
 		c.appendItemRecord(outerSpan, ItemAutolinkEmail)
 		c.Index = closerIdx + 1
 		return
 	}
 
-	// if autolinks fail, extract the span and matching string from the opening token
-	// through the very end of the line for use in a byte-wise search
 	candidateSpan := source.ByteSpan{
 		Start: openerToken.Span.Start,
 		End:   c.Span.End,
 	}
 	candidate := c.Source.Slice(candidateSpan)
 
-	// try to find a valid inline HTML construct, otherwise return the opening token as plain text
 	width, ok := tryInlineHTML(candidate)
 	if !ok {
 		c.appendItemRecord(openerToken.Span, ItemText)
 		return
 	}
 
-	// if valid inline HTML is detected, update the candidate span to match the width returned
 	candidateSpan.End = openerToken.Span.Start + source.BytePos(width)
 
-	// recreate the closing angle bracket token's span based on the candidate span
 	targetSpan := source.ByteSpan{
 		Start: candidateSpan.End - 1,
 		End:   candidateSpan.End,
 	}
 
-	// locate the matching token for this closing angle bracket by inspecting spans
 	candidateCloserIdx := -1
 	for i := openerIdx; i < len(c.Tokens); i++ {
 		tok := c.Tokens[i]
@@ -777,10 +743,8 @@ func (c *Cursor) handleTokenImageOpenBracket() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// provisionally append the open image bracket as plain text
 	item := c.appendItemRecord(token.Span, ItemText)
 
-	// create and append the corresponding delimiter record
 	delim := &DelimiterRecord{
 		Item:   item,
 		Kind:   DelimImageOpenBracket,
@@ -794,15 +758,13 @@ func (c *Cursor) handleTokenBackslash() {
 	tokenIdx := c.Index - 1
 	token := c.Tokens[tokenIdx]
 
-	// peek the next token
 	next := c.Peek()
 
 	switch classifyEscapeTarget(next, c.Source) {
 	case EscapeDecompose:
-		// consume the next token
 		c.Next()
 
-		// decompose the image open bracket
+		// escape "![": literalize '!' and keep '[' bracket-active
 		bangSpan := source.ByteSpan{
 			Start: next.Span.Start,
 			End:   next.Span.Start + 1,
@@ -813,13 +775,10 @@ func (c *Cursor) handleTokenBackslash() {
 			End:   next.Span.End,
 		}
 
-		// append the bang as plain text
 		c.appendItemRecord(bangSpan, ItemText)
 
-		// provisionally append the open bracket as plain text
 		item := c.appendItemRecord(bracketSpan, ItemText)
 
-		// create and append teh corresponding delimiter record
 		delim := &DelimiterRecord{
 			Item:   item,
 			Kind:   DelimOpenBracket,
@@ -829,29 +788,25 @@ func (c *Cursor) handleTokenBackslash() {
 		c.Delimiters.PushBack(delim)
 
 	case EscapeLiteralize:
-		// consume the next token and append as plain text
 		c.Next()
 		c.appendItemRecord(next.Span, ItemText)
 
 	case EscapeLiteralizeLeadingByte:
-		// literalize only the leading byte of the next token
 		leadingByteSpan := source.ByteSpan{
 			Start: next.Span.Start,
 			End:   next.Span.Start + 1,
 		}
 
-		// append the leading byte as plain text
 		c.appendItemRecord(leadingByteSpan, ItemText)
 
-		// consume from the actual token stream
+		// consume only the escaped leading byte and leave the remainder of the token in place
 		if next.Span.End == leadingByteSpan.End {
-			c.Next() // whole token consumed
+			c.Next()
 		} else {
 			c.Tokens[c.Index].Span.Start = leadingByteSpan.End
 		}
 
 	case EscapeNone:
-		// append the backslash as plain text
 		c.appendItemRecord(token.Span, ItemText)
 	}
 }
@@ -866,6 +821,8 @@ func (c *Cursor) appendItemRecord(span source.ByteSpan, kind ItemKind) *ItemReco
 	return c.Items.PushBack(item)
 }
 
+// ResolvedBracketResult captures the resolved span and destination/title
+// data for a successfully parsed link or image construct.
 type ResolvedBracketResult struct {
 	FullSpan        source.ByteSpan
 	DestinationSpan source.ByteSpan
@@ -873,6 +830,8 @@ type ResolvedBracketResult struct {
 	HasTitle        bool
 }
 
+// tryResolveBracket attempts the supported bracket resolution forms in
+// precedence order and finalizes the first successful match.
 func (c *Cursor) tryResolveBracket(opener *DelimiterRecord, token Token, kind ItemKind) bool {
 	tryFns := []func(*DelimiterRecord, Token) (ResolvedBracketResult, bool){
 		c.tryParseInlineBracket,
@@ -897,6 +856,8 @@ func (c *Cursor) tryResolveBracket(opener *DelimiterRecord, token Token, kind It
 	return false
 }
 
+// tryParseInlineBracket attempts to parse an inline link or image tail
+// following a closing bracket.
 func (c *Cursor) tryParseInlineBracket(opener *DelimiterRecord, token Token) (ResolvedBracketResult, bool) {
 	tail, ok := c.tryParseInlineLinkTail(token.Span.End)
 	if !ok {
@@ -916,10 +877,11 @@ func (c *Cursor) tryParseInlineBracket(opener *DelimiterRecord, token Token) (Re
 	return result, true
 }
 
+// tryParseFullReference attempts to resolve a full reference tail of the
+// form [label] using the definition map.
 func (c *Cursor) tryParseFullReference(opener *DelimiterRecord, token Token) (ResolvedBracketResult, bool) {
 	tailStart := token.Span.End
 
-	// obtain a slice from just after the token through the end of line
 	s := c.Source.Slice(source.ByteSpan{
 		Start: tailStart,
 		End:   c.Source.EOF(),
@@ -930,7 +892,6 @@ func (c *Cursor) tryParseFullReference(opener *DelimiterRecord, token Token) (Re
 		return ResolvedBracketResult{}, false
 	}
 
-	// verify that the string begins with '['
 	if s[pos] != '[' {
 		return ResolvedBracketResult{}, false
 	}
@@ -938,7 +899,6 @@ func (c *Cursor) tryParseFullReference(opener *DelimiterRecord, token Token) (Re
 	labelSpanStart := pos
 	pos++
 
-	// probe ahead for an unescaped closing square bracket
 	foundClose := false
 	for pos < len(s) {
 		if s[pos] == '\\' {
@@ -977,15 +937,12 @@ func (c *Cursor) tryParseFullReference(opener *DelimiterRecord, token Token) (Re
 
 	labelContent := c.Source.Slice(contentSpan)
 
-	// validate the label
 	if ok := reference.ValidateLabel(labelContent); !ok {
 		return ResolvedBracketResult{}, false
 	}
 
-	// normalize the label for definition lookup
 	normalizedLabel := reference.NormalizeLabel(labelContent)
 
-	// attempt lookup, and reject if no matching definition exists
 	def, exists := c.Definitions[normalizedLabel]
 	if !exists {
 		return ResolvedBracketResult{}, false
@@ -1004,28 +961,26 @@ func (c *Cursor) tryParseFullReference(opener *DelimiterRecord, token Token) (Re
 	return result, true
 }
 
+// tryParseCollapsedReference attempts to resolve a collapsed reference tail
+// of the form [] using the bracket contents as the label.
 func (c *Cursor) tryParseCollapsedReference(opener *DelimiterRecord, token Token) (ResolvedBracketResult, bool) {
 	tailStart := token.Span.End
 
-	// obtain a slice from just after the token through the end of line
 	s := c.Source.Slice(source.ByteSpan{
 		Start: tailStart,
 		End:   c.Source.EOF(),
 	})
 
-	// the string must be at least two bytes in length
 	if len(s) < 2 {
 		return ResolvedBracketResult{}, false
 	}
 
-	// the tail must begin with '[]' precisely
 	if s[0] != '[' || s[1] != ']' {
 		return ResolvedBracketResult{}, false
 	}
 
 	tailEnd := tailStart + 2
 
-	// define the content span using the first bracket boundaries (not the tail)
 	contentSpan := source.ByteSpan{
 		Start: opener.Item.OriginalSpan.End,
 		End:   token.Span.Start,
@@ -1033,15 +988,12 @@ func (c *Cursor) tryParseCollapsedReference(opener *DelimiterRecord, token Token
 
 	labelContent := c.Source.Slice(contentSpan)
 
-	// validate the label
 	if ok := reference.ValidateLabel(labelContent); !ok {
 		return ResolvedBracketResult{}, false
 	}
 
-	// normalize the label for definition lookup
 	normalizedLabel := reference.NormalizeLabel(labelContent)
 
-	// attempt lookup, and reject if no matching definition exists
 	def, exists := c.Definitions[normalizedLabel]
 	if !exists {
 		return ResolvedBracketResult{}, false
@@ -1060,8 +1012,9 @@ func (c *Cursor) tryParseCollapsedReference(opener *DelimiterRecord, token Token
 	return result, true
 }
 
+// tryParseShortcutReference attempts to resolve a shortcut reference using
+// the bracket contents as the label.
 func (c *Cursor) tryParseShortcutReference(opener *DelimiterRecord, token Token) (ResolvedBracketResult, bool) {
-	// content span is defined by the bracket boundaries
 	contentSpan := source.ByteSpan{
 		Start: opener.Item.OriginalSpan.End,
 		End:   token.Span.Start,
@@ -1069,15 +1022,12 @@ func (c *Cursor) tryParseShortcutReference(opener *DelimiterRecord, token Token)
 
 	labelContent := c.Source.Slice(contentSpan)
 
-	// validate the label
 	if ok := reference.ValidateLabel(labelContent); !ok {
 		return ResolvedBracketResult{}, false
 	}
 
-	// normalize the label for definition lookup
 	normalizedLabel := reference.NormalizeLabel(labelContent)
 
-	// attempt lookup, and reject if no matching definition exists
 	def, exists := c.Definitions[normalizedLabel]
 	if !exists {
 		return ResolvedBracketResult{}, false
@@ -1096,6 +1046,8 @@ func (c *Cursor) tryParseShortcutReference(opener *DelimiterRecord, token Token)
 	return result, true
 }
 
+// FinalizeBracketCommand describes the data needed to rewrite an opening
+// bracket item into a resolved link or image item.
 type FinalizeBracketCommand struct {
 	Kind           ItemKind
 	OpenerDelim    *DelimiterRecord
@@ -1103,6 +1055,8 @@ type FinalizeBracketCommand struct {
 	Result         ResolvedBracketResult
 }
 
+// finalizeBracket rewrites the opening bracket item into a resolved link or
+// image item, attaches its child items, and updates delimiter state.
 func (c *Cursor) finalizeBracket(cmd FinalizeBracketCommand) {
 	openerItem := cmd.OpenerDelim.Item
 
@@ -1119,21 +1073,16 @@ func (c *Cursor) finalizeBracket(cmd FinalizeBracketCommand) {
 	// process emphasis beginning from the opening bracket
 	c.processEmphasis(cmd.OpenerDelim)
 
-	// identify the first and last child items
 	firstChild := openerItem.Next()
 	lastChild := c.Items.Back()
 
-	// define the list of child items
 	var childList *ItemList
 	if firstChild == nil {
-		// if there are no child items, initialize an empty list
 		childList = NewItemList()
 	} else {
-		// otherwise, detach the contiguous span [firstChild, lastChild] and extract to a new *ItemList
 		childList = c.Items.DetachRange(firstChild, lastChild)
 	}
 
-	// update the opener item with the resolved item shape
 	openerItem.Kind = cmd.Kind
 	openerItem.OriginalSpan = originalSpan
 	openerItem.LiveSpan = liveSpan
@@ -1154,13 +1103,11 @@ func (c *Cursor) finalizeBracket(cmd FinalizeBracketCommand) {
 		}
 	}
 
-	// advance the cursor past the full resolved construct
 	c.advanceToBytePos(cmd.Result.FullSpan.End)
-
-	// remove the opening delimiter from the stack
 	c.Delimiters.Remove(cmd.OpenerDelim)
 }
 
+// InlineLinkTail represents a parsed inline link tail "(destination title)".
 type InlineLinkTail struct {
 	FullSpan        source.ByteSpan // from '(' through ')'
 	DestinationSpan source.ByteSpan
@@ -1168,6 +1115,7 @@ type InlineLinkTail struct {
 	HasTitle        bool
 }
 
+// tryParseInlineLinkTail parses an inline link tail starting at start.
 func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, bool) {
 	candidateSpan := source.ByteSpan{
 		Start: start,
@@ -1178,19 +1126,15 @@ func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, b
 
 	result := InlineLinkTail{}
 
-	// validate the candidate length and that the first byte is an open paren
 	if limit < 2 || s[0] != '(' {
 		return InlineLinkTail{}, false
 	}
 
-	// advance past the open paren
 	idx := 1
 
-	// consume any spaces and tabs
 	idx = consumeSpacesTabs(s, idx, limit)
 
 	if idx < limit && s[idx] == ')' {
-		// valid link title, no destination & no title
 		result.FullSpan = source.ByteSpan{
 			Start: candidateSpan.Start,
 			End:   candidateSpan.Start + source.BytePos(idx+1),
@@ -1199,25 +1143,21 @@ func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, b
 		return result, true
 	}
 
-	// validate and consume the link destination
 	destinationSpanRel, idx, ok := tryLinkDestination(s, idx, limit)
 	if !ok {
 		return InlineLinkTail{}, false
 	}
 
-	// update the result struct
 	result.DestinationSpan = source.ByteSpan{
 		Start: candidateSpan.Start + destinationSpanRel.Start,
 		End:   candidateSpan.Start + destinationSpanRel.End,
 	}
 
-	// mark the index and consume any spaces or tabs
 	sepStart := idx
 	idx = consumeSpacesTabs(s, idx, limit)
 	sepPresent := idx > sepStart
 
 	if idx < limit && s[idx] == ')' {
-		// valid link title, no title
 		result.FullSpan = source.ByteSpan{
 			Start: candidateSpan.Start,
 			End:   candidateSpan.Start + source.BytePos(idx+1),
@@ -1230,7 +1170,6 @@ func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, b
 		return InlineLinkTail{}, false
 	}
 
-	// check whether the next byte can start a link title
 	if s[idx] == '"' || s[idx] == '\'' || s[idx] == '(' {
 		// if no separator exists between destination and title, the tail is invalid
 		if !sepPresent {
@@ -1242,18 +1181,15 @@ func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, b
 			return InlineLinkTail{}, false
 		}
 
-		// update the result struct
 		result.TitleSpan = source.ByteSpan{
 			Start: candidateSpan.Start + titleSpanRel.Start,
 			End:   candidateSpan.Start + titleSpanRel.End,
 		}
 		result.HasTitle = true
 
-		// consume any spaces or tabs
 		idx = consumeSpacesTabs(s, idx, limit)
 
 		if idx < limit && s[idx] == ')' {
-			// valid link title
 			result.FullSpan = source.ByteSpan{
 				Start: candidateSpan.Start,
 				End:   candidateSpan.Start + source.BytePos(idx+1),
@@ -1266,6 +1202,8 @@ func (c *Cursor) tryParseInlineLinkTail(start source.BytePos) (InlineLinkTail, b
 	return InlineLinkTail{}, false
 }
 
+// tryLinkDestination parses a link destination, selecting angle-bracketed
+// or bare forms.
 func tryLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	if idx >= limit {
 		return source.ByteSpan{}, 0, false
@@ -1277,28 +1215,25 @@ func tryLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	return tryBareLinkDestination(s, idx, limit)
 }
 
+// tryAngleLinkDestination parses an angle-bracketed link destination "<...>"
+// with stricter character constraints and no nesting.
 func tryAngleLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
-	// validate that the first byte is '<'
 	if idx >= limit || s[idx] != '<' {
 		return source.ByteSpan{}, 0, false
 	}
 
-	// advance past the opening angle bracket
 	idx++
 	start := idx
 
 	for idx < limit {
 		switch s[idx] {
 		case '\n', '\r':
-			// newlines are not permitted inside the destination
 			return source.ByteSpan{}, 0, false
 
 		case '<':
-			// an unescaped '<' is an invalid destination
 			return source.ByteSpan{}, 0, false
 
 		case '>':
-			// an unescaped '>' is the end of the destination
 			span := source.ByteSpan{
 				Start: source.BytePos(start),
 				End:   source.BytePos(idx),
@@ -1307,12 +1242,10 @@ func tryAngleLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bo
 			return span, idx + 1, true
 
 		case '\\':
-			// on a backslash, advance two bytes if within span limit
 			if idx+1 < limit {
 				idx += 2
 				continue
 			}
-			// otherwise, trailing backslash is just ordinary content
 			idx++
 
 		default:
@@ -1320,16 +1253,16 @@ func tryAngleLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bo
 		}
 	}
 
-	// no closing '>' was encountered, invalid angle link destination
 	return source.ByteSpan{}, 0, false
 }
 
+// tryBareLinkDestination parses a non-angle-bracketed link destination,
+// handling nested parentheses.
 func tryBareLinkDestination(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	if idx >= limit {
 		return source.ByteSpan{}, 0, false
 	}
 
-	// must not start with '<'
 	if s[idx] == '<' {
 		return source.ByteSpan{}, 0, false
 	}
@@ -1348,14 +1281,12 @@ func tryBareLinkDestination(s string, idx, limit int) (source.ByteSpan, int, boo
 			break
 		}
 
-		// invalid bytes
 		if b < 0x20 || b == 0x7F {
 			return source.ByteSpan{}, 0, false
 		}
 
 		switch b {
 		case '\\':
-			// escaped byte
 			if idx+1 < limit {
 				idx += 2
 			} else {
@@ -1391,6 +1322,7 @@ func tryBareLinkDestination(s string, idx, limit int) (source.ByteSpan, int, boo
 	return span, idx, true
 }
 
+// tryLinkTitle parses a link title delimited by quotes or parentheses.
 func tryLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	if idx >= limit {
 		return source.ByteSpan{}, 0, false
@@ -1419,11 +1351,9 @@ func tryQuotedLinkTitle(s string, idx, limit int, delim byte) (source.ByteSpan, 
 	for idx < limit {
 		switch s[idx] {
 		case '\n', '\r':
-			// newlines are not permitted inside the title
 			return source.ByteSpan{}, 0, false
 
 		case delim:
-			// an unescaped delimiter ends the title
 			span := source.ByteSpan{
 				Start: source.BytePos(start),
 				End:   source.BytePos(idx),
@@ -1432,12 +1362,10 @@ func tryQuotedLinkTitle(s string, idx, limit int, delim byte) (source.ByteSpan, 
 			return span, idx + 1, true
 
 		case '\\':
-			// on a backslash, advance two bytes if within span limit
 			if idx+1 < limit {
 				idx += 2
 				continue
 			}
-			// otherwise, trailing backslash is just ordinary content
 			idx++
 
 		default:
@@ -1460,19 +1388,15 @@ func tryParenLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	for idx < limit {
 		switch s[idx] {
 		case '\n', '\r':
-			// newlines are not permitted inside the title
 			return source.ByteSpan{}, 0, false
 
 		case '(':
-			// an unescaped open paren increases the paren depth
 			depth++
 			idx++
 
 		case ')':
-			// an unescaped close paren decreases the paren depth
 			depth--
 
-			// reaching the depth 0 ends the title
 			if depth == 0 {
 				span := source.ByteSpan{
 					Start: source.BytePos(start),
@@ -1485,12 +1409,10 @@ func tryParenLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
 			idx++
 
 		case '\\':
-			// on a backslash, advance two bytes if within span limit
 			if idx+1 < limit {
 				idx += 2
 				continue
 			}
-			// otherwise, trailing backslash is just ordinary content
 			idx++
 
 		default:
@@ -1501,6 +1423,8 @@ func tryParenLinkTitle(s string, idx, limit int) (source.ByteSpan, int, bool) {
 	return source.ByteSpan{}, 0, false
 }
 
+// runeBefore returns the rune immediately preceding delimSpan within the
+// current inline parse span.
 func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
 	if delimSpan.Start == c.Span.Start {
 		return 0, false
@@ -1520,6 +1444,8 @@ func (c *Cursor) runeBefore(delimSpan source.ByteSpan) (rune, bool) {
 	return r, true
 }
 
+// runeAfter returns the rune immediately following delimSpan within the
+// current inline parse span.
 func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
 	if delimSpan.End == c.Span.End {
 		return 0, false
@@ -1539,6 +1465,7 @@ func (c *Cursor) runeAfter(delimSpan source.ByteSpan) (rune, bool) {
 	return r, true
 }
 
+// validateURIAutolink reports whether s is a valid URI autolink body.
 func validateURIAutolink(s string) bool {
 	idx := 0
 	for idx < len(s) {
@@ -1555,18 +1482,15 @@ func validateURIAutolink(s string) bool {
 	scheme := s[:idx]
 	rest := s[idx+1:]
 
-	// validate the scheme length
 	if len(scheme) < 2 || len(scheme) > 32 {
 		return false
 	}
 
-	// validate the first scheme character
 	b := scheme[0]
 	if !isAlpha(b) {
 		return false
 	}
 
-	// validate the scheme characters
 	for i := 1; i < len(scheme); i++ {
 		b := scheme[i]
 		if isAlpha(b) || isDigit(b) {
@@ -1580,7 +1504,6 @@ func validateURIAutolink(s string) bool {
 		return false
 	}
 
-	// validate the rest of the URI
 	for i := 0; i < len(rest); i++ {
 		b := rest[i]
 		if b < 0x20 || b == 0x7F {
@@ -1595,6 +1518,7 @@ func validateURIAutolink(s string) bool {
 	return true
 }
 
+// validateEmailAutolink reports whether s is a valid email autolink body.
 func validateEmailAutolink(s string) bool {
 	idx := -1
 	for i := 0; i < len(s); i++ {
@@ -1655,6 +1579,8 @@ func validateEmailAutolink(s string) bool {
 	return true
 }
 
+// tryInlineHTML attempts to parse any supported inline HTML construct and
+// returns its width on success.
 func tryInlineHTML(s string) (int, bool) {
 	if len(s) < 2 {
 		return 0, false
@@ -1709,29 +1635,27 @@ func tryHTMLCDATA(s string) (int, bool) {
 	return tryHTMLDelimited(s, "<![CDATA[", "]]>")
 }
 
+// tryHTMLOpenTag attempts to parse an inline HTML opening tag, including
+// optional attributes and self-closing suffixes.
 func tryHTMLOpenTag(s string) (int, bool) {
 	if len(s) < 2 {
 		return 0, false
 	}
 
-	// traverse the string and break on the first unquoted closing angle bracket
 	pos := 1
 	insideSingleQuote := false
 	insideDoubleQuote := false
 
 	for pos < len(s) {
 		b := s[pos]
-		// only toggle the double quote status if not inside single quotes
 		if b == '"' && !insideSingleQuote {
 			insideDoubleQuote = !insideDoubleQuote
 		}
 
-		// only toggle the single quote status if not inside double quotes
 		if b == '\'' && !insideDoubleQuote {
 			insideSingleQuote = !insideSingleQuote
 		}
 
-		// only break on closing angle brackets if not inside quoted material
 		if b == '>' && !insideSingleQuote && !insideDoubleQuote {
 			break
 		}
@@ -1739,97 +1663,6 @@ func tryHTMLOpenTag(s string) (int, bool) {
 		pos++
 	}
 
-	// no terminating '>' found outside of quotes, not a valid tag candidate
-	if pos == len(s) {
-		return 0, false
-	}
-
-	last := pos      // index of the closing '>'
-	width := pos + 1 // total width of the candidate slice
-	candidate := s[:width]
-
-	// must begin with '<' and end with '>'
-	if candidate[0] != '<' || candidate[last] != '>' {
-		return 0, false
-	}
-
-	// validate and consume the tag name
-	idx := 1
-	idx, ok := tryHTMLTagName(s, idx, last)
-	if !ok {
-		return 0, false
-	}
-
-	// form is <tag>
-	if idx == last {
-		return width, true
-	}
-
-	// form is <tag/> or <tag /...>
-	if candidate[idx] == '/' {
-		if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
-			return width, true
-		}
-		return 0, false
-	}
-
-	// general tail, attributes must be preceded by at least one space/tab
-	for {
-		mark := idx
-
-		// consume separator whitespace between elements
-		idx = consumeSpacesTabs(candidate, idx, last)
-
-		// valid end
-		if idx == last {
-			return width, true
-		}
-
-		// self-closing suffix after whitespace
-		if candidate[idx] == '/' {
-			if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
-				return width, true
-			}
-			return 0, false
-		}
-
-		// no separator consumed, cannot begin an attribute
-		if mark == idx {
-			return 0, false
-		}
-
-		// parse a single attribute (name + optional value)
-		next, ok := tryHTMLAttribute(candidate, idx, last)
-
-		// must succeed and must make forward progress
-		if !ok || next <= idx {
-			return 0, false
-		}
-
-		idx = next
-	}
-}
-
-func tryHTMLClosingTag(s string) (int, bool) {
-	if len(s) < 3 {
-		return 0, false
-	}
-
-	// validate the open angle bracket
-	if s[0] != '<' || s[1] != '/' {
-		return 0, false
-	}
-
-	// traverse the string and break on the first closing angle bracket
-	pos := 2
-	for pos < len(s) {
-		if s[pos] == '>' {
-			break
-		}
-		pos++
-	}
-
-	// no terminating '>' found, not a valid candidate
 	if pos == len(s) {
 		return 0, false
 	}
@@ -1838,7 +1671,83 @@ func tryHTMLClosingTag(s string) (int, bool) {
 	width := pos + 1
 	candidate := s[:width]
 
-	// validate and consume the tag name
+	if candidate[0] != '<' || candidate[last] != '>' {
+		return 0, false
+	}
+
+	idx := 1
+	idx, ok := tryHTMLTagName(s, idx, last)
+	if !ok {
+		return 0, false
+	}
+
+	if idx == last {
+		return width, true
+	}
+
+	if candidate[idx] == '/' {
+		if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
+			return width, true
+		}
+		return 0, false
+	}
+
+	for {
+		mark := idx
+
+		idx = consumeSpacesTabs(candidate, idx, last)
+
+		if idx == last {
+			return width, true
+		}
+
+		if candidate[idx] == '/' {
+			if _, ok := tryHTMLSelfClosingSuffix(candidate, idx, last); ok {
+				return width, true
+			}
+			return 0, false
+		}
+
+		if mark == idx {
+			return 0, false
+		}
+
+		next, ok := tryHTMLAttribute(candidate, idx, last)
+
+		if !ok || next <= idx {
+			return 0, false
+		}
+
+		idx = next
+	}
+}
+
+// tryHTMLClosingTag attempts to parse an inline HTML closing tag.
+func tryHTMLClosingTag(s string) (int, bool) {
+	if len(s) < 3 {
+		return 0, false
+	}
+
+	if s[0] != '<' || s[1] != '/' {
+		return 0, false
+	}
+
+	pos := 2
+	for pos < len(s) {
+		if s[pos] == '>' {
+			break
+		}
+		pos++
+	}
+
+	if pos == len(s) {
+		return 0, false
+	}
+
+	last := pos
+	width := pos + 1
+	candidate := s[:width]
+
 	idx := 2
 	idx, ok := tryHTMLTagName(candidate, idx, last)
 	if !ok {
@@ -1855,13 +1764,11 @@ func tryHTMLClosingTag(s string) (int, bool) {
 }
 
 func tryHTMLTagName(s string, idx, last int) (int, bool) {
-	// the first byte must be an ASCII letter
 	if !isAlpha(s[idx]) {
 		return 0, false
 	}
 	idx++
 
-	// consume maximal tag name
 	for idx < last {
 		b := s[idx]
 		if isAlpha(b) || isDigit(b) || b == '-' {
@@ -1875,16 +1782,13 @@ func tryHTMLTagName(s string, idx, last int) (int, bool) {
 }
 
 func tryHTMLSelfClosingSuffix(s string, idx, last int) (int, bool) {
-	// the suffix must being with a forward slash
 	if idx >= last || s[idx] != '/' {
 		return 0, false
 	}
 	idx++
 
-	// consume any optional spaces or tabs after the slice
 	idx = consumeSpacesTabs(s, idx, last)
 
-	// the suffix is valid only if it runs directly up to the closing angle bracket
 	if idx != last {
 		return 0, false
 	}
@@ -1893,41 +1797,31 @@ func tryHTMLSelfClosingSuffix(s string, idx, last int) (int, bool) {
 
 }
 
+// tryHTMLAttribute attempts to parse a single HTML attribute, including an
+// optional value.
 func tryHTMLAttribute(s string, idx, last int) (int, bool) {
-	// parse the attribute name
 	var ok bool
 	idx, ok = tryHTMLAttributeName(s, idx, last)
 	if !ok {
 		return 0, false
 	}
 
-	// if attribute name advances up to the closing angle bracket,
-	// the attribute is a bare name with no value specification
 	if idx == last {
 		return idx, true
 	}
 
-	// after the name, only spaces, tabs, or '=' may appear
 	if s[idx] != ' ' && s[idx] != '\t' && s[idx] != '=' {
 		return 0, false
 	}
 
-	// scan ahead for an attribute value specification
-	//
-	// consume any spaces or tabs after the name:
-	// - if no '=' follows, the attribute is a bare name and trailing
-	//   whitespace is left for the outer parser
-	// - if '=' follows, continue into value parsing
+	// if no '=' follows, the attribute is a bare name and trailing whitespace is left for the outer parser
 	probe := consumeSpacesTabs(s, idx, last)
 	if probe == last || s[probe] != '=' {
 		return idx, true
 	}
 
-	// consume spaces or tabs after '=' and position idx
-	// at the first byte of the attribute value
 	idx = consumeSpacesTabs(s, probe+1, last)
 
-	// an '=' must be followed by an attribute value
 	if idx == last {
 		return 0, false
 	}
@@ -1936,14 +1830,11 @@ func tryHTMLAttribute(s string, idx, last int) (int, bool) {
 }
 
 func tryHTMLAttributeName(s string, idx, last int) (int, bool) {
-	// the first character must be an ASCII letter, '_', or ':'
 	if !isAlpha(s[idx]) && s[idx] != '_' && s[idx] != ':' {
 		return 0, false
 	}
 	idx++
 
-	// consume maximal attribute name:
-	// ASCII letters, digits, '_', '.', ':', or '-'
 	for idx < last {
 		b := s[idx]
 		if isAlpha(b) ||
@@ -1964,7 +1855,6 @@ func tryHTMLAttributeName(s string, idx, last int) (int, bool) {
 func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 	switch s[idx] {
 	case '\'':
-		// single-quoted value
 		idx++
 		for idx < last {
 			if s[idx] != '\'' {
@@ -1974,17 +1864,14 @@ func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 			break
 		}
 
-		// no closing single quote found
 		if idx == last {
 			return 0, false
 		}
 
-		// consume the closing quote
 		idx++
 		return idx, true
 
 	case '"':
-		// double-quoted value
 		idx++
 		for idx < last {
 			if s[idx] != '"' {
@@ -1994,18 +1881,14 @@ func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 			break
 		}
 
-		// no closing double quote found
 		if idx == last {
 			return 0, false
 		}
 
-		// consume the closing quote
 		idx++
 		return idx, true
 
 	default:
-		// unquoted value
-		// a nonempty string of characters excluding spaces, tabs, ", ', =, <, >, and `
 		start := idx
 		for idx < last {
 			b := s[idx]
@@ -2022,7 +1905,6 @@ func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 			idx++
 		}
 
-		// unquoted values must be nonempty
 		if idx == start {
 			return 0, false
 		}
@@ -2031,6 +1913,8 @@ func tryHTMLAttributeValue(s string, idx, last int) (int, bool) {
 	}
 }
 
+// tryHTMLDelimited attempts to parse a delimited inline HTML form with the
+// given opener and terminator.
 func tryHTMLDelimited(s, opener, terminator string) (int, bool) {
 	if !strings.HasPrefix(s, opener) {
 		return 0, false
@@ -2044,6 +1928,7 @@ func tryHTMLDelimited(s, opener, terminator string) (int, bool) {
 	return i + len(terminator), true
 }
 
+// consumeSpacesTabs advances idx past consecutive spaces and tabs up to last.
 func consumeSpacesTabs(s string, idx, last int) int {
 	for idx < last && (s[idx] == ' ' || s[idx] == '\t') {
 		idx++
@@ -2091,6 +1976,8 @@ func isPunctuation(r rune) bool {
 	return unicode.IsPunct(r)
 }
 
+// leftFlanking reports whether a delimiter run is left-flanking with
+// respect to the surrounding runes.
 func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
 	if !afterOK {
 		return false
@@ -2113,6 +2000,8 @@ func leftFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
 	return false
 }
 
+// rightFlanking reports whether a delimiter run is right-flanking with
+// respect to the surrounding runes.
 func rightFlanking(before rune, beforeOK bool, after rune, afterOK bool) bool {
 	if !beforeOK {
 		return false

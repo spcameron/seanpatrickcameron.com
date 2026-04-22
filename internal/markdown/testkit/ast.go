@@ -126,7 +126,7 @@ func ASTText(_ ...string) ast.Text {
 	}
 }
 
-// ASTRawText constructs a text node for structural AST comparisons.
+// ASTRawText constructs a raw text node for structural AST comparisons.
 // Optional samples are ignored and exist only to improve test readability.
 func ASTRawText(_ ...string) ast.RawText {
 	return ast.RawText{
@@ -134,7 +134,7 @@ func ASTRawText(_ ...string) ast.RawText {
 	}
 }
 
-// ASTCodeSpan constructs a text node for structural AST comparisons.
+// ASTCodeSpan constructs a code span node for structural AST comparisons.
 // Optional samples are ignored and exist only to improve test readability.
 func ASTCodeSpan(_ ...string) ast.CodeSpan {
 	return ast.CodeSpan{
@@ -160,6 +160,8 @@ func ASTNewline() ast.Newline {
 	}
 }
 
+// NormalizeAST clears source-specific fields so AST values can be compared
+// structurally in tests.
 func NormalizeAST(doc ast.Document) ast.Document {
 	doc.Source = nil
 	if doc.Blocks == nil {
@@ -171,6 +173,8 @@ func NormalizeAST(doc ast.Document) ast.Document {
 	return doc
 }
 
+// NormalizeASTBlocks recursively clears span-bearing block fields and
+// normalizes nil child slices to empty slices.
 func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 	for i := range blocks {
 		switch b := blocks[i].(type) {
@@ -255,6 +259,7 @@ func NormalizeASTBlocks(blocks []ast.Block) []ast.Block {
 	return blocks
 }
 
+// NormalizeASTInlines recursively clears span-bearing inline fields.
 func NormalizeASTInlines(inl []ast.Inline) []ast.Inline {
 	out := make([]ast.Inline, 0, len(inl))
 	for i := range inl {

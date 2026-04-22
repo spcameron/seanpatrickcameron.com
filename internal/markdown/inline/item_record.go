@@ -2,6 +2,7 @@ package inline
 
 import "github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 
+// ItemKind identifies the kind of inline item tracked during inline parsing.
 type ItemKind int
 
 const (
@@ -17,6 +18,8 @@ const (
 	ItemStrong
 )
 
+// ItemRecord represents a provisional or resolved inline item in the
+// mutable item list used during inline parsing.
 type ItemRecord struct {
 	next, prev *ItemRecord
 	list       *ItemList
@@ -48,6 +51,7 @@ func (r *ItemRecord) Prev() *ItemRecord {
 	return nil
 }
 
+// ItemList is a doubly-linked list of item records used during inline parsing.
 type ItemList struct {
 	root ItemRecord
 	len  int
@@ -123,12 +127,10 @@ func (l *ItemList) Remove(item *ItemRecord) {
 // DetachRange removes the contiguous range [first, last] from list l
 // and returns a new ItemList containing that range.
 func (l *ItemList) DetachRange(first, last *ItemRecord) *ItemList {
-	// nil guard
 	if first == nil || last == nil {
 		panic("DetachRange: first and last must be non-nil")
 	}
 
-	// list membership guards
 	if first.list != l {
 		panic("DetachRange: first does not belong to receiver list")
 	}
@@ -136,7 +138,6 @@ func (l *ItemList) DetachRange(first, last *ItemRecord) *ItemList {
 		panic("DetachRange: last does not belong to receiver list")
 	}
 
-	// verify that last is reachable from first within l
 	found := false
 	count := 0
 	for item := first; item != nil; item = item.Next() {
@@ -155,17 +156,14 @@ func (l *ItemList) DetachRange(first, last *ItemRecord) *ItemList {
 	before := first.prev
 	after := last.next
 
-	// splice [first, last] out of l
 	before.next = after
 	after.prev = before
 
-	// splice [first, last] into newList
 	newList.root.next = first
 	newList.root.prev = last
 	first.prev = &newList.root
 	last.next = &newList.root
 
-	// update ownership pointers and lengths
 	for item := first; item != &newList.root; item = item.next {
 		item.list = newList
 	}

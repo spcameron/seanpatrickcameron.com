@@ -1,5 +1,6 @@
 package inline
 
+// DelimiterKind identifies the kind of delimiter tracked during inline parsing.
 type DelimiterKind int
 
 const (
@@ -10,6 +11,8 @@ const (
 	DelimUnderscore
 )
 
+// DelimiterRecord represents a delimiter in the inline parse, participating
+// in a doubly-linked delimiter stack used for emphasis and link resolution.
 type DelimiterRecord struct {
 	next, prev *DelimiterRecord
 	list       *DelimiterList
@@ -38,6 +41,8 @@ func (r *DelimiterRecord) Prev() *DelimiterRecord {
 	return nil
 }
 
+// DelimiterList is a doubly-linked list of delimiter records used during
+// inline parsing.
 type DelimiterList struct {
 	root DelimiterRecord
 	len  int
@@ -72,7 +77,8 @@ func (l *DelimiterList) Back() *DelimiterRecord {
 	return l.root.prev
 }
 
-// PushBack insters a DelimiterRecord at the back of list l and returns the DelimiterRecord.
+// PushBack inserts a DelimiterRecord at the back of list l and returns
+// the DelimiterRecord.
 func (l *DelimiterList) PushBack(delim *DelimiterRecord) *DelimiterRecord {
 	last := l.root.prev
 	delim.prev = last
@@ -98,12 +104,10 @@ func (l *DelimiterList) Remove(delim *DelimiterRecord) {
 
 // RemoveRange removes the contiguous range [first, last] from list l.
 func (l *DelimiterList) RemoveRange(first, last *DelimiterRecord) {
-	// nil guard
 	if first == nil || last == nil {
 		panic("RemoveRange: first and last must be non-nil")
 	}
 
-	// list membership guards
 	if first.list != l {
 		panic("RemoveRange: first does not belong to receiver list")
 	}
@@ -111,7 +115,6 @@ func (l *DelimiterList) RemoveRange(first, last *DelimiterRecord) {
 		panic("RemoveRange: last does not belong to receiver list")
 	}
 
-	// verify that last is reachable from first within l
 	found := false
 	count := 0
 	for item := first; item != nil; item = item.Next() {
@@ -128,11 +131,9 @@ func (l *DelimiterList) RemoveRange(first, last *DelimiterRecord) {
 	before := first.prev
 	after := last.next
 
-	// splice [first, last] out of l
 	before.next = after
 	after.prev = before
 
-	// update ownership pointers
 	item := first
 	for item != after {
 		next := item.next
@@ -142,6 +143,5 @@ func (l *DelimiterList) RemoveRange(first, last *DelimiterRecord) {
 		item = next
 	}
 
-	// update list count
 	l.len -= count
 }

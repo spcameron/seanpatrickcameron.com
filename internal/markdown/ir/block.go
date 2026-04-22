@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Block is the marker interface implemented by all IR block nodes.
 type Block interface {
 	isBlock()
 }
@@ -21,6 +22,10 @@ func (bq BlockQuote) String() string {
 	return fmt.Sprintf("[BlockQuote] (Children = %d)", len(bq.Children))
 }
 
+// Header represents a parsed header before inline lowering.
+//
+// ContentSpan covers the header content as a whole, while ContentLines
+// preserves the source lines that contribute that content.
 type Header struct {
 	Span         source.ByteSpan
 	ContentSpan  source.ByteSpan
@@ -72,6 +77,7 @@ func (ul UnorderedList) String() string {
 	return fmt.Sprintf("[UnorderedList] (Items = %d)", len(ul.Items))
 }
 
+// ListItem represents a list item within an ordered or unordered list.
 type ListItem struct {
 	Span     source.ByteSpan
 	Children []Block
@@ -94,6 +100,10 @@ func (icb IndentedCodeBlock) String() string {
 	return fmt.Sprintf("[IndentedCodeBlock] (Lines = %d)", len(icb.Lines))
 }
 
+// FencedCodeBlock represents a fenced code block in parse-facing form.
+//
+// OpenIndentCols records the indentation of the opening fence, and
+// InfoStringSpan identifies the raw info string when present.
 type FencedCodeBlock struct {
 	Span           source.ByteSpan
 	OpenIndentCols int

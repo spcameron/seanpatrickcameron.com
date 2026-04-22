@@ -11,11 +11,13 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Context carries shared lowering state used while converting IR to AST.
 type Context struct {
 	Source      *source.Source
 	Definitions map[string]ir.ReferenceDefinition
 }
 
+// Document lowers an IR document into its AST form.
 func Document(irDoc ir.Document) (ast.Document, error) {
 	ctx := &Context{
 		Source:      irDoc.Source,
@@ -154,9 +156,10 @@ func buildOrderedList(ctx *Context, ol ir.OrderedList) (ast.Block, error) {
 			return nil, err
 		}
 
+		// IR guarantees list items here; assertion defends that invariant
 		astItem, ok := astBlock.(ast.ListItem)
 		if !ok {
-			panic("ast build requires list item type assertion to pass")
+			panic(fmt.Sprintf("expected ast.ListItem, got %T", astBlock))
 		}
 
 		astItems = append(astItems, astItem)
@@ -219,6 +222,9 @@ func buildFencedCodeBlock(ctx *Context, cb ir.FencedCodeBlock) (ast.Block, error
 	return block, nil
 }
 
+// normalizeCodeBlockPayload converts code block line spans into AST inline
+// content, trimming up to indent columns from each line and inserting
+// explicit newline nodes between lines.
 func normalizeCodeBlockPayload(src *source.Source, lines []source.ByteSpan, indent int) []ast.Inline {
 	if len(lines) == 0 {
 		return []ast.Inline{}
@@ -269,6 +275,8 @@ func normalizeCodeBlockPayload(src *source.Source, lines []source.ByteSpan, inde
 	return payload
 }
 
+// extractLanguageString returns the leading language token from a fenced
+// code block info string.
 func extractLanguageString(src *source.Source, infoSpan source.ByteSpan) source.ByteSpan {
 	s := src.Slice(infoSpan)
 	pos := 0
@@ -329,6 +337,9 @@ func buildParagraph(ctx *Context, p ir.Paragraph) (ast.Block, error) {
 	return block, nil
 }
 
+// lowerLineSpans parses inline content across multiple source lines,
+// converting inter-line boundaries into soft or hard breaks according to
+// Markdown paragraph break rules.
 func lowerLineSpans(ctx *Context, spans []source.ByteSpan) ([]ast.Inline, error) {
 	if len(spans) == 0 {
 		return []ast.Inline{}, nil

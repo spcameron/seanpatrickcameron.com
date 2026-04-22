@@ -5,6 +5,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Parse scans source lines and builds the block-level IR document.
 func Parse(src *source.Source) (ir.Document, error) {
 	lines, err := Scan(src)
 	if err != nil {

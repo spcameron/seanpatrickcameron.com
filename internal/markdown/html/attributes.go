@@ -6,8 +6,10 @@ import (
 	"slices"
 )
 
+// Attributes represents a set of HTML element attributes.
 type Attributes map[string]string
 
+// SortedKeys returns the attribute keys in deterministic order.
 func (a Attributes) SortedKeys() []string {
 	keys := make([]string, len(a))
 
@@ -21,6 +23,9 @@ func (a Attributes) SortedKeys() []string {
 	return keys
 }
 
+// Write serializes attributes to w in key-sorted order.
+//
+// Values are HTML-escaped before being written.
 func (a Attributes) Write(w io.Writer) error {
 	keys := a.SortedKeys()
 

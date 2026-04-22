@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Inline is the marker interface implemented by all inline AST nodes.
 type Inline interface {
 	isInline()
 }
@@ -20,6 +21,11 @@ func (c CodeSpan) String() string {
 	return "CodeSpan"
 }
 
+// Link represents an inline link or autolink.
+//
+// Label, Destination, and Title refer to source spans in the original input.
+// Children holds the parsed inline label content. MailTo reports whether the
+// rendered destination should be treated as a mailto link.
 type Link struct {
 	Span        source.ByteSpan
 	Label       source.ByteSpan
@@ -39,6 +45,11 @@ func (l Link) String() string {
 	)
 }
 
+// Image represents an inline image.
+//
+// Destination and Title refer to the image destination and optional title.
+// Children holds the parsed inline content of the image label, which is used
+// as alt text during rendering.
 type Image struct {
 	Span        source.ByteSpan
 	Destination source.ByteSpan
@@ -84,6 +95,8 @@ func (Text) String() string {
 	return "Text"
 }
 
+// RawText represents inline content that should be emitted without normal
+// text escaping rules applied to Text nodes.
 type RawText struct {
 	Span source.ByteSpan
 }
@@ -114,6 +127,7 @@ func (SoftBreak) String() string {
 	return "SoftBreak"
 }
 
+// Newline represents a literal newline retained in the inline AST.
 type Newline struct {
 	Span source.ByteSpan
 }

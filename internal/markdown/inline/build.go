@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Build resolves a tokenized inline span into AST inline nodes.
 func Build(src *source.Source, defs map[string]ir.ReferenceDefinition, span source.ByteSpan, tokens []Token) ([]ast.Inline, error) {
 	c := NewCursor(src, defs, span, tokens)
 
@@ -14,5 +15,5 @@ func Build(src *source.Source, defs map[string]ir.ReferenceDefinition, span sour
 		return []ast.Inline{}, err
 	}
 
-	return inlines, err
+	return inlines, nil
 }

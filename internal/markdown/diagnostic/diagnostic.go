@@ -8,6 +8,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Severity classifies a diagnostic.
 type Severity int
 
 const (
@@ -16,12 +17,17 @@ const (
 	SeverityWarning
 )
 
+// Diagnostic represents a source-level error or warning.
 type Diagnostic struct {
 	Message  string
 	Span     source.ByteSpan
 	Severity Severity
 }
 
+// Format renders the diagnostic with source context.
+//
+// The output includes the message, 1-based line and column, the
+// corresponding source line, and a caret marking the start position.
 func (d Diagnostic) Format(src *source.Source) string {
 	line, col := src.LineColumn(d.Span.Start)
 	lineSpan := src.LineSpan(line)
@@ -43,6 +49,7 @@ func (d Diagnostic) Format(src *source.Source) string {
 	return headerLine + gutterLine + sourceLine + caretLine
 }
 
+// DiagnosticError wraps a Diagnostic to satisfy the error interface.
 type DiagnosticError struct {
 	Diagnostic Diagnostic
 }

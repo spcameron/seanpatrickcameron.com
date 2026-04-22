@@ -4,6 +4,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Scan tokenizes the inline source covered by span.
 func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
 	input := src.Slice(span)
 	scanner := NewScanner(input, span.Start)
@@ -33,12 +34,14 @@ func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
 	return tokens, nil
 }
 
+// Scanner tokenizes inline source relative to a source-base offset.
 type Scanner struct {
 	Input    string
 	Position int
 	Base     source.BytePos
 }
 
+// NewScanner constructs a scanner over input whose spans are anchored at base.
 func NewScanner(input string, base source.BytePos) *Scanner {
 	return &Scanner{
 		Input:    input,
@@ -51,6 +54,7 @@ func (s *Scanner) EOF() bool {
 	return s.Position >= len(s.Input)
 }
 
+// Current returns the current input byte without advancing.
 func (s *Scanner) Current() (byte, bool) {
 	if s.EOF() {
 		return 0, false
@@ -59,6 +63,7 @@ func (s *Scanner) Current() (byte, bool) {
 	return s.Input[s.Position], true
 }
 
+// Peek returns the next input byte without advancing.
 func (s *Scanner) Peek() (byte, bool) {
 	next := s.Position + 1
 	if next >= len(s.Input) {
@@ -68,6 +73,7 @@ func (s *Scanner) Peek() (byte, bool) {
 	return s.Input[next], true
 }
 
+// Next returns the next token from the input.
 func (s *Scanner) Next() (Token, bool) {
 	if s.EOF() {
 		return Token{}, false
@@ -97,6 +103,8 @@ func (s *Scanner) Next() (Token, bool) {
 	}, true
 }
 
+// Special reports whether the current byte begins a non-text token and, if
+// so, returns its kind and width.
 func (s *Scanner) Special() (TokenKind, int, bool) {
 	b, ok := s.Current()
 	if !ok {
@@ -166,6 +174,8 @@ func (s *Scanner) span(start, end int) source.ByteSpan {
 	}
 }
 
+// runLength returns the length of the delimiter run beginning at the
+// current scanner position.
 func (s *Scanner) runLength(b byte) int {
 	pos := s.Position
 	for pos < len(s.Input) && s.Input[pos] == b {

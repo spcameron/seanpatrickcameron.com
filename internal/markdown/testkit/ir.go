@@ -13,6 +13,8 @@ func IRDoc(blocks ...ir.Block) ir.Document {
 	}
 }
 
+// IRRefDef constructs a reference definition with a normalized key and
+// optional title flag for structural tests.
 func IRRefDef(key string, hasTitle bool) ir.ReferenceDefinition {
 	return ir.ReferenceDefinition{
 		FullSpan:        source.ByteSpan{},
@@ -108,6 +110,8 @@ func IRPara(input ...string) ir.Paragraph {
 	}
 }
 
+// NormalizeIR clears source-specific fields so IR values can be compared
+// structurally in tests.
 func NormalizeIR(doc ir.Document) ir.Document {
 	doc.Source = nil
 
@@ -124,6 +128,8 @@ func NormalizeIR(doc ir.Document) ir.Document {
 	return doc
 }
 
+// NormalizeIRBlocks recursively clears span-bearing fields and normalizes
+// nil slices to empty slices.
 func NormalizeIRBlocks(blocks []ir.Block) []ir.Block {
 	for i := range blocks {
 		switch b := blocks[i].(type) {
@@ -234,6 +240,8 @@ func NormalizeIRBlocks(blocks []ir.Block) []ir.Block {
 	return blocks
 }
 
+// NormalizeIRDefinitions strips source spans and retains only the
+// semantic fields required for comparison.
 func NormalizeIRDefinitions(defs map[string]ir.ReferenceDefinition) map[string]ir.ReferenceDefinition {
 	if defs == nil {
 		return map[string]ir.ReferenceDefinition{}

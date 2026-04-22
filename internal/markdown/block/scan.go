@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Scan splits source into logical lines for block parsing.
 func Scan(src *source.Source) ([]Line, error) {
 	input := src.Raw
 	scanner := NewScanner(input)
@@ -23,15 +24,19 @@ func Scan(src *source.Source) ([]Line, error) {
 	return lines, nil
 }
 
+// Line represents a scanned source line as a span into the normalized input.
 type Line struct {
 	Span source.ByteSpan
 }
 
+// IsBlankLine reports whether the line contains only whitespace.
 func (l Line) IsBlankLine(src *source.Source) bool {
 	s := src.Slice(l.Span)
 	return strings.TrimSpace(s) == ""
 }
 
+// IsPhysicalLineStart reports whether the line begins at the start of the
+// source or immediately after a newline byte.
 func (l Line) IsPhysicalLineStart(src *source.Source) bool {
 	start := l.Span.Start
 	if start == 0 {
@@ -40,43 +45,39 @@ func (l Line) IsPhysicalLineStart(src *source.Source) bool {
 	return src.Raw[start-1] == '\n'
 }
 
-// BlockIndent computes the leading indentation of the line.
+// BlockIndent reports the line's leading indentation in visual columns and bytes.
 //
-// Indentation is measure in visual columns. A space advances
-// one column; a tab advances to the next multiple of tabWidth
-// columns. Only leading ' ' and '\t' are considered.
-//
-// The returned values are:
-//   - indentCols: indentation measured in columns
-//   - indentBytes: number of leading bytes consumed
-//
-// Scanning stops at the first non-space, non-tab byte.
+// A space advances one column. A tab advances to the next multiple of
+// source.TabWidth. Only leading spaces and tabs are considered.
 func (l Line) BlockIndent(src *source.Source) (indentCols int, indentBytes int) {
 	s := src.Slice(l.Span)
 
 	col := 0
 	pos := 0
 
-outer:
 	for pos < len(s) {
 		b := s[pos]
-		switch b {
-		case ' ':
+
+		if b == ' ' {
 			col++
 			pos++
+			continue
+		}
 
-		case '\t':
+		if b == '\t' {
 			col += source.TabWidth - (col % source.TabWidth)
 			pos++
-
-		default:
-			break outer
+			continue
 		}
+
+		break
 	}
 
 	return col, pos
 }
 
+// TrimIndentToCols returns a line rebased by trimming up to baselineCols
+// of leading indentation.
 func (l Line) TrimIndentToCols(src *source.Source, baselineCols int) Line {
 	if baselineCols <= 0 {
 		return l
@@ -110,12 +111,14 @@ func (l Line) TrimIndentToCols(src *source.Source, baselineCols int) Line {
 	}
 }
 
+// Scanner incrementally scans normalized source text into lines.
 type Scanner struct {
 	Input             string
 	Position          source.BytePos
 	pendingFinalEmpty bool
 }
 
+// NewScanner constructs a scanner over normalized source text.
 func NewScanner(input string) *Scanner {
 	return &Scanner{
 		Input:    input,
@@ -127,6 +130,10 @@ func (s *Scanner) EOF() bool {
 	return int(s.Position) >= len(s.Input)
 }
 
+// Next returns the next scanned line.
+//
+// If the input ends with a newline, Next emits a final empty line before
+// reporting EOF.
 func (s *Scanner) Next() (Line, bool) {
 	if s.pendingFinalEmpty {
 		s.pendingFinalEmpty = false

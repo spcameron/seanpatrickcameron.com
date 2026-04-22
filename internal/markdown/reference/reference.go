@@ -5,6 +5,14 @@ import (
 	"unicode"
 )
 
+// ValidateLabel reports whether s is a valid reference label.
+//
+// A valid label:
+//   - contains at least one non-whitespace character
+//   - contains no unescaped '[' or ']'
+//   - does not exceed 999 runes
+//
+// Backslash escapes are permitted and treated as literal content.
 func ValidateLabel(s string) bool {
 	if len(s) == 0 {
 		return false
@@ -42,6 +50,15 @@ func ValidateLabel(s string) bool {
 	return seenContent
 }
 
+// NormalizeLabel returns the canonical form of a reference label.
+//
+// Normalization:
+//   - lowercases all content
+//   - collapses internal whitespace to single spaces
+//   - trims leading and trailing whitespace
+//   - resolves escapes into literal characters
+//
+// The result is suitable for case- and whitespace-insensitive comparison.
 func NormalizeLabel(s string) string {
 	if len(s) == 0 {
 		return ""
