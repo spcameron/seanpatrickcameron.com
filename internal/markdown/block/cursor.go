@@ -7,6 +7,8 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Cursor tracks block-parser progress through a slice of lines within a
+// baseline indentation scope.
 type Cursor struct {
 	Source       *source.Source
 	Metadata     *BuildMetadata
@@ -16,6 +18,11 @@ type Cursor struct {
 	BaselineCols int
 }
 
+// NewCursor constructs a cursor over lines using the provided rule set and
+// baseline indentation.
+//
+// BaselineCols defines the indentation scope for RelBlockIndent and must
+// correspond to the coordinate system of the provided lines.
 func NewCursor(src *source.Source, state *BuildMetadata, rules []BuildRule, lines []Line, baselineCols int) *Cursor {
 	return &Cursor{
 		Source:       src,
@@ -23,10 +30,11 @@ func NewCursor(src *source.Source, state *BuildMetadata, rules []BuildRule, line
 		Rules:        rules,
 		Lines:        lines,
 		Index:        0,
-		BaselineCols: 0,
+		BaselineCols: baselineCols,
 	}
 }
 
+// Peek returns the current line without advancing.
 func (c *Cursor) Peek() (Line, bool) {
 	if c.EOF() {
 		return Line{}, false
@@ -35,6 +43,7 @@ func (c *Cursor) Peek() (Line, bool) {
 	return c.Lines[c.Index], true
 }
 
+// Next returns the current line and advances the cursor.
 func (c *Cursor) Next() (Line, bool) {
 	if c.EOF() {
 		return Line{}, false
@@ -45,6 +54,8 @@ func (c *Cursor) Next() (Line, bool) {
 	return out, true
 }
 
+// MustNext returns the current line and advances the cursor, panicking if
+// the cursor is at EOF.
 func (c *Cursor) MustNext() Line {
 	line, ok := c.Next()
 	if !ok {
@@ -65,10 +76,14 @@ func (c *Cursor) EOF() bool {
 	return c.Index >= len(c.Lines)
 }
 
+// AbsBlockIndent reports the line's absolute block indentation in columns
+// and bytes.
 func (c *Cursor) AbsBlockIndent(line Line) (absCols int, indentBytes int) {
 	return line.BlockIndent(c.Source)
 }
 
+// RelBlockIndent reports the line's indentation relative to the cursor's
+// baseline. ok is false when the line falls outside the current scope.
 func (c *Cursor) RelBlockIndent(line Line) (relCols int, indentBytes int, ok bool) {
 	absCols, indentBytes := line.BlockIndent(c.Source)
 	relCols = absCols - c.BaselineCols
@@ -79,6 +94,7 @@ func (c *Cursor) RelBlockIndent(line Line) (relCols int, indentBytes int, ok boo
 	return relCols, indentBytes, true
 }
 
+// SkipBlankLines advances past consecutive blank lines.
 func (c *Cursor) SkipBlankLines() {
 	for {
 		line, ok := c.Peek()
@@ -93,6 +109,10 @@ func (c *Cursor) SkipBlankLines() {
 	}
 }
 
+// TryApply applies rule at the current cursor position.
+//
+// It enforces the build-rule contract: declines rules must not advance the
+// cursor, and accepting rules must consume at least one line.
 func (c *Cursor) TryApply(rule BuildRule) (ir.Block, bool, error) {
 	m := c.Mark()
 
@@ -117,6 +137,8 @@ func (c *Cursor) TryApply(rule BuildRule) (ir.Block, bool, error) {
 	return applied, true, nil
 }
 
+// StartsParagraphInterruptingBlock reports whether the current position
+// begins a block that would interrupt an in-progress paragraph.
 func (c *Cursor) StartsParagraphInterruptingBlock() (bool, error) {
 	m := c.Mark()
 	for _, rule := range c.Rules {

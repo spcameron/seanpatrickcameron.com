@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Parse scans and builds inline content within span into AST inline nodes.
 func Parse(src *source.Source, defs map[string]ir.ReferenceDefinition, span source.ByteSpan) ([]ast.Inline, error) {
 	tokens, err := Scan(src, span)
 	if err != nil {

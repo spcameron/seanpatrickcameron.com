@@ -1,5 +1,7 @@
 package block
 
+// htmlBlockTagList enumerates HTML tag names that are recognized as
+// block-level HTML elements for parsing purposes.
 var htmlBlockTagList = []string{
 	"address",
 	"article",
@@ -41,6 +43,7 @@ var htmlBlockTagList = []string{
 	"ul",
 }
 
+// htmlBlockTags provides a set lookup for htmlBlockTagList.
 var htmlBlockTags = buildHTMLBlockTagSet()
 
 func buildHTMLBlockTagSet() map[string]struct{} {

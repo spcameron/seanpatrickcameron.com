@@ -6,6 +6,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// Block is the marker interface implemented by all block-level AST nodes.
 type Block interface {
 	isBlock()
 }
@@ -88,6 +89,7 @@ func (li ListItem) String() string {
 	return fmt.Sprintf("ListItem(children=%s)", summarizeBlocks(li.Children))
 }
 
+// CodeBlockKind distinguishes indented and fenced code blocks.
 type CodeBlockKind int
 
 func (k CodeBlockKind) String() string {
@@ -107,6 +109,11 @@ const (
 	Fenced
 )
 
+// CodeBlock represents a Markdown code block.
+//
+// Payload stores the rendered inline text content of the block. For fenced
+// blocks, LanguageTokenSpan identifies the raw info-string language token
+// when present.
 type CodeBlock struct {
 	Span              source.ByteSpan
 	Kind              CodeBlockKind

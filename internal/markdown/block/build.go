@@ -8,16 +8,24 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
-var (
-	ErrRuleAdvancedOnDecline = errors.New("build rule advanced cursor but declined")
-	ErrNoLineConsumed        = errors.New("build rule accepted but did not advance cursor")
-	ErrNoRuleMatched         = errors.New("no build rule could be applied")
-)
+// ErrRuleAdvancedOnDecline reports that a build rule moved the cursor even
+// though it declined to match.
+var ErrRuleAdvancedOnDecline = errors.New("build rule advanced cursor but declined")
 
+// ErrNoLineConsumed reports that a build rule accepted input without
+// advancing the cursor.
+var ErrNoLineConsumed = errors.New("build rule accepted but did not advance cursor")
+
+// ErrNoRuleMatched reports that no build rule could be applied at the
+// current cursor position.
+var ErrNoRuleMatched = errors.New("no build rule could be applied")
+
+// BuildMetadata carries auxiliary state accumulated during block building.
 type BuildMetadata struct {
 	Definitions map[string]ir.ReferenceDefinition
 }
 
+// Build constructs the block-level IR document for src.
 func Build(src *source.Source, lines []Line) (ir.Document, error) {
 	metadata := &BuildMetadata{
 		Definitions: map[string]ir.ReferenceDefinition{},
@@ -37,6 +45,8 @@ func Build(src *source.Source, lines []Line) (ir.Document, error) {
 	return irDoc, nil
 }
 
+// buildBlocks applies block rules to lines within the current baseline
+// indentation scope and returns the resulting IR blocks.
 func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCols int, state *BuildMetadata) ([]ir.Block, error) {
 	c := NewCursor(src, state, rules, lines, baselineCols)
 	blocks := []ir.Block{}
@@ -48,7 +58,6 @@ func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCo
 			break
 		}
 
-		// baseline scope termination
 		line, _ := c.Peek()
 		if _, _, ok := c.RelBlockIndent(line); !ok {
 			break
@@ -82,6 +91,7 @@ func buildBlocks(src *source.Source, rules []BuildRule, lines []Line, baselineCo
 	return blocks, nil
 }
 
+// defaultRules returns the block build rules in precedence order.
 func defaultRules() []BuildRule {
 	return []BuildRule{
 		BlockQuoteRule{},

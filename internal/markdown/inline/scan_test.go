@@ -16,6 +16,7 @@ func TestScan(t *testing.T) {
 		wantErr error
 	}{
 		// Plain text
+
 		{
 			name:  "empty input",
 			input: "",
@@ -74,6 +75,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Single-token forms
+
 		{
 			name:  "star delimiter",
 			input: "*",
@@ -256,6 +258,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Run tokens
+
 		{
 			name:  "backtick run",
 			input: "```",
@@ -303,6 +306,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Mixed token sequences
+
 		{
 			name:  "text then star then text",
 			input: "a*b",
@@ -437,6 +441,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Special-case precedence and boundaries
+
 		{
 			name:  "bang not followed by open bracket",
 			input: "!x",
@@ -484,6 +489,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Run boundaries
+
 		{
 			name:  "star run followed by text",
 			input: "***a",
@@ -567,6 +573,7 @@ func TestScan(t *testing.T) {
 		},
 
 		// Span-restricted scanning
+
 		{
 			name:  "scan middle slice of plain text",
 			input: "abcdef",

@@ -2,6 +2,8 @@ package testkit
 
 import "github.com/spcameron/seanpatrickcameron.com/internal/markdown/html"
 
+// HTMLFragmentNode constructs an html.Fragment, normalizing nil children
+// to an empty slice for stable comparisons in tests.
 func HTMLFragmentNode(children ...html.Node) html.Fragment {
 	if children == nil {
 		children = []html.Node{}
@@ -31,7 +33,7 @@ func HTMLVoidNode(tag string, attr html.Attributes) html.VoidElement {
 	}
 }
 
-func HTMLElemNode(tag string, attr html.Attributes, children ...html.Node) html.Element {
+func HTMLElementNode(tag string, attr html.Attributes, children ...html.Node) html.Element {
 	if attr == nil {
 		attr = html.Attributes{}
 	}

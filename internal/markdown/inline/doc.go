@@ -1,30 +1,18 @@
-// Package inline parses inline Markdown constructs within a block-scoped
-// source span.
+// Package inline parses inline Markdown constructs within block-delimited
+// source spans.
 //
-// It transforms span-referenced inline source text into structured
-// ast.Inline nodes. Inline parsing is invoked only for content already
-// delimited by the block parser and does not participate in block-level
-// structure recognition.
+// It transforms inline source text into []ast.Inline while preserving byte
+// spans into the original source. The package assumes block structure has
+// already been determined and does not participate in block-level parsing.
 //
-// Parsing proceeds in three steps:
+// Parsing proceeds in stages:
 //
-//	Scan  – converts a source span into lexical tokens
-//	Build – consumes the token stream into a mutable item list and delimiter stack
-//	Lower – converts the resulting item structure into ast.Inline nodes
+//	Scan      – tokenizes inline source into lexical items
+//	Build     – constructs and resolves a mutable item list plus delimiter stack
+//	Finalize  – converts the resolved items into []ast.Inline
 //
-// The scanner is purely lexical: it identifies delimiter runs, brackets,
-// angle markers, escapes, and plain text without assigning semantic meaning.
-//
-// Build performs the actual inline parsing. It walks the token stream once,
-// initially treating recognized syntax as provisional text while recording
-// delimiter and bracket metadata. As sufficient context becomes available,
-// it rewrites regions of the working item list into structured forms such as
-// emphasis, strong emphasis, links, images, code spans, autolinks, and
-// inline HTML.
-//
-// Lower performs the final structural conversion from the working item
-// representation to []ast.Inline.
-//
-// This design separates lexical segmentation from semantic resolution while
-// preserving byte spans into the original source throughout the parse.
+// The scanner is purely lexical. Semantic resolution happens during Build,
+// where provisional text, delimiters, and brackets are rewritten into
+// structured forms such as emphasis, links, images, code spans, autolinks,
+// and inline HTML.
 package inline

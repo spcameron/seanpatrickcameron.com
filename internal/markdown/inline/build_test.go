@@ -19,6 +19,7 @@ func TestBuild(t *testing.T) {
 		wantErr error
 	}{
 		// Empty input and plain text
+
 		{
 			name:    "empty input",
 			input:   "",
@@ -38,6 +39,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Code spans
+
 		{
 			name:  "code span",
 			input: "`foo`",
@@ -136,6 +138,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Emphasis and strong
+
 		{
 			name:  "emphasis: star",
 			input: "*alt*",
@@ -263,6 +266,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Autolinks
+
 		{
 			name:  "autolink: absolute URI",
 			input: "<http://foo.bar.baz>",
@@ -319,6 +323,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Inline HTML
+
 		{
 			name:  "html: simple open tag",
 			input: "<a>",
@@ -430,6 +435,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Links
+
 		{
 			name:  "link: simple",
 			input: "[alt](dest)",
@@ -557,6 +563,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Images
+
 		{
 			name:  "image: simple",
 			input: "![alt](img.png)",
@@ -734,6 +741,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Reference links
+
 		{
 			name:  "reference link: full reference",
 			input: "/url [foo][bar]",
@@ -808,6 +816,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Reference images
+
 		{
 			name:  "reference image: full reference",
 			input: "/url ![foo][bar]",
@@ -882,6 +891,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Escapes
+
 		{
 			name:  "escape: star becomes text",
 			input: `\*`,
@@ -1175,6 +1185,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Interaction and precedence
+
 		{
 			name:  "interaction: code span beats emphasis",
 			input: "*a `b*`",

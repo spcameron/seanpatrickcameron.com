@@ -9,6 +9,8 @@ func Span(start, end int) source.ByteSpan {
 	}
 }
 
+// SpanPtr returns a pointer to a ByteSpan, for use in tests that require
+// addressable values.
 func SpanPtr(start, end int) *source.ByteSpan {
 	s := Span(start, end)
 	return &s

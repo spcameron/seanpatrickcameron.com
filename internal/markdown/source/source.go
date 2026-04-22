@@ -14,6 +14,10 @@ type Source struct {
 	LineStarts []BytePos
 }
 
+// NewSource constructs a Source from raw input text.
+//
+// Input is normalized to the package's canonical newline representation,
+// and line start offsets are computed for later span and line lookups.
 func NewSource(s string) *Source {
 	r := normalizeText(s)
 	ls := computeLineStarts(r)
@@ -24,6 +28,9 @@ func NewSource(s string) *Source {
 	}
 }
 
+// Slice returns the substring covered by span.
+//
+// If span is invalid for this source, Slice returns the empty string.
 func (src *Source) Slice(span ByteSpan) string {
 	if !src.validateSpan(span) {
 		return ""
@@ -32,6 +39,11 @@ func (src *Source) Slice(span ByteSpan) string {
 	return src.Raw[int(span.Start):int(span.End)]
 }
 
+// UnescapedSlice returns the substring covered by span with Markdown
+// backslash escapes resolved.
+//
+// A backslash is removed only when it escapes escapable punctuation.
+// All other bytes are preserved as written.
 func (src *Source) UnescapedSlice(span ByteSpan) string {
 	s := src.Slice(span)
 
@@ -68,6 +80,10 @@ func (src *Source) UnescapedSlice(span ByteSpan) string {
 	return sb.String()
 }
 
+// LineColumn reports the zero-based line and column for pos.
+//
+// Positions outside the source are clamped into the range [0, EOF()].
+// The reported column is a byte offset from the start of the line.
 func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	pos = max(0, pos)
 	pos = min(pos, src.EOF())
@@ -83,6 +99,10 @@ func (src *Source) LineColumn(pos BytePos) (line int, col int) {
 	return idx, col
 }
 
+// LineSpan returns the span of the specified line.
+//
+// The returned span covers the line's content and excludes any trailing
+// newline byte. Out-of-range line numbers are clamped.
 func (src *Source) LineSpan(line int) ByteSpan {
 	if len(src.LineStarts) == 0 {
 		eof := src.EOF()
@@ -111,6 +131,10 @@ func (src *Source) LineSpan(line int) ByteSpan {
 	}
 }
 
+// LineSpansWithin returns the non-empty per-line fragments of span.
+//
+// Each returned span is clipped to both the requested span and the
+// boundaries of its containing line.
 func (src *Source) LineSpansWithin(span ByteSpan) []ByteSpan {
 	if span.Start >= span.End {
 		return []ByteSpan{}
@@ -149,6 +173,8 @@ func (src *Source) EOF() BytePos {
 	return BytePos(len(src.Raw))
 }
 
+// IsEscapablePunctuation reports whether b may be escaped with a
+// backslash under the package's Markdown rules.
 func IsEscapablePunctuation(b byte) bool {
 	switch b {
 	case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',

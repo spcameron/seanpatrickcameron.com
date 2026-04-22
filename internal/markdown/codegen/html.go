@@ -10,6 +10,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// HTML renders an AST document into an HTML node tree.
 func HTML(doc ast.Document) (html.Node, error) {
 	rootNode := html.Fragment{
 		Children: make([]html.Node, 0, len(doc.Blocks)),
@@ -58,6 +59,8 @@ func renderBlock(src *source.Source, block ast.Block) (html.Node, error) {
 	}
 }
 
+// appendChild appends child to children, dropping empty text nodes and
+// coalescing adjacent text nodes.
 func appendChild(children []html.Node, child html.Node) []html.Node {
 	// drop empty text nodes
 	if t, ok := child.(html.Text); ok && t.Value == "" {
@@ -170,7 +173,10 @@ func renderUnorderedList(src *source.Source, block ast.UnorderedList) (html.Node
 	return node, nil
 }
 
-// tight-list rendering: unwraps a single paragraph child
+// renderListItem renders a list item.
+//
+// For tight lists, a paragraph child is unwrapped so that its inline content
+// is emitted directly inside the <li> rather than nested in <p>.
 func renderListItem(src *source.Source, block ast.ListItem, tight bool) (html.Node, error) {
 	node := html.Element{
 		Tag:  "li",
@@ -419,6 +425,7 @@ func renderText(src *source.Source, inl ast.Text) (html.Node, error) {
 	return node, nil
 }
 
+// renderRawText emits inline content without HTML escaping.
 func renderRawText(src *source.Source, inl ast.RawText) (html.Node, error) {
 	node := html.Raw{
 		Value: src.Slice(inl.Span),
@@ -452,6 +459,8 @@ func renderNewline() (html.Node, error) {
 	return node, nil
 }
 
+// inlineText extracts the textual content of inline nodes for contexts such
+// as image alt text.
 func inlineText(src *source.Source, inlines []ast.Inline) (string, error) {
 	if len(inlines) == 0 {
 		return "", nil
@@ -462,7 +471,7 @@ func inlineText(src *source.Source, inlines []ast.Inline) (string, error) {
 	for _, inl := range inlines {
 		s, err := inlineNodeText(src, inl)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 		b.WriteString(s)
 	}
@@ -470,6 +479,7 @@ func inlineText(src *source.Source, inlines []ast.Inline) (string, error) {
 	return b.String(), nil
 }
 
+// inlineNodeText extracts the text contribution of a single inline node.
 func inlineNodeText(src *source.Source, inl ast.Inline) (string, error) {
 	switch n := inl.(type) {
 

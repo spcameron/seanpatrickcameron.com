@@ -8,6 +8,7 @@ import (
 	"github.com/spcameron/seanpatrickcameron.com/internal/markdown/source"
 )
 
+// TokenSummary is a lightweight, test-friendly representation of a token.
 type TokenSummary struct {
 	Kind   TokenKind
 	Lexeme string
@@ -77,6 +78,8 @@ func summarizeTokens(src *source.Source, tokens []Token) []TokenSummary {
 	return summary
 }
 
+// InlineSummary is a lightweight, recursive representation of an inline AST
+// used for tests and debugging.
 type InlineSummary struct {
 	Kind     string
 	Lexeme   string

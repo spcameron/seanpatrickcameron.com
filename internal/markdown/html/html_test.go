@@ -78,7 +78,7 @@ func TestRender(t *testing.T) {
 			name: "fragment: multiple children",
 			node: tk.HTMLFragmentNode(
 				tk.HTMLTextNode("a"),
-				tk.HTMLElemNode("span", nil, tk.HTMLTextNode("b")),
+				tk.HTMLElementNode("span", nil, tk.HTMLTextNode("b")),
 				tk.HTMLTextNode("c"),
 			),
 			want:    "a<span>b</span>c",
@@ -87,8 +87,8 @@ func TestRender(t *testing.T) {
 		{
 			name: "fragment: nested elements",
 			node: tk.HTMLFragmentNode(
-				tk.HTMLElemNode("p", nil, tk.HTMLTextNode("first")),
-				tk.HTMLElemNode("p", nil, tk.HTMLTextNode("second")),
+				tk.HTMLElementNode("p", nil, tk.HTMLTextNode("first")),
+				tk.HTMLElementNode("p", nil, tk.HTMLTextNode("second")),
 			),
 			want:    "<p>first</p><p>second</p>",
 			wantErr: nil,
@@ -97,49 +97,49 @@ func TestRender(t *testing.T) {
 		// Element nodes
 		{
 			name:    "element: no attributes, no children",
-			node:    tk.HTMLElemNode("span", nil),
+			node:    tk.HTMLElementNode("span", nil),
 			want:    "<span></span>",
 			wantErr: nil,
 		},
 		{
 			name:    "element: one text child",
-			node:    tk.HTMLElemNode("p", nil, tk.HTMLTextNode("test text")),
+			node:    tk.HTMLElementNode("p", nil, tk.HTMLTextNode("test text")),
 			want:    "<p>test text</p>",
 			wantErr: nil,
 		},
 		{
 			name: "element: multiple children, text and elements",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"header",
 				nil,
-				tk.HTMLElemNode("span", nil),
+				tk.HTMLElementNode("span", nil),
 				tk.HTMLTextNode("test text"),
-				tk.HTMLElemNode("span", nil),
+				tk.HTMLElementNode("span", nil),
 			),
 			want:    "<header><span></span>test text<span></span></header>",
 			wantErr: nil,
 		},
 		{
 			name: "element: nested elements deep",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"main",
 				nil,
-				tk.HTMLElemNode(
+				tk.HTMLElementNode(
 					"ul",
 					nil,
-					tk.HTMLElemNode(
+					tk.HTMLElementNode(
 						"li",
 						nil,
-						tk.HTMLElemNode(
+						tk.HTMLElementNode(
 							"p",
 							nil,
 							tk.HTMLTextNode("first list item"),
 						),
 					),
-					tk.HTMLElemNode(
+					tk.HTMLElementNode(
 						"li",
 						nil,
-						tk.HTMLElemNode(
+						tk.HTMLElementNode(
 							"p",
 							nil,
 							tk.HTMLTextNode("second list item"),
@@ -152,7 +152,7 @@ func TestRender(t *testing.T) {
 		},
 		{
 			name: "element: single attribute",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"a",
 				html.Attributes{"href": "https://www.google.com"},
 				tk.HTMLTextNode("click me"),
@@ -162,7 +162,7 @@ func TestRender(t *testing.T) {
 		},
 		{
 			name: "element: multiple attributes, sorted",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"div",
 				html.Attributes{
 					"src": "/static/images/foo.png",
@@ -174,7 +174,7 @@ func TestRender(t *testing.T) {
 		},
 		{
 			name: "element: escapes special characters in attributes",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"div",
 				html.Attributes{
 					"src": "/static/images/img.png",
@@ -186,7 +186,7 @@ func TestRender(t *testing.T) {
 		},
 		{
 			name: "element: preserves unicode in attributes",
-			node: tk.HTMLElemNode(
+			node: tk.HTMLElementNode(
 				"div",
 				html.Attributes{
 					"title": "café — 你好",

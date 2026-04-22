@@ -5,11 +5,14 @@ import (
 	"io"
 )
 
+// Node represents a renderable HTML node.
 type Node interface {
 	isNode()
 	Write(io.Writer) error
 }
 
+// Fragment is a container node that renders its children in sequence
+// without introducing additional markup.
 type Fragment struct {
 	Children []Node
 }
@@ -26,6 +29,7 @@ func (f Fragment) Write(w io.Writer) error {
 	return nil
 }
 
+// Text represents escaped text content.
 type Text struct {
 	Value string
 }
@@ -38,6 +42,7 @@ func (t Text) Write(w io.Writer) error {
 	return err
 }
 
+// Raw represents unescaped HTML content.
 type Raw struct {
 	Value string
 }

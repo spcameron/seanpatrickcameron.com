@@ -19,6 +19,7 @@ func TestBuild(t *testing.T) {
 		wantErr error
 	}{
 		// Empty input and paragraph formation
+
 		{
 			name:    "empty input",
 			input:   "",
@@ -154,6 +155,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// ATX headers
+
 		{
 			name:  "header level 1",
 			input: "# header",
@@ -405,6 +407,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Thematic breaks
+
 		{
 			name:  "thematic break: ---",
 			input: "---",
@@ -487,6 +490,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Block quotes
+
 		{
 			name:  "block quote: plain text",
 			input: "> text",
@@ -722,6 +726,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Setext headings
+
 		{
 			name:  "setext: h1 (minimum)",
 			input: "heading\n=",
@@ -926,6 +931,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Unordered lists
+
 		{
 			name:  "ul: single item: single line",
 			input: "- a",
@@ -1337,6 +1343,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Ordered lists
+
 		{
 			name:  "ol: single item: single line: dot delimiter",
 			input: "1. a",
@@ -1643,6 +1650,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Indented code blocks
+
 		{
 			name:  "indented code block: single line",
 			input: `	fmt.Println("hello")`,
@@ -1749,26 +1757,43 @@ func TestBuild(t *testing.T) {
 			),
 			wantErr: nil,
 		},
-		// TODO: test fails
-		// {
-		// 	name: "indented code block: inside list item at baseline plus four columns",
-		// 	input: strings.Join([]string{
-		// 		"- a",
-		// 		"      code",
-		// 	}, "\n"),
-		// 	want: tk.IRDoc(
-		// 		tk.IRUnorderedList(
-		// 			true,
-		// 			tk.IRListItem(
-		// 				tk.IRPara("a"),
-		// 				tk.IRIndentedCodeBlock("    code"),
-		// 			),
-		// 		),
-		// 	),
-		// 	wantErr: nil,
-		// },
+		{
+			name: "indented code block: does not interrupt paragraph inside list item",
+			input: strings.Join([]string{
+				"- a",
+				"      code",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					true,
+					tk.IRListItem(
+						tk.IRPara("a", "    code"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
+		{
+			name: "indented code block: inside list item at baseline plus four columns",
+			input: strings.Join([]string{
+				"- a",
+				"",
+				"      code",
+			}, "\n"),
+			want: tk.IRDoc(
+				tk.IRUnorderedList(
+					false,
+					tk.IRListItem(
+						tk.IRPara("a"),
+						tk.IRIndentedCodeBlock("    code"),
+					),
+				),
+			),
+			wantErr: nil,
+		},
 
 		// Fenced code blocks
+
 		{
 			name: "fenced code block: backtick: single line",
 			input: strings.Join([]string{
@@ -2127,6 +2152,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// HTML blocks
+
 		{
 			name:  "html block: comment",
 			input: "<!-- comment -->",
@@ -2523,6 +2549,7 @@ func TestBuild(t *testing.T) {
 		},
 
 		// Reference link definitions
+
 		{
 			name:  "reference definition: bare destination, no title",
 			input: "[foo]: /url",
